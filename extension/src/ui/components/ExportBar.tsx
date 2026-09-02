@@ -16,8 +16,10 @@ export function ExportBar({ state, text, style, inPanel, onCopy, onShare, onPrev
   const checked = state.claims.some((c) => c.data.verdict);
   const n = openIssueCount(state);
   const chars = bodyText(text).length;
+  const running = Object.values(state.passes).some((p) => p.state === 'running');
   let note;
-  if (!checked) note = <span class="ws-empty">Claims not checked yet</span>;
+  if (!checked && running) note = <span class="ws-empty"><span class="ws-spin" /> Analyzing…</span>;
+  else if (!checked) note = <span class="ws-empty">Claims not checked yet</span>;
   else if (n === 0) note = <span class="ok">Claims checked, nothing open</span>;
   else note = <span class="warn">{n === 1 ? '1 claim still contradicted or imprecise' : `${n} claims still open`}</span>;
   return (

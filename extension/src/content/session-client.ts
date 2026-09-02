@@ -1,4 +1,5 @@
 // Typed wrapper over the long-lived port to the background. One instance per composer session.
+import { log } from '../shared/log';
 import { PORT_NAME, type BackgroundToContent, type ContentToBackground } from '../shared/messages';
 import type { SessionState, TextSnapshot } from '../shared/types';
 
@@ -36,6 +37,7 @@ export class SessionClient {
     this.port = port;
     port.onMessage.addListener((raw: unknown) => this.dispatch(raw as BackgroundToContent));
     port.onDisconnect.addListener(() => {
+      log.warn('port to the background closed' + (chrome.runtime.lastError ? `: ${chrome.runtime.lastError.message}` : ''));
       this.port = null;
       if (this.closed) return;
       // The service worker may have been evicted; reconnect once and replay what it needs.

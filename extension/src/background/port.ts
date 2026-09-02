@@ -1,4 +1,5 @@
 // chrome.runtime.onConnect handler: one port per composer session from the content script.
+import { log } from '../shared/log';
 import { createProvider, providerReady } from '../providers';
 import type { LLMProvider } from '../providers/types';
 import { PORT_NAME, type BackgroundToContent, type ContentToBackground } from '../shared/messages';
@@ -50,6 +51,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               return;
             }
             if (!providerReady(settings)) {
+              log.warn(`session ${raw.sessionKey} refused: provider ${settings.provider} has no credential`);
               send({ type: 'session/disabled', sessionKey: raw.sessionKey, reason: 'no-key' });
               return;
             }
@@ -63,6 +65,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               context: { platform: raw.platform.kind },
             });
             sessions.set(raw.sessionKey, orch);
+            log.info(`session ${raw.sessionKey} open (${raw.host}, provider ${settings.provider})`);
             send({ type: 'session/state', sessionKey: raw.sessionKey, state: orch.state });
             return;
           }
@@ -72,6 +75,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               send({ type: 'session/error', sessionKey: raw.sessionKey, message: 'Session not open' });
               return;
             }
+            log.info(`session ${raw.sessionKey}: snapshot v${raw.snapshot.version} (${raw.snapshot.text.split(/\s+/).filter(Boolean).length} words, ${raw.reason})`);
             orch.handleSnapshot(raw.snapshot);
             return;
           }

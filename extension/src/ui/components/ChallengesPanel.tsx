@@ -28,6 +28,7 @@ export function ChallengesPanel({ state, style, onHot, footer, now }: Challenges
         <StatusPill state={state} now={now} />
       </div>
       <div class={`ws-progress${running ? ' running' : ''}`} />
+      {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} /> : null}
       <div class="ws-summary">
         <span>
           <b>{c.checked}</b> claims checked
@@ -108,5 +109,31 @@ export function ChallengesPanel({ state, style, onHot, footer, now }: Challenges
       </div>
       {footer}
     </aside>
+  );
+}
+
+
+const PASS_LABEL: Record<'A' | 'B' | 'C', string> = { A: 'Reading for clarity and claims', B: 'Checking facts', C: 'Building the counterargument' };
+
+/** Shown only during the first analysis, when there is nothing else to look at yet. */
+function PassProgress({ state }: { state: SessionState }) {
+  return (
+    <div class="ws-firstrun" role="status" aria-live="polite">
+      <div class="ws-firstrun-title">Analyzing your draft</div>
+      <ul>
+        {(['A', 'B', 'C'] as const).map((id) => {
+          const p = state.passes[id];
+          const mark = p.state === 'done' ? '✓' : p.state === 'running' ? <span class="ws-spin" /> : p.state === 'error' ? '!' : '·';
+          return (
+            <li key={id} class={p.state}>
+              <span class="ws-firstrun-mark">{mark}</span>
+              <span>{PASS_LABEL[id]}</span>
+              {p.state === 'running' && p.detail ? <span class="ws-firstrun-detail">{p.detail}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+      <p class="ws-firstrun-note">Fact checks search the web, so the first pass on a new draft can take up to a minute. Findings appear as each pass finishes.</p>
+    </div>
   );
 }

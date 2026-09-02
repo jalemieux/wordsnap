@@ -160,3 +160,19 @@ h3,h4,p{margin:0}
 .ws-toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:#1F2A2A;color:#fff;font-size:13px;padding:9px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none}
 .ws-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion: reduce){.ws-root *{animation:none!important;transition:none!important}}
+
+
+/* first-run progress */
+.ws-firstrun{padding:12px 14px 10px;border-bottom:1px solid var(--line);background:var(--accent-bg)}
+.ws-firstrun-title{font-weight:600;font-size:13px;color:var(--accent-ink);margin-bottom:6px}
+.ws-firstrun ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.ws-firstrun li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.ws-firstrun li.running{color:var(--ink)}
+.ws-firstrun li.done{color:var(--muted)}
+.ws-firstrun-mark{width:14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent-ink);display:inline-flex;justify-content:center}
+.ws-firstrun-detail{margin-left:auto;font-size:11px;color:var(--faint);max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-firstrun-note{margin:8px 0 0;font-size:11.5px;color:var(--muted);line-height:1.4}
+.ws-spin{display:inline-block;width:10px;height:10px;border:2px solid var(--accent-line);border-top-color:var(--accent);border-radius:50%;animation:ws-rot .8s linear infinite;vertical-align:-1px}
+@keyframes ws-rot{to{transform:rotate(360deg)}}
+.ws-status.running{color:var(--accent-ink);font-weight:600}
+@media (prefers-reduced-motion: reduce){.ws-spin{animation:none}}

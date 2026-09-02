@@ -1,4 +1,5 @@
 // Per-session pass orchestration. No chrome.* here: provider, settings, cache, clock and timers are injected.
+import { log } from '../shared/log';
 import { buildPassA, buildPassB, buildPassC, type DraftContext } from '../passes/build';
 import { validatePassA, validatePassB, validatePassC } from '../passes/validate';
 import type { LLMProvider, PassRequest, PassResult } from '../providers/types';
@@ -227,6 +228,7 @@ export class SessionOrchestrator {
     this.controllers[pass] = controller;
     this.session.setPass(pass, { state: 'running', error: undefined, detail: undefined });
     this.emit();
+    log.info(`${this.session.state.sessionKey}: pass ${pass} start (${req.user.length} chars, effort ${req.effort}${req.research ? ', research' : ''})`);
     try {
       const res = await this.deps.provider().runPass(req, controller.signal, (e) => {
         if (controller.signal.aborted) return;
@@ -236,6 +238,7 @@ export class SessionOrchestrator {
         this.emit();
       });
       if (controller.signal.aborted) return null;
+      log.info(`${this.session.state.sessionKey}: pass ${pass} done (${res.usage.inputTokens} in, ${res.usage.outputTokens} out, ${res.usage.searches} search results${res.refused ? ', refused' : ''})`);
       this.accountUsage(res);
       this.backoffMs = BACKOFF_MIN_MS;
       if (res.refused) {
@@ -256,6 +259,7 @@ export class SessionOrchestrator {
 
   private handleError(pass: PassId, err: unknown): void {
     const pe = err instanceof ProviderError ? err : new ProviderError(err instanceof Error ? err.message : String(err), 'unknown');
+    log.error(`${this.session.state.sessionKey}: pass ${pass} failed (${pe.kind}): ${pe.message}`, err);
     if (pe.kind === 'rate_limit') {
       const wait = Math.min(pe.retryAfterMs ?? this.backoffMs, BACKOFF_MAX_MS);
       this.backoffMs = Math.min(this.backoffMs * 2, BACKOFF_MAX_MS);
