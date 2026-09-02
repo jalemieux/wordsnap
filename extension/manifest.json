@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "WordSnap",
+  "version": "0.1.0",
+  "description": "Sharpen your own argument before you send it. Clarity, fact check and counterargument passes, in place, in your voice.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://www.linkedin.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*", "https://x.com/*", "https://twitter.com/*", "https://www.linkedin.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "WordSnap settings" }
+}

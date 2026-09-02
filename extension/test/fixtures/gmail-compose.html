@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-wordsnap-host="gmail">
+<head>
+<meta charset="utf-8">
+<title>Inbox – Fixture Mail</title>
+<style>
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f6f8fc;color:#1f1f1f;height:100vh;overflow:hidden}
+  header{height:56px;display:flex;align-items:center;padding:0 20px;font-size:20px;color:#5f6368}
+  .list{position:absolute;top:64px;left:72px;right:0;bottom:0;background:#fff;border-radius:16px 0 0 0;padding:8px 0}
+  .row{height:40px;border-bottom:1px solid #f0f1f3;padding:0 20px;display:flex;align-items:center;gap:16px;font-size:14px;color:#444}
+  .scrim{position:absolute;inset:0;background:rgba(32,33,36,.28)}
+  .compose{position:absolute;top:80px;left:50%;transform:translateX(-50%);width:600px;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column}
+  .c-head{background:#404040;color:#fff;border-radius:12px 12px 0 0;height:40px;display:flex;align-items:center;padding:0 16px;font-size:14px}
+  .field{display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-bottom:1px solid #e5e5e5;font-size:14px}
+  .field label{color:#5f6368}
+  .field input{border:0;outline:0;font:inherit;flex:1}
+  .chip{background:#f1f3f4;border-radius:14px;padding:3px 10px;font-size:13px}
+  .body-wrap{padding:14px 20px 18px;max-height:420px;overflow:auto}
+  [g_editable]{font-size:14px;line-height:1.6;outline:none;min-height:300px}
+  .send-row{display:flex;align-items:center;gap:14px;padding:10px 16px 12px}
+  .send{background:#0b57d0;color:#fff;border:0;border-radius:18px;height:36px;padding:0 24px;font-weight:600;font-size:14px}
+</style>
+</head>
+<body>
+<header>Fixture Mail</header>
+<div class="list">
+  <div class="row"><b>Priya Natarajan</b> Q4 hiring plan, v3</div>
+  <div class="row"><b>Linear</b> Weekly digest: 14 issues closed</div>
+  <div class="row"><b>Marcus Oyelaran</b> Re: on-call rotation for October</div>
+  <div class="row"><b>Dana Whitfield</b> Customer call notes – Halden Logistics</div>
+  <div class="scrim"></div>
+</div>
+<div class="compose" role="dialog" aria-label="New Message">
+  <div class="c-head">Proposal: a four-day week pilot for Q4</div>
+  <div class="field"><label>To</label><span class="chip" email="leadership@brightline.co" data-hovercard-id="leadership@brightline.co">leadership@brightline.co</span></div>
+  <div class="field"><label>Subject</label><input name="subjectbox" value="Proposal: a four-day week pilot for Q4"></div>
+  <div class="body-wrap">
+    <div id="message-body" aria-label="Message Body" role="textbox" aria-multiline="true" contenteditable="true" g_editable="true" tabindex="1"><div>Hi all,</div><div><br></div><div>I want to put a four-day work week pilot on the table for Q4.</div><div><br></div><div>The evidence is stronger than people assume. When Microsoft Japan tried it in 2019, productivity jumped 40%. Iceland ran trials covering more than 1% of its entire workforce, and the results were good enough that most unions negotiated shorter hours afterward. In the UK's 2022 pilot, not a single company went back to five days.</div><div><br></div><div>Closer to home, everyone I've talked to on the team wants this, so I don't think we have a retention risk to worry about. If anything, this becomes our best recruiting story.</div><div><br></div><div>I'd suggest a three-month pilot for engineering and design, with a checkpoint at six weeks. Support and sales can follow once we've worked out coverage.</div><div><br></div><div>Can we get 20 minutes on Thursday's agenda?</div><div><br></div><div>— Jordan</div><div><br></div></div>
+  </div>
+  <div class="send-row"><button class="send" type="button">Send</button></div>
+</div>
+</body>
+</html>
