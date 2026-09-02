@@ -1,0 +1,816 @@
+<title>WordSnap Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEC; --ground-ink:#1F2A2A; --ground-muted:#5F6E6E; --ground-line:#D3DADA;
+  --mock-bg:#1B2424; --mock-ink:#E6ECEB; --mock-muted:#8FA0A0; --mock-accent:#7FD1C8; --mock-line:#2C3838;
+  /* WordSnap layer: fixed light, it lives inside a simulated light Gmail window */
+  --ws-accent:#0E7C7B; --ws-accent-ink:#0A5E5D; --ws-accent-bg:#E6F3F2; --ws-accent-line:#B7DAD7;
+  --ws-ink:#1B2A2A; --ws-muted:#5C6B6B; --ws-faint:#8C9A9A; --ws-line:#DCE4E3; --ws-bg:#F6F8F8; --ws-card:#FFFFFF;
+  --red:#B42318; --red-bg:#FCE9E7; --red-line:#F1B7B1;
+  --amber:#A8690F; --amber-bg:#FBF1DF; --amber-line:#EDD39E;
+  --green:#2E7D4F; --green-bg:#E6F4EC; --green-line:#B6DDC5;
+  --gm-blue:#0B57D0; --gm-ink:#1F1F1F; --gm-muted:#444746; --gm-line:#E3E3E3; --gm-bg:#F6F8FC; --gm-hover:#EAF1FB;
+  --ui:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --host:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --compose:Arial,Helvetica,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; }
+}
+:root[data-theme="dark"]{ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ground-ink);font-family:var(--ui);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,[contenteditable]:focus-visible,.seg button:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+h1,h2,h3,h4{margin:0;font-weight:600;text-wrap:balance}
+p{margin:0}
+[hidden]{display:none!important}
+
+/* ---------- Mock controls (design-review affordance, not product UI) ---------- */
+.mockbar{background:var(--mock-bg);color:var(--mock-ink);border-bottom:1px solid var(--mock-line);padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px}
+.mockbar .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mock-muted)}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl-label{font-size:12px;color:var(--mock-muted)}
+.ctl-label b{color:var(--mock-ink);font-weight:500;margin-right:4px}
+.seg{display:inline-flex;border:1px solid var(--mock-line);border-radius:6px;overflow:hidden}
+.seg button{padding:5px 10px;font-size:12px;color:var(--mock-muted);border-right:1px solid var(--mock-line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#243131;color:var(--mock-accent)}
+.seg button i{font-style:normal;font-family:var(--mono);font-size:11px;margin-right:6px;opacity:.7}
+.seg button.on i{opacity:1}
+.mockbar .spacer{flex:1}
+.mockbar .ghost{font-size:12px;color:var(--mock-muted);border:1px solid var(--mock-line);border-radius:6px;padding:5px 10px}
+.mockbar .ghost:hover{color:var(--mock-ink)}
+.mocknote{padding:6px 20px 0;font-size:12px;color:var(--ground-muted)}
+.mocknote code{font-family:var(--mono);font-size:11px}
+
+/* ---------- Stage & simulated browser ---------- */
+.stage{padding:14px 20px 28px;overflow-x:auto}
+.browser{min-width:1340px;max-width:1440px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 40px rgba(0,0,0,.14);overflow:hidden;color:var(--gm-ink);font-family:var(--host);position:relative}
+.chrome{background:#DEE1E6;padding:8px 12px 0;display:flex;align-items:flex-end;gap:10px}
+.lights{display:flex;gap:7px;padding:0 4px 10px}
+.lights i{width:11px;height:11px;border-radius:50%;background:#C9CDD2;display:block}
+.tab{background:#fff;border-radius:8px 8px 0 0;padding:7px 14px;font-size:12px;color:#3C4043;display:flex;align-items:center;gap:8px;max-width:340px}
+.tab .fav{width:14px;height:14px;border-radius:3px;background:#EA4335;display:inline-block;flex:none}
+.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.urlbar{background:#fff;display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid #DADCE0}
+.url{flex:1;background:#F1F3F4;border-radius:14px;padding:5px 14px;font-size:12px;color:#3C4043;display:flex;gap:8px}
+.url .lock{color:#5F6368}
+.ext{display:flex;align-items:center;gap:6px}
+.ext .ico{width:22px;height:22px;border-radius:5px;background:#F1F3F4;display:grid;place-items:center;color:#5F6368;font-size:11px}
+.ext .ico.ws{background:var(--ws-accent);color:#fff;font-family:var(--ui);font-weight:600;position:relative}
+.ext .ico.ws::after{content:"";position:absolute;right:-2px;bottom:-2px;width:7px;height:7px;border-radius:50%;background:#34A853;border:1.5px solid #fff}
+
+/* Gmail */
+.gmail{background:var(--gm-bg);height:820px;position:relative;overflow:hidden}
+.gm-top{height:56px;display:flex;align-items:center;gap:18px;padding:0 16px}
+.gm-top .burger{width:18px;height:2px;background:#5F6368;box-shadow:0 5px 0 #5F6368,0 -5px 0 #5F6368;margin:0 6px}
+.gm-top .word{font-size:21px;color:#5F6368;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.gm-top .word .m{display:inline-block;width:26px;height:20px;border-radius:2px;background:linear-gradient(90deg,#4285F4 0 30%,#EA4335 30% 50%,#FBBC04 50% 70%,#34A853 70%)}
+.gm-search{flex:0 1 620px;margin-left:40px;background:#E9EEF6;border-radius:24px;height:44px;display:flex;align-items:center;padding:0 18px;color:#5F6368;font-size:15px;gap:12px}
+.gm-top .avatar{margin-left:auto;width:32px;height:32px;border-radius:50%;background:#7B5EA7;color:#fff;display:grid;place-items:center;font-size:14px}
+.gm-body{position:absolute;inset:56px 0 0 0;display:flex}
+.gm-nav{width:72px;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.gm-nav .fab{width:48px;height:48px;border-radius:14px;background:#C2E7FF;display:grid;place-items:center;color:#001D35;font-size:22px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.gm-nav .ni{width:56px;height:32px;border-radius:16px;display:grid;place-items:center;color:#444746;font-size:14px;position:relative}
+.gm-nav .ni.on{background:#D3E3FD;font-weight:600}
+.gm-nav .ni small{position:absolute;right:6px;top:2px;font-size:9px;font-weight:600}
+.gm-main{flex:1;position:relative;background:#fff;border-radius:16px 0 0 0;margin-top:8px;overflow:hidden}
+.gm-list{padding:6px 0}
+.gm-row{display:flex;align-items:center;gap:14px;height:40px;padding:0 16px 0 20px;border-bottom:1px solid #F0F1F3;font-size:14px;color:#1F1F1F}
+.gm-row .chk{width:16px;height:16px;border:2px solid #5F6368;border-radius:2px;opacity:.5}
+.gm-row .star{color:#5F6368;opacity:.5}
+.gm-row .from{width:180px;flex:none;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm-row .subj{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm-row .subj span{color:#5F6368;font-weight:400}
+.gm-row .time{width:60px;text-align:right;font-size:12px;color:#5F6368;font-variant-numeric:tabular-nums}
+.gm-row.unread .subj,.gm-row.unread .from{font-weight:700}
+.scrim{position:absolute;inset:0;background:rgba(32,33,36,.28)}
+
+/* Overlay group: compose + WordSnap panel */
+.overlay{position:absolute;inset:0;display:flex;justify-content:center;align-items:flex-start;gap:14px;padding:22px 16px 0}
+.compose{width:580px;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column;max-height:calc(100% - 22px);font-family:var(--host)}
+.v3-b .compose{width:880px}
+.c-head{background:#404040;color:#fff;border-radius:12px 12px 0 0;height:40px;display:flex;align-items:center;padding:0 12px 0 16px;font-size:14px;font-weight:500}
+.c-head .x{margin-left:auto;display:flex;gap:16px;font-size:13px;opacity:.85}
+.c-field{display:flex;align-items:center;gap:8px;padding:0 16px;height:40px;border-bottom:1px solid #E5E5E5;font-size:14px;color:#222}
+.c-field label{color:#5F6368;width:auto}
+.c-field .pill{background:#F1F3F4;border-radius:14px;padding:3px 10px 3px 4px;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.c-field .pill i{width:20px;height:20px;border-radius:50%;background:#1A73E8;color:#fff;font-style:normal;display:grid;place-items:center;font-size:11px}
+.c-field .ccbcc{margin-left:auto;color:#5F6368;font-size:13px}
+.c-body{display:flex;min-height:0;overflow:auto}
+.editor-wrap{flex:1 0 auto;width:580px;padding:14px 20px 18px}
+.editor{font-family:var(--compose);font-size:14px;line-height:1.6;color:#222;outline:none;min-height:300px;caret-color:#222}
+.editor p{margin:0 0 14px}
+.editor p:last-child{margin-bottom:0}
+.rail{width:300px;flex:none;position:relative;border-left:1px dashed var(--ws-line);margin:8px 0 8px 0;display:none}
+.v3-b .rail{display:block}
+
+/* Anchors (spans in the user's text) */
+.ws-a{border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;transition:background .15s}
+.ws-a.is-hot{background:var(--ws-accent-bg)!important;box-shadow:0 0 0 2px var(--ws-accent-bg)}
+/* 1A: inline highlights for fact spans */
+.v1-a .ws-a[data-kind="fact"][data-status="contradicted"]{background:var(--red-bg);border-bottom:2px solid var(--red);cursor:help}
+.v1-a .ws-a[data-kind="fact"][data-status="precision"]{background:var(--amber-bg);border-bottom:2px solid var(--amber);cursor:help}
+.v1-a .ws-a[data-kind="fact"][data-status="verified"]{border-bottom:1px dotted var(--green);cursor:help}
+/* clarity spans: dotted teal, in every variant (they come from a different pass) */
+.ws-a[data-kind="clarity"][data-status="clarity"]{border-bottom:2px dotted var(--ws-accent);cursor:help}
+.v3-b .ws-a[data-kind="clarity"][data-status="clarity"]{cursor:text}
+.v1-a .v1-a .ws-a[data-status="applied"]{background:none}
+.ws-a[data-status="applied"]{background:var(--green-bg);border-bottom:2px solid var(--green);transition:background .8s,border-color .8s}
+.ws-a[data-status="applied"].settle{background:transparent;border-bottom-color:transparent}
+.ws-a[data-status="kept"],.ws-a[data-status="resolved"]{background:transparent!important;border-bottom-color:transparent!important;cursor:text}
+
+/* Balloons (3B) */
+.balloon{position:absolute;left:14px;right:6px;background:var(--ws-card);border:1px solid var(--ws-line);border-radius:8px;padding:9px 11px 10px;font-family:var(--ui);font-size:12.5px;line-height:1.4;color:var(--ws-ink);box-shadow:0 1px 2px rgba(0,0,0,.05);transition:top .25s,opacity .4s,transform .4s;cursor:pointer}
+.balloon::before{content:"";position:absolute;left:-15px;top:14px;width:14px;border-top:1px solid var(--ws-line)}
+.balloon.focus{border-color:var(--ws-accent);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+.b-head{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;letter-spacing:.02em;color:var(--ws-muted)}
+.b-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.b-dot.contradicted{background:var(--red)}.b-dot.precision{background:var(--amber)}.b-dot.clarity{background:var(--ws-accent)}.b-dot.verified{background:var(--green)}
+.b-hint{margin-top:6px;color:var(--ws-muted);font-style:italic}
+.b-hint b{font-style:normal;font-weight:500;color:var(--ws-ink)}
+.balloon.resolved{opacity:.55;transform:translateX(6px)}
+.balloon.resolved .b-text,.balloon.resolved .b-hint{display:none}
+.balloon.resolved .b-head{margin:0;color:var(--green)}
+.balloon.gone{opacity:0;pointer-events:none}
+
+/* Thread (1C) */
+.thread{display:none;border-top:1px solid var(--ws-line);background:var(--ws-bg);padding:10px 16px 12px;font-family:var(--ui);color:var(--ws-ink);max-height:290px;overflow:auto}
+.v1-c .thread{display:block}
+.t-title{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-muted);display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.t-msg{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--ws-line)}
+.t-msg:first-of-type{border-top:0}
+.t-av{width:24px;height:24px;border-radius:6px;background:var(--ws-accent);color:#fff;font-weight:600;font-size:12px;display:grid;place-items:center;flex:none}
+.t-av.you{background:#E8EAED;color:#444}
+.t-c{flex:1;font-size:13px;line-height:1.45}
+.t-c .who{font-size:11px;color:var(--ws-muted);margin-bottom:2px;display:flex;gap:8px;align-items:center}
+.t-c q{quotes:"“" "”";color:var(--ws-ink)}
+.t-act{display:flex;gap:6px;align-items:center;margin-top:6px}
+.t-reply{display:flex;gap:6px;margin-top:6px}
+.t-reply input{flex:1;font:inherit;font-size:13px;padding:5px 9px;border:1px solid var(--ws-line);border-radius:6px;background:#fff;color:var(--ws-ink)}
+.t-msg.settled{opacity:.6}
+
+/* Export bar (5A) + Gmail send row */
+.exportbar{border-top:1px solid var(--ws-line);background:var(--ws-bg);display:flex;align-items:center;gap:10px;padding:7px 12px 7px 14px;font-family:var(--ui);font-size:12.5px;color:var(--ws-muted)}
+.exportbar .ws-mark{width:18px;height:18px;border-radius:4px;background:var(--ws-accent);color:#fff;font-weight:600;font-size:11px;display:grid;place-items:center}
+.exportbar .warn{color:var(--red)}
+.exportbar .ok{color:var(--green)}
+.exportbar .grow{flex:1}
+.xbtn{border:1px solid var(--ws-line);background:#fff;color:var(--ws-ink);border-radius:6px;padding:4px 10px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.xbtn:hover{border-color:var(--ws-accent-line);background:var(--ws-accent-bg)}
+.xbtn.primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.xbtn.primary:hover{background:var(--ws-accent-ink)}
+.xbtn .g{font-family:var(--mono);font-size:11px;opacity:.75}
+.c-send{display:flex;align-items:center;gap:14px;padding:10px 12px 12px 16px;border-radius:0 0 12px 12px}
+.send{background:var(--gm-blue);color:#fff;border-radius:18px;height:36px;padding:0 24px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:10px}
+.send i{border-left:1px solid rgba(255,255,255,.5);height:16px}
+.fmt{display:flex;gap:14px;color:#444746;font-size:14px}
+.fmt span{font-family:Georgia,serif;font-weight:700}
+.c-send .trash{margin-left:auto;color:#444746}
+
+/* ---------- WordSnap panel ---------- */
+.ws-panel{width:336px;flex:none;background:var(--ws-card);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.22);font-family:var(--ui);color:var(--ws-ink);display:flex;flex-direction:column;max-height:calc(100% - 22px);overflow:hidden}
+.ws-head{display:flex;align-items:center;gap:8px;padding:12px 14px 10px}
+.ws-head .ws-mark{width:22px;height:22px;border-radius:6px;background:var(--ws-accent);color:#fff;font-weight:600;font-size:12px;display:grid;place-items:center}
+.ws-head .name{font-weight:600;font-size:14px;letter-spacing:-.01em}
+.status{margin-left:auto;font-size:11.5px;color:var(--ws-muted);display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.status.analyzing .dot{background:var(--ws-accent);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.ws-progress{height:2px;background:var(--ws-line);position:relative;overflow:hidden}
+.ws-progress::after{content:"";position:absolute;inset:0;background:var(--ws-accent);transform:translateX(-100%);opacity:0}
+.analyzing .ws-progress::after{opacity:1;animation:sweep 1.4s linear infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.ws-summary{padding:10px 14px;font-size:12px;color:var(--ws-muted);border-bottom:1px solid var(--ws-line);display:flex;flex-wrap:wrap;gap:4px 10px}
+.ws-summary b{font-weight:500;color:var(--ws-ink)}
+.ws-scroll{overflow:auto;padding-bottom:6px}
+.ws-sec{padding:12px 14px 10px;border-bottom:1px solid var(--ws-line)}
+.ws-sec:last-child{border-bottom:0}
+.ws-sec h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ws-muted);font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ws-sec h3 .count{font-family:var(--mono);font-weight:500;font-size:10.5px;background:var(--ws-bg);border:1px solid var(--ws-line);border-radius:10px;padding:0 6px;color:var(--ws-ink)}
+.ws-sec h3 .pass{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--ws-faint)}
+.core{font-size:13px;line-height:1.45;color:var(--ws-ink)}
+.core em{color:var(--ws-muted);font-style:normal}
+.analyzing .refresh{opacity:.45;filter:saturate(.4)}
+.refresh{transition:opacity .3s}
+
+/* Challenges list */
+.ch{border:1px solid var(--ws-line);border-radius:8px;margin-bottom:6px;background:var(--ws-card);overflow:hidden}
+.ch:last-child{margin-bottom:0}
+.ch-row{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;cursor:pointer;width:100%;text-align:left}
+.ch-row:hover{background:var(--ws-bg)}
+.ch-tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--ws-muted);display:block;margin-bottom:2px}
+.ch.strong .ch-tag{color:var(--red)}
+.ch-title{font-size:13px;line-height:1.35;font-weight:500;flex:1}
+.ch-chev{color:var(--ws-faint);font-size:11px;transition:transform .2s;margin-top:4px}
+.ch.open .ch-chev{transform:rotate(90deg)}
+.ch-body{display:none;padding:0 10px 10px 10px;font-size:12.5px;line-height:1.45;color:var(--ws-ink)}
+.ch.open .ch-body{display:block}
+.ch-fix{margin-top:8px;padding:7px 9px;background:var(--ws-accent-bg);border-radius:6px;color:var(--ws-accent-ink)}
+.ch-fix b{font-weight:600}
+.ch.addressed{opacity:.6}
+.ch.addressed .ch-tag{color:var(--green)}
+.ch-num{font-family:var(--mono);font-size:11px;color:var(--ws-faint);margin-top:2px;width:12px;flex:none}
+
+/* Findings (panel claims list, clarity list, hover card, thread share these) */
+.fi{border:1px solid var(--ws-line);border-radius:8px;padding:9px 10px 10px;margin-bottom:6px;font-size:12.5px;line-height:1.45;cursor:default}
+.fi:last-child{margin-bottom:0}
+.fi:hover{border-color:var(--ws-accent-line)}
+.fi-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.chip{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:1px 7px;border-radius:9px;border:1px solid}
+.chip-contradicted{color:var(--red);background:var(--red-bg);border-color:var(--red-line)}
+.chip-precision{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-line)}
+.chip-verified{color:var(--green);background:var(--green-bg);border-color:var(--green-line)}
+.chip-clarity{color:var(--ws-accent-ink);background:var(--ws-accent-bg);border-color:var(--ws-accent-line)}
+.meter{display:inline-flex;gap:2px;margin-left:auto;align-items:center}
+.meter i{width:9px;height:5px;border-radius:1px;background:var(--ws-line);display:block}
+.meter i.on{background:var(--ws-muted)}
+.meter-l{font-size:10.5px;color:var(--ws-faint);margin-left:6px}
+.fi q{quotes:"“" "”";color:var(--ws-muted);display:block;margin-bottom:4px;font-style:italic}
+.src{margin-top:6px;font-size:11.5px;color:var(--ws-muted);display:flex;gap:6px;align-items:baseline}
+.src .src-pub{font-weight:600;color:var(--ws-ink)}
+.src .src-title{text-decoration:underline dotted;text-underline-offset:2px}
+.src::before{content:"↗";font-size:10px;color:var(--ws-faint)}
+.diff{margin-top:8px;padding:7px 9px;background:var(--ws-bg);border-radius:6px;font-family:var(--compose);font-size:12.5px;line-height:1.5}
+.diff del{background:var(--red-bg);color:var(--red);text-decoration:line-through;border-radius:2px;padding:0 2px}
+.diff ins{background:var(--green-bg);color:var(--green);text-decoration:none;border-radius:2px;padding:0 2px}
+.btns{display:flex;gap:6px;margin-top:8px}
+.btn{border:1px solid var(--ws-line);border-radius:6px;padding:4px 10px;font-size:12px;background:#fff;color:var(--ws-ink)}
+.btn:hover{background:var(--ws-bg)}
+.btn-primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.btn-primary:hover{background:var(--ws-accent-ink)}
+.advice{margin-top:8px;font-size:12.5px;color:var(--ws-ink)}
+.advice .advice-k{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ws-faint);margin-bottom:2px}
+.advice .advice-note{display:block;color:var(--ws-faint);margin-top:4px;font-size:11.5px}
+.done{margin-top:8px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:6px}
+.done::before{content:"✓"}
+.fi.settled{opacity:.6}
+
+/* Hover card (1A) */
+.card{position:fixed;z-index:50;width:330px;background:var(--ws-card);border:1px solid var(--ws-line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:11px 12px 12px;font-family:var(--ui);font-size:12.5px;line-height:1.45;color:var(--ws-ink);display:none}
+.card.show{display:block}
+.card .fi{border:0;padding:0;margin:0}
+.card .fi:hover{border:0}
+.card .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-faint);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.card .k .pin{margin-left:auto;font-size:10px;letter-spacing:0;text-transform:none;color:var(--ws-faint)}
+
+/* Modal (5B) */
+.m-scrim{position:absolute;inset:0;background:rgba(32,33,36,.45);display:flex;align-items:center;justify-content:center;z-index:40}
+.modal{width:620px;max-height:90%;background:var(--ws-card);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:var(--ui);color:var(--ws-ink);display:flex;flex-direction:column;overflow:hidden}
+.m-head{display:flex;align-items:center;padding:10px 12px 0 14px;border-bottom:1px solid var(--ws-line)}
+.m-head .ws-mark{width:20px;height:20px;border-radius:5px;background:var(--ws-accent);color:#fff;font-weight:600;font-size:11px;display:grid;place-items:center;margin-right:10px;margin-bottom:10px}
+.m-tabs{display:flex;gap:2px}
+.m-tabs button{padding:8px 12px 10px;font-size:13px;color:var(--ws-muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.m-tabs button.on{color:var(--ws-ink);border-bottom-color:var(--ws-accent);font-weight:500}
+.m-close{margin-left:auto;margin-bottom:10px;color:var(--ws-muted);font-size:14px;padding:4px 6px}
+.m-body{padding:14px 16px;overflow:auto;font-size:13px;line-height:1.5}
+.m-meta{display:flex;gap:16px;align-items:baseline;margin-bottom:12px;font-size:12px;color:var(--ws-muted)}
+.m-meta .n{font-family:var(--mono);font-size:13px;color:var(--ws-ink);font-variant-numeric:tabular-nums}
+.m-meta .n.over{color:var(--red)}
+.m-meta .flag{color:var(--red);margin-left:auto}
+.m-meta .flag.ok{color:var(--green)}
+.mail{border:1px solid var(--ws-line);border-radius:8px;overflow:hidden;font-family:var(--host)}
+.mail .mh{padding:10px 14px;border-bottom:1px solid var(--ws-line);font-size:12.5px;color:var(--gm-muted);display:grid;grid-template-columns:52px 1fr;row-gap:3px}
+.mail .mh b{color:var(--gm-ink);font-weight:500}
+.mail .mb{padding:14px;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222}
+.mail .mb p{margin:0 0 14px}.mail .mb p:last-child{margin:0}
+.post{border:1px solid var(--ws-line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;font-family:var(--host)}
+.post .pav{width:34px;height:34px;border-radius:50%;background:#B8C4D4;flex:none}
+.post .pc{flex:1;font-size:14px;line-height:1.4;color:#0F1419}
+.post .pn{font-weight:700}
+.post .pn span{color:#536471;font-weight:400;margin-left:4px}
+.post .cnt{font-family:var(--mono);font-size:11px;color:#536471;margin-top:6px;display:flex;gap:8px;align-items:center}
+.post .cnt.over{color:var(--red)}
+.post.flag{border-color:var(--red-line);background:#FFF9F8}
+.post .pflag{font-family:var(--ui);font-size:11.5px;color:var(--red);margin-top:4px}
+.li{border:1px solid var(--ws-line);border-radius:8px;padding:12px 14px;font-family:var(--host);font-size:14px;line-height:1.45;color:rgba(0,0,0,.9);white-space:pre-wrap;position:relative}
+.li .fold{display:block;border-top:1px dashed var(--red-line);margin:6px -14px;position:relative}
+.li .fold::after{content:"…more  ·  fold on LinkedIn feed";position:absolute;right:14px;top:-9px;background:#fff;padding:0 6px;font-family:var(--ui);font-size:11px;color:var(--red)}
+.m-foot{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--ws-line);justify-content:flex-end;align-items:center}
+.m-foot .hint{margin-right:auto;font-size:12px;color:var(--ws-muted)}
+
+.toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);background:#1F2A2A;color:#fff;font-family:var(--ui);font-size:13px;padding:9px 14px;border-radius:8px;opacity:0;transition:opacity .2s,transform .2s;z-index:60;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+</style>
+
+<!-- ============ Mock controls ============ -->
+<div class="mockbar" role="region" aria-label="Mock controls">
+  <span class="tag">Mock controls</span>
+  <div class="ctl"><span class="ctl-label"><b>1</b>Fact-check surfacing</span>
+    <div class="seg" data-set="v1"><button data-val="a"><i>A</i>Inline highlights</button><button data-val="b"><i>B</i>Side panel list</button><button data-val="c"><i>C</i>Thread below text</button></div></div>
+  <div class="ctl"><span class="ctl-label"><b>3</b>Acting on feedback</span>
+    <div class="seg" data-set="v3"><button data-val="a"><i>A</i>Apply / keep + diff</button><button data-val="b"><i>B</i>Comment balloons</button><button data-val="c"><i>C</i>Advisory only</button></div></div>
+  <div class="ctl"><span class="ctl-label"><b>5</b>Share</span>
+    <div class="seg" data-set="v5"><button data-val="a"><i>A</i>Direct</button><button data-val="b"><i>B</i>Preview first</button></div></div>
+  <span class="spacer"></span>
+  <button class="ghost" id="reset">Reset text</button>
+</div>
+<div class="mocknote">Opens on the chosen set: 1A inline highlights, 2B Challenges panel, 3A apply/keep with diff, 4A silent re-run, 5A direct share with optional Preview. Switch variants above to compare. Edit any flagged sentence in the compose body to see a pass re-run and its note resolve.</div>
+
+<!-- ============ Stage ============ -->
+<div class="stage">
+<div class="browser" id="browser">
+  <div class="chrome">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="tab"><span class="fav"></span><span>Proposal: a four-day week pilot for Q4 – jordan@brightline.co – Brightline Mail</span></div>
+  </div>
+  <div class="urlbar">
+    <div class="url"><span class="lock">🔒</span>mail.google.com/mail/u/0/#inbox?compose=new</div>
+    <div class="ext"><span class="ico">★</span><span class="ico">⋮</span><span class="ico ws" title="WordSnap is active on this page">W</span></div>
+  </div>
+
+  <div class="gmail">
+    <div class="gm-top">
+      <span class="burger"></span>
+      <span class="word"><span class="m"></span>Gmail</span>
+      <div class="gm-search">🔍 <span>Search mail</span></div>
+      <span class="avatar">J</span>
+    </div>
+    <div class="gm-body">
+      <nav class="gm-nav">
+        <span class="fab">✎</span>
+        <span class="ni on">▣<small>12</small></span><span class="ni">☆</span><span class="ni">◷</span><span class="ni">➤</span><span class="ni">▤<small>3</small></span><span class="ni">⋯</span>
+      </nav>
+      <div class="gm-main">
+        <div class="gm-list">
+          <div class="gm-row unread"><span class="chk"></span><span class="star">☆</span><span class="from">Priya Natarajan</span><span class="subj">Q4 hiring plan, v3 <span>– Attached the revised headcount by team. The two backend reqs moved to…</span></span><span class="time">10:42</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Linear</span><span class="subj">Weekly digest: 14 issues closed <span>– Cycle 31 wrapped with 82% completion…</span></span><span class="time">9:15</span></div>
+          <div class="gm-row unread"><span class="chk"></span><span class="star">☆</span><span class="from">Marcus Oyelaran</span><span class="subj">Re: on-call rotation for October <span>– Can we talk about the weekend coverage before…</span></span><span class="time">8:58</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Google Calendar</span><span class="subj">Invitation: Leadership sync @ Thu Sep 4, 2pm <span>– You have been invited…</span></span><span class="time">8:30</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Dana Whitfield</span><span class="subj">Customer call notes – Halden Logistics <span>– They asked again about response times on…</span></span><span class="time">Sep 1</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Stripe</span><span class="subj">Your August invoice is available <span>– Invoice #A7F3-0092 for $4,120.00…</span></span><span class="time">Sep 1</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Tomás Reyes</span><span class="subj">Design review: onboarding flow <span>– Figma link inside. Main open question is whether…</span></span><span class="time">Aug 29</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">GitHub</span><span class="subj">[brightline/api] PR #412 merged <span>– rate-limit headers on the public endpoints…</span></span><span class="time">Aug 29</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Priya Natarajan</span><span class="subj">Board deck draft <span>– First pass. Slides 8–11 need your numbers…</span></span><span class="time">Aug 28</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Notion</span><span class="subj">Marcus mentioned you in "Incident 0827 retro" <span>– "@Jordan can you confirm the timeline…"</span></span><span class="time">Aug 28</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Ada Lindqvist</span><span class="subj">Offer accepted 🎉 <span>– She starts October 6. Laptop and accounts…</span></span><span class="time">Aug 27</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Vercel</span><span class="subj">Deployment failed: brightline-web <span>– Build step exited with code 1…</span></span><span class="time">Aug 27</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Marcus Oyelaran</span><span class="subj">Re: Support coverage SLA <span>– We're at 94% within 4 hours this month, down from…</span></span><span class="time">Aug 26</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Dana Whitfield</span><span class="subj">Renewal risk: Northgate <span>– Their champion left. Meeting Friday…</span></span><span class="time">Aug 26</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Figma</span><span class="subj">Tomás invited you to "WordSnap onboarding v2" <span>– Open in Figma…</span></span><span class="time">Aug 25</span></div>
+          <div class="gm-row"><span class="chk"></span><span class="star">☆</span><span class="from">Priya Natarajan</span><span class="subj">1:1 notes <span>– Action items from Monday…</span></span><span class="time">Aug 25</span></div>
+        </div>
+        <div class="scrim"></div>
+
+        <!-- Overlay: Gmail compose (full-screen mode) + WordSnap panel -->
+        <div class="overlay">
+          <div class="compose" id="compose">
+            <div class="c-head">Proposal: a four-day week pilot for Q4 <span class="x"><span>–</span><span>⤢</span><span>✕</span></span></div>
+            <div class="c-field"><label>To</label><span class="pill"><i>L</i>leadership@brightline.co</span><span class="ccbcc">Cc Bcc</span></div>
+            <div class="c-field"><label>Subject</label><span>Proposal: a four-day week pilot for Q4</span></div>
+            <div class="c-body">
+              <div class="editor-wrap">
+                <div class="editor" id="editor" contenteditable="true" spellcheck="false" aria-label="Message body"></div>
+              </div>
+              <div class="rail" id="rail"></div>
+            </div>
+            <div class="thread" id="thread"></div>
+            <div class="exportbar" id="exportbar"></div>
+            <div class="c-send">
+              <span class="send">Send <i></i> ▾</span>
+              <span class="fmt"><span>A</span>📎 🔗 ☺ ▣ ☁ ✎</span>
+              <span class="trash">🗑</span>
+            </div>
+          </div>
+          <aside class="ws-panel" id="panel" aria-label="WordSnap"></aside>
+        </div>
+
+        <div class="m-scrim" id="modal" hidden>
+          <div class="modal" role="dialog" aria-modal="true" aria-label="Preview before sharing">
+            <div class="m-head"><span class="ws-mark">W</span>
+              <div class="m-tabs" id="mtabs"><button data-tab="email" class="on">Email</button><button data-tab="x">X</button><button data-tab="linkedin">LinkedIn</button></div>
+              <button class="m-close" id="mclose" aria-label="Close preview">✕</button></div>
+            <div class="m-body" id="mbody"></div>
+            <div class="m-foot" id="mfoot"></div>
+          </div>
+        </div>
+        <div class="toast" id="toast" role="status"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="card"></div>
+</div>
+</div>
+
+<template id="editor-template">
+<p>Hi all,</p>
+<p>I want to put a four-day work week pilot on the table for Q4.</p>
+<p><span class="ws-a" data-a="c1">The evidence is stronger than people assume.</span> <span class="ws-a" data-a="ch1">When Microsoft Japan tried it in 2019, <span class="ws-a" data-a="f1">productivity jumped 40%</span>. Iceland ran trials covering <span class="ws-a" data-a="f2">more than 1% of its entire workforce</span>, and the results were good enough that most unions negotiated shorter hours afterward. In the UK's 2022 pilot, <span class="ws-a" data-a="f3">not a single company went back to five days</span>.</span></p>
+<p>Closer to home, <span class="ws-a" data-a="ch2">everyone I've talked to on the team wants this, <span class="ws-a" data-a="c2">so I don't think we have a retention risk to worry about</span></span>. If anything, this becomes our best recruiting story.</p>
+<p>I'd suggest a three-month pilot for engineering and design, <span class="ws-a" data-a="ch4">with a checkpoint at six weeks</span>. <span class="ws-a" data-a="ch3">Support and sales can follow once we've worked out coverage.</span></p>
+<p>Can we get 20 minutes on Thursday's agenda?</p>
+<p>— Jordan</p>
+</template>
+
+<script>
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------- Static, faked AI results ---------------- */
+const FINDINGS={
+  f1:{kind:'fact',status:'precision',label:'Needs precision',
+    claim:"Microsoft Japan's 2019 trial raised productivity 40%.",
+    finding:"Microsoft Japan reported a 39.9% rise in sales per employee during a one-month trial in August 2019. The number holds, but it measures sales per employee over four weeks, not sustained productivity, and the company did not make the schedule permanent.",
+    confidence:4,source:{pub:'Microsoft Japan',title:'Work-Life Choice Challenge Summer 2019, results',year:'Oct 2019'},
+    suggestion:'sales per employee rose almost 40% during a one-month trial',
+    short:"The 40% is sales per employee over one month in August 2019, and Microsoft Japan didn't keep the schedule. The number holds; the framing is doing a lot of work."},
+  f2:{kind:'fact',status:'verified',label:'Verified',
+    claim:"Iceland's trials covered more than 1% of its workforce.",
+    finding:"The Reykjavík City and national government trials (2015–2019) involved about 2,500 workers, roughly 1% of Iceland's working population.",
+    confidence:5,source:{pub:'Autonomy & Alda',title:'Going Public: Iceland’s Journey to a Shorter Working Week',year:'2021'}},
+  f3:{kind:'fact',status:'contradicted',label:'Contradicted',
+    claim:"No company in the UK's 2022 pilot returned to five days.",
+    finding:"Of 61 companies in the June–December 2022 pilot, 56 continued with a four-day week when it ended and 18 made it permanent. At least three paused or returned to five days. “Not a single” is contradicted; “almost all” is supported.",
+    confidence:5,source:{pub:'Autonomy',title:'The results are in: the UK’s four-day week pilot',year:'Feb 2023'},
+    suggestion:'56 of the 61 companies kept it',
+    short:"The pilot's own report says 56 of 61 continued and at least three went back. “Almost all” is true; “not a single” isn't."},
+  c1:{kind:'clarity',status:'clarity',label:'Fuzzy',
+    note:"Who is “people”? If you're preempting a specific objection (“this is a perk, not a productivity move”), name it. As written it reads as a straw man.",
+    suggestion:'The evidence is stronger than the “nice perk” framing suggests.'},
+  c2:{kind:'clarity',status:'clarity',label:'Hedged',
+    note:"Double hedge: “don't think” plus “to worry about”. Say what you believe. The evidence for it is also a hallway sample, which is the second challenge on the right.",
+    suggestion:'so retention risk looks low, at least in engineering'}
+};
+const CORE="Other companies' four-day week trials raised productivity and kept people, and our team wants one, so we should pilot it in Q4.";
+const CHALLENGES=[
+  {id:'ch1',tag:'Strongest rebuttal',strong:true,title:'The trials you cite were opt-in and self-reported.',
+   body:"Microsoft Japan, Iceland and the UK pilot all measured organisations that volunteered, and most productivity figures were reported by the companies themselves. A sceptic will say the evidence shows four-day weeks work at companies already convinced they will, which describes you, not the people you're trying to persuade. Microsoft Japan itself did not adopt the schedule permanently.",
+   fix:"Acknowledge it, then lean on your pilot design: pre-agreed metrics and a comparison team that stays on five days.",
+   sources:[{pub:'Autonomy',title:'UK pilot report, methodology section',year:'Feb 2023'},{pub:'Microsoft Japan',title:'Statement that the summer trial was a one-off, with a second trial planned for winter 2019',year:'Nov 2019'}]},
+  {id:'ch2',tag:'Blind spot',title:'Your retention evidence is a hallway sample.',
+   body:"“Everyone I've talked to” is engineers and designers, the people who would get the benefit first. Support and sales, who are asked to wait, are the group most likely to read this as a two-tier policy, and the most likely to leave over it.",
+   fix:"Say who you asked, and what support and sales get in the meantime.",sources:[]},
+  {id:'ch3',tag:'Blind spot',title:"You deferred the hardest problem, coverage, without a plan.",
+   body:"Leadership readers will go straight to customer coverage, response-time SLAs and on-call. “Once we've worked out coverage” says there is no plan yet. In the UK pilot the common answers were staggered days off and shared queues; naming one makes the deferral credible.",
+   fix:"One sentence on how engineering on-call and design reviews stay covered on the fifth day.",
+   sources:[{pub:'Autonomy',title:'UK pilot report, implementation models',year:'Feb 2023'}]},
+  {id:'ch4',tag:'Gap',title:"There's no definition of success.",
+   body:"A six-week checkpoint against what? Without metrics agreed up front (cycle time, incident rate, customer response time, an engagement survey), the result of the pilot will be argued after the fact, by whoever is most senior.",
+   fix:"Name two or three numbers you'd watch and what would make you stop the pilot.",sources:[]}
+];
+const THREAD_ORDER=['f3','f1','f2'];
+
+/* ---------------- State ---------------- */
+const state={v1:'a',v3:'a',v5:'a',items:{},analyzing:false,lastChecked:Date.now(),open:{},pinned:null,threadReplies:{}};
+try{const p=JSON.parse(localStorage.getItem('wsmock-v2')||'{}');['v1','v3','v5'].forEach(k=>{if(p[k])state[k]=p[k];});}catch(e){}
+function savePrefs(){try{localStorage.setItem('wsmock-v2',JSON.stringify({v1:state.v1,v3:state.v3,v5:state.v5}));}catch(e){}}
+
+const editor=$('#editor'), rail=$('#rail'), panel=$('#panel'), thread=$('#thread'), card=$('#card'), exportbar=$('#exportbar'), browser=$('#browser');
+
+function resetEditor(){
+  editor.innerHTML=$('#editor-template').innerHTML.trim();
+  state.items={};
+  $$('.ws-a',editor).forEach(sp=>{
+    const id=sp.dataset.a, f=FINDINGS[id];
+    sp.dataset.kind=f?f.kind:'challenge';
+    if(f) sp.dataset.status=f.status;
+    state.items[id]={status:'open',original:sp.textContent};
+  });
+  state.pinned=null; state.threadReplies={};
+}
+const span=id=>editor.querySelector(`.ws-a[data-a="${id}"]`);
+const isOpen=id=>state.items[id]&&state.items[id].status==='open';
+const openFactCount=()=>['f1','f3'].filter(isOpen).length;
+
+/* ---------------- Variant classes ---------------- */
+function applyVariants(){
+  document.body.className=`v1-${state.v1} v3-${state.v3} v5-${state.v5}`+(state.analyzing?' analyzing':'');
+  $$('.seg').forEach(seg=>{const k=seg.dataset.set;$$('button',seg).forEach(b=>b.classList.toggle('on',b.dataset.val===state[k]));});
+}
+
+/* ---------------- Shared finding rendering ---------------- */
+const CONF=['','very low','low','moderate','high','high'];
+function confMeter(n){return `<span class="meter" title="Confidence: ${CONF[n]}">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</span><span class="meter-l">${CONF[n]}</span>`;}
+const chip=f=>`<span class="chip chip-${f.status}">${f.label}</span>`;
+const srcLine=s=>`<div class="src"><span class="src-pub">${esc(s.pub)}</span><span class="src-title">${esc(s.title)}</span><span>${esc(s.year)}</span></div>`;
+
+function actionsFor(id){
+  const f=FINDINGS[id], it=state.items[id];
+  if(it.status!=='open') return `<div class="done">${it.status==='applied'?'Change applied':it.status==='kept'?'Kept as written':'Resolved by your edit'}</div>`;
+  if(!f.suggestion) return '';
+  if(state.v3==='a') return `<div class="diff"><del>${esc(it.original)}</del> <ins>${esc(f.suggestion)}</ins></div>
+    <div class="btns"><button class="btn btn-primary" data-act="apply" data-id="${id}">Apply change</button><button class="btn" data-act="keep" data-id="${id}">Keep as-is</button></div>`;
+  if(state.v3==='c') return `<div class="advice"><span class="advice-k">One way to say it</span>“${esc(f.suggestion)}”<span class="advice-note">Nothing is applied for you. Edit the sentence and WordSnap re-checks as you type.</span></div>`;
+  return '';
+}
+function findingHTML(id,opts={}){
+  const f=FINDINGS[id], it=state.items[id];
+  const settled=it.status!=='open'?' settled':'';
+  if(f.kind==='fact'){
+    return `<div class="fi${settled}" data-anchor="${id}">
+      <div class="fi-top">${chip(f)}${confMeter(f.confidence)}</div>
+      <q>${esc(it.original)}</q>
+      <div>${esc(f.finding)}</div>
+      ${srcLine(f.source)}
+      ${opts.noActions?'':actionsFor(id)}
+    </div>`;
+  }
+  return `<div class="fi${settled}" data-anchor="${id}">
+      <div class="fi-top">${chip(f)}<span class="meter-l" style="margin-left:auto">clarity pass</span></div>
+      <q>${esc(it.original)}</q>
+      <div>${esc(f.note)}</div>
+      ${opts.noActions?'':actionsFor(id)}
+    </div>`;
+}
+
+/* ---------------- Panel ---------------- */
+function statusHTML(){
+  if(state.analyzing) return `<span class="dot"></span>Re-analyzing…`;
+  const s=Math.round((Date.now()-state.lastChecked)/1000);
+  return `<span class="dot"></span>Checked ${s<8?'just now':s<60?s+'s ago':Math.round(s/60)+' min ago'}`;
+}
+function summaryHTML(){
+  const contradicted=isOpen('f3')?1:0, precision=isOpen('f1')?1:0;
+  const openCh=CHALLENGES.filter(c=>state.items[c.id].status==='open').length;
+  const openCl=['c1','c2'].filter(isOpen).length;
+  return `<span><b>3</b> claims checked</span><span><b>${contradicted}</b> contradicted</span><span><b>${precision}</b> needs precision</span><span><b>${openCh}</b> challenges</span><span><b>${openCl}</b> clarity notes</span>`;
+}
+function renderPanel(){
+  const chs=CHALLENGES.map((c,i)=>{
+    const it=state.items[c.id], open=!!state.open[c.id];
+    return `<div class="ch ${c.strong?'strong':''} ${open?'open':''} ${it.status!=='open'?'addressed':''}" data-anchor="${c.id}">
+      <button class="ch-row" data-toggle="${c.id}" aria-expanded="${open}">
+        <span class="ch-num">${i+1}</span>
+        <span class="ch-title"><span class="ch-tag">${it.status!=='open'?'Addressed by your edit':c.tag}</span>${esc(c.title)}</span>
+        <span class="ch-chev">▶</span></button>
+      <div class="ch-body">${esc(c.body)}
+        <div class="ch-fix"><b>How to address it.</b> ${esc(c.fix)}</div>
+        ${c.sources.map(srcLine).join('')}
+      </div></div>`;
+  }).join('');
+  let claims='';
+  if(state.v1==='b'){
+    claims=`<section class="ws-sec refresh"><h3>Claims <span class="count">3</span><span class="pass">fact-check pass</span></h3>${['f3','f1','f2'].map(id=>findingHTML(id)).join('')}</section>`;
+  }
+  let clarity='';
+  if(state.v3!=='b'){
+    clarity=`<section class="ws-sec refresh"><h3>Clarity <span class="count">${['c1','c2'].filter(isOpen).length}</span><span class="pass">structure pass</span></h3>${['c1','c2'].map(id=>findingHTML(id)).join('')}</section>`;
+  }
+  const factsNote=state.v1==='b'?'':`<section class="ws-sec refresh"><h3>Claims <span class="count">3</span><span class="pass">fact-check pass</span></h3><p class="core"><em>${state.v1==='a'?'Shown inline: hover a highlight in your text.':'Shown as a thread under your text.'}</em> ${openFactCount()?`${openFactCount()} still open.`:'Nothing open.'}</p></section>`;
+  panel.innerHTML=`
+    <div class="ws-head"><span class="ws-mark">W</span><span class="name">WordSnap</span><span class="status ${state.analyzing?'analyzing':''}" id="status">${statusHTML()}</span></div>
+    <div class="ws-progress"></div>
+    <div class="ws-summary refresh" id="summary">${summaryHTML()}</div>
+    <div class="ws-scroll">
+      <section class="ws-sec"><h3>Your argument<span class="pass">as WordSnap reads it</span></h3><p class="core">${esc(CORE)}</p></section>
+      <section class="ws-sec refresh"><h3>Challenges <span class="count">${CHALLENGES.filter(c=>state.items[c.id].status==='open').length}</span><span class="pass">counterargument pass</span></h3>${chs}</section>
+      ${claims}${clarity}${factsNote}
+    </div>`;
+}
+
+/* ---------------- Balloons (3B) ---------------- */
+function balloonHTML(id){
+  const f=FINDINGS[id], it=state.items[id];
+  const kind=f.kind==='fact'?`Fact check · ${f.label}`:`Clarity · ${f.label}`;
+  const text=f.kind==='fact'?f.short:f.note;
+  const hint=f.suggestion?`<div class="b-hint">Could read: <b>“${esc(f.suggestion)}”</b></div>`:'';
+  const resolved=it.status!=='open';
+  return `<div class="balloon ${resolved?'resolved':''}" data-for="${id}" data-anchor="${id}">
+    <div class="b-head"><span class="b-dot ${f.status}"></span><span class="b-kind">${resolved?'Resolved ✓':kind}</span></div>
+    <div class="b-text">${esc(text)}</div>${hint}</div>`;
+}
+function renderBalloons(){
+  rail.innerHTML=['c1','f1','f3','c2'].map(balloonHTML).join('');
+  requestAnimationFrame(layoutBalloons);
+}
+function layoutBalloons(){
+  if(state.v3!=='b') return;
+  const railRect=rail.getBoundingClientRect();
+  const items=$$('.balloon',rail).map(b=>{const sp=span(b.dataset.for);const top=sp?sp.getBoundingClientRect().top-railRect.top-4:0;return{b,top:Math.max(0,top)};}).sort((a,b)=>a.top-b.top);
+  let cursor=0;
+  items.forEach(({b,top})=>{const t=Math.max(top,cursor);b.style.top=t+'px';cursor=t+b.offsetHeight+8;});
+  rail.style.minHeight=cursor+'px';
+}
+
+/* ---------------- Thread (1C) ---------------- */
+function threadHTML(){
+  const msgs=THREAD_ORDER.map(id=>{
+    const f=FINDINGS[id], it=state.items[id], reply=state.threadReplies[id];
+    const settled=it.status!=='open'||reply;
+    let ask='';
+    if(f.status==='verified') ask=`<q>${esc(it.original)}</q> checks out: about 2,500 workers across the Reykjavík and national trials, roughly 1% of the workforce. Nothing to do.`;
+    else if(id==='f3') ask=`You wrote <q>${esc(it.original)}</q>. The pilot's own report says 56 of 61 continued and at least three paused or went back. Want to soften it to “almost all”?`;
+    else ask=`<q>${esc(it.original)}</q>: Microsoft Japan's number is 39.9% sales per employee over one month in August 2019, and they didn't keep the schedule. The figure is fine; “productivity” is the stretch.`;
+    let acts='';
+    if(!settled&&f.suggestion){
+      if(state.v3==='a') acts=`<div class="t-act"><button class="btn btn-primary" data-act="apply" data-id="${id}">Fix it</button><button class="btn" data-act="keep" data-id="${id}">Keep as-is</button></div>`;
+      acts+=`<div class="t-reply"><input type="text" placeholder="Reply, or just edit the sentence above" data-reply="${id}" aria-label="Reply to WordSnap"></div>`;
+    }
+    let userReply='';
+    if(reply) userReply=`<div class="t-msg"><span class="t-av you">J</span><div class="t-c"><div class="who">You</div>${esc(reply)}</div></div>
+      <div class="t-msg"><span class="t-av">W</span><div class="t-c"><div class="who">WordSnap</div>Got it. I'll treat that as intentional and stop flagging it. If a reader challenges it, the source above is what they'll point to.</div></div>`;
+    let done='';
+    if(it.status==='applied') done=`<div class="done">Fixed</div>`;
+    else if(it.status==='kept') done=`<div class="done">Kept as written</div>`;
+    else if(it.status==='resolved') done=`<div class="done">Resolved by your edit</div>`;
+    return `<div class="t-msg ${settled?'settled':''}" data-anchor="${id}"><span class="t-av">W</span><div class="t-c">
+      <div class="who">WordSnap · fact check ${chip(f)}</div>${ask}${done}${acts}</div></div>${userReply}`;
+  }).join('');
+  return `<div class="t-title"><span class="ws-mark" style="width:16px;height:16px;border-radius:4px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:600">W</span>Fact check thread <span style="margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none">${openFactCount()?openFactCount()+' open':'all settled'}</span></div>${msgs}`;
+}
+function renderThread(){ thread.innerHTML=threadHTML(); }
+
+/* ---------------- Export bar (5A) ---------------- */
+function renderExportBar(){
+  const n=openFactCount();
+  const status=n?`<span class="warn">${n===1?'1 claim still contradicted or imprecise':n+' claims still open'}</span>`:`<span class="ok">Claims checked, nothing open</span>`;
+  exportbar.innerHTML=`<span class="ws-mark">W</span>${status}<span class="grow"></span>
+    <button class="xbtn" data-x="copy">Copy</button>
+    <button class="xbtn" data-x="x">Post on X <span class="g">${plainText().length}</span></button>
+    <button class="xbtn" data-x="linkedin">LinkedIn</button>
+    <button class="xbtn ${state.v5==='b'?'primary':''}" data-x="preview">Preview</button>`;
+}
+
+/* ---------------- Hover card (1A + clarity) ---------------- */
+let cardTimer=null, cardFor=null;
+function showCard(id,anchorEl){
+  const f=FINDINGS[id]; if(!f) return;
+  if(f.kind==='fact'&&state.v1!=='a') return;
+  if(f.kind==='clarity'&&state.v3==='b') return;
+  cardFor=id;
+  card.innerHTML=`<div class="k">${f.kind==='fact'?'Fact check':'Clarity'}<span class="pin">${state.pinned===id?'pinned · click text to unpin':'click text to pin'}</span></div>${findingHTML(id)}`;
+  card.classList.add('show');
+  const r=anchorEl.getBoundingClientRect(), b=browser.getBoundingClientRect();
+  let left=r.left, top=r.bottom+8;
+  const w=card.offsetWidth, h=card.offsetHeight;
+  if(left+w>window.innerWidth-12) left=window.innerWidth-12-w;
+  if(top+h>window.innerHeight-12) top=r.top-h-8;
+  card.style.left=left+'px'; card.style.top=top+'px';
+}
+function hideCard(force){
+  if(state.pinned&&!force) return;
+  card.classList.remove('show'); cardFor=null;
+}
+editor.addEventListener('mouseover',e=>{
+  const sp=e.target.closest('.ws-a'); if(!sp||state.pinned) return;
+  const id=sp.dataset.a; if(!FINDINGS[id]||!isOpen(id)&&state.items[id].status!=='kept') return;
+  clearTimeout(cardTimer); showCard(id,sp);
+});
+editor.addEventListener('mouseout',e=>{
+  const sp=e.target.closest('.ws-a'); if(!sp||state.pinned) return;
+  cardTimer=setTimeout(()=>hideCard(),180);
+});
+card.addEventListener('mouseenter',()=>clearTimeout(cardTimer));
+card.addEventListener('mouseleave',()=>{if(!state.pinned)cardTimer=setTimeout(()=>hideCard(),180);});
+editor.addEventListener('click',e=>{
+  const sp=e.target.closest('.ws-a');
+  if(state.v3==='b'&&sp){ focusBalloon(sp.dataset.a); }
+  if(!sp||!FINDINGS[sp.dataset.a]){ if(state.pinned){state.pinned=null;hideCard(true);} return; }
+  const id=sp.dataset.a;
+  if(state.pinned===id){state.pinned=null;hideCard(true);return;}
+  if(FINDINGS[id].kind==='fact'&&state.v1!=='a') return;
+  if(FINDINGS[id].kind==='clarity'&&state.v3==='b') return;
+  state.pinned=id; showCard(id,sp);
+});
+function focusBalloon(id){
+  $$('.balloon',rail).forEach(b=>b.classList.toggle('focus',b.dataset.for===id));
+  setTimeout(()=>$$('.balloon.focus',rail).forEach(b=>b.classList.remove('focus')),1600);
+}
+
+/* ---------------- Cross-highlighting (panel/thread/balloon → text) ---------------- */
+function hot(id,on){ const sp=span(id); if(sp) sp.classList.toggle('is-hot',on); }
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-anchor]'); if(el&&!editor.contains(el)) hot(el.dataset.anchor,true);});
+document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-anchor]'); if(el&&!editor.contains(el)) hot(el.dataset.anchor,false);});
+
+/* ---------------- Actions ---------------- */
+function applyFix(id){
+  const sp=span(id), f=FINDINGS[id]; if(!sp||!f.suggestion) return;
+  sp.textContent=f.suggestion; sp.dataset.status='applied';
+  state.items[id].status='applied';
+  setTimeout(()=>sp.classList.add('settle'),900);
+  state.pinned=null; hideCard(true);
+  toast('Applied. Your words, one phrase tightened.');
+  rerenderAll(); scheduleReanalyze();
+}
+function keep(id){
+  const sp=span(id); if(sp) sp.dataset.status='kept';
+  state.items[id].status='kept'; state.pinned=null; hideCard(true);
+  toast('Kept as written. WordSnap won’t flag it again.');
+  rerenderAll();
+}
+document.addEventListener('click',e=>{
+  const act=e.target.closest('[data-act]');
+  if(act){ if(act.dataset.act==='apply') applyFix(act.dataset.id); else keep(act.dataset.id); return; }
+  const tog=e.target.closest('[data-toggle]');
+  if(tog){ state.open[tog.dataset.toggle]=!state.open[tog.dataset.toggle]; renderPanel(); return; }
+  const bl=e.target.closest('.balloon');
+  if(bl){ const sp=span(bl.dataset.for); if(sp){sp.classList.add('is-hot');setTimeout(()=>sp.classList.remove('is-hot'),900);} return; }
+  const x=e.target.closest('[data-x]');
+  if(x){ exportAction(x.dataset.x); return; }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.matches('[data-reply]')&&e.target.value.trim()){
+    state.threadReplies[e.target.dataset.reply]=e.target.value.trim();
+    renderThread();
+  }
+  if(e.key==='Escape'){ closeModal(); if(state.pinned){state.pinned=null;hideCard(true);} }
+});
+
+/* ---------------- Re-analysis (4A: automatic, silent) ---------------- */
+let debounce=null, runTimer=null;
+function scheduleReanalyze(){
+  clearTimeout(debounce);
+  debounce=setTimeout(runReanalyze,650);
+}
+function runReanalyze(){
+  clearTimeout(runTimer);
+  state.analyzing=true; applyVariants();
+  const st=$('#status'); if(st){st.classList.add('analyzing');st.innerHTML=statusHTML();}
+  runTimer=setTimeout(()=>{
+    Object.keys(state.items).forEach(id=>{
+      const it=state.items[id]; if(it.status!=='open') return;
+      const sp=span(id);
+      if(!sp||sp.textContent.trim()!==it.original.trim()){
+        it.status='resolved';
+        if(sp){ sp.dataset.status='resolved'; }
+      }
+    });
+    state.analyzing=false; state.lastChecked=Date.now(); applyVariants();
+    rerenderAll();
+  },1500);
+}
+editor.addEventListener('input',()=>{ scheduleReanalyze(); requestAnimationFrame(layoutBalloons); if(state.pinned){state.pinned=null;hideCard(true);} renderExportBar(); });
+setInterval(()=>{const st=$('#status'); if(st&&!state.analyzing) st.innerHTML=statusHTML();},10000);
+
+/* ---------------- Export / share ---------------- */
+function plainText(){ return $$('p',editor).map(p=>p.textContent.trim()).filter(Boolean).join('\n\n'); }
+function bodyOnly(){ return $$('p',editor).map(p=>p.textContent.trim()).filter(Boolean).slice(1,-1).join('\n\n'); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+async function copyText(txt,msg){ try{await navigator.clipboard.writeText(txt);toast(msg||'Copied to clipboard');}catch(e){toast('Copy blocked in this preview; the real extension writes to the clipboard.');} }
+function exportAction(kind){
+  if(kind==='copy') return copyText(plainText());
+  if(kind==='preview') return openModal('email');
+  if(state.v5==='b') return openModal(kind==='x'?'x':'linkedin');
+  if(kind==='x') return toast('Opened x.com composer with your text (simulated). '+(plainText().length>280?'X will reject it at 280 characters.':''));
+  if(kind==='linkedin') return toast('Opened LinkedIn share with your text (simulated).');
+}
+/* Modal (5B) */
+let mtab='email';
+function openModal(tab){ mtab=tab; $('#modal').hidden=false; renderModal(); }
+function closeModal(){ $('#modal').hidden=true; }
+$('#mclose').addEventListener('click',closeModal);
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+$('#mtabs').addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b){mtab=b.dataset.tab;renderModal();} });
+function splitForX(text,limit=270){
+  const sents=text.replace(/\n+/g,' ').match(/[^.!?]+[.!?]+["”)]?\s*|[^.!?]+$/g)||[text];
+  const posts=[]; let cur='';
+  sents.forEach(s=>{ if((cur+s).trim().length>limit&&cur){posts.push(cur.trim());cur=s;} else cur+=s; });
+  if(cur.trim()) posts.push(cur.trim());
+  return posts.map((p,i)=>`${p} (${i+1}/${posts.length})`);
+}
+function renderModal(){
+  $$('#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===mtab));
+  const body=$('#mbody'), foot=$('#mfoot');
+  const full=plainText(), words=full.split(/\s+/).filter(Boolean).length, secs=Math.round(words/230*60);
+  const openN=openFactCount();
+  const flag=openN?`<span class="flag">${openN===1?'1 fact-check flag still open':openN+' fact-check flags still open'}</span>`:`<span class="flag ok">Claims checked</span>`;
+  if(mtab==='email'){
+    body.innerHTML=`<div class="m-meta"><span><span class="n">${words}</span> words</span><span><span class="n">${secs}s</span> to read</span>${flag}</div>
+      <div class="mail"><div class="mh"><span>From</span><b>Jordan Ellis &lt;jordan@brightline.co&gt;</b><span>To</span><b>leadership@brightline.co</b><span>Subject</span><b>Proposal: a four-day week pilot for Q4</b></div>
+      <div class="mb">${$$('p',editor).map(p=>`<p>${esc(p.textContent)}</p>`).join('')}</div></div>`;
+    foot.innerHTML=`<span class="hint">This is what leadership will see. Sending stays in Gmail.</span><button class="xbtn" data-close>Back to draft</button><button class="xbtn primary" data-close>Looks right</button>`;
+  } else if(mtab==='x'){
+    const bodyTxt=bodyOnly(); const n=bodyTxt.length; const over=n>280;
+    const posts=over?splitForX(bodyTxt):[bodyTxt];
+    const f3sp=span('f3'); const f3txt=f3sp?f3sp.textContent:null;
+    body.innerHTML=`<div class="m-meta"><span><span class="n ${over?'over':''}">${n.toLocaleString()} / 280</span> characters</span>${over?`<span>Split into a thread of <span class="n">${posts.length}</span></span>`:''}${flag}</div>
+      ${posts.map((p,i)=>{const hit=isOpen('f3')&&f3txt&&p.includes(f3txt);return `<div class="post ${hit?'flag':''}"><span class="pav"></span><div class="pc"><div class="pn">Jordan Ellis<span>@jordanellis · now</span></div>${esc(p)}<div class="cnt ${p.length>280?'over':''}">${p.length} / 280</div>${hit?`<div class="pflag">Post ${i+1} still carries the contradicted claim.</div>`:''}</div></div>`;}).join('')}`;
+    foot.innerHTML=`<span class="hint">Greeting and sign-off dropped for X.</span><button class="xbtn" data-copy="thread">Copy thread</button><button class="xbtn primary" data-open="x">Open X with post 1</button>`;
+  } else {
+    const bodyTxt=bodyOnly(); const n=bodyTxt.length; const cut=210;
+    const above=bodyTxt.slice(0,cut), below=bodyTxt.slice(cut);
+    body.innerHTML=`<div class="m-meta"><span><span class="n">${n.toLocaleString()} / 3,000</span> characters</span><span>First <span class="n">${cut}</span> show before the fold</span>${flag}</div>
+      <div class="li">${esc(above)}<span class="fold"></span>${esc(below)}</div>`;
+    foot.innerHTML=`<span class="hint">Your hook is whatever lands above the fold.</span><button class="xbtn" data-copy="body">Copy for LinkedIn</button><button class="xbtn primary" data-open="linkedin">Open LinkedIn share</button>`;
+  }
+}
+$('#modal').addEventListener('click',e=>{
+  if(e.target.closest('[data-close]')) return closeModal();
+  const c=e.target.closest('[data-copy]'); if(c){ return copyText(c.dataset.copy==='thread'?splitForX(bodyOnly()).join('\n\n'):bodyOnly()); }
+  const o=e.target.closest('[data-open]'); if(o){ closeModal(); toast(o.dataset.open==='x'?'Opened x.com composer with post 1 (simulated).':'Opened LinkedIn share with your text (simulated).'); }
+});
+
+/* ---------------- Mock controls ---------------- */
+$$('.seg').forEach(seg=>seg.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  state[seg.dataset.set]=b.dataset.val; savePrefs(); state.pinned=null; hideCard(true); closeModal();
+  applyVariants(); rerenderAll();
+}));
+$('#reset').addEventListener('click',()=>{ resetEditor(); state.analyzing=false; state.lastChecked=Date.now(); applyVariants(); rerenderAll(); toast('Draft restored.'); });
+
+function rerenderAll(){ renderPanel(); renderBalloons(); renderThread(); renderExportBar(); }
+window.addEventListener('resize',()=>requestAnimationFrame(layoutBalloons));
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>requestAnimationFrame(layoutBalloons));
+
+resetEditor(); applyVariants(); rerenderAll();
+})();
+</script>
