@@ -5,8 +5,8 @@ import type { LLMProvider, PassRequest, PassResult } from '../providers/types';
 import { ProviderError } from '../providers/types';
 import { changedParagraphs } from '../shared/anchoring';
 import { estimateCostUsd } from '../shared/cost';
-import type { Claim, PassA, PassB, PassC } from '../shared/schemas';
-import type { HostId, PassId, SessionState, Settings, TextSnapshot } from '../shared/types';
+import type { Claim, PassA, PassB, PassC, Verdict } from '../shared/schemas';
+import { activeModel, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
 import type { ClaimCache } from './cache';
 import { Session } from './session';
 
@@ -147,11 +147,26 @@ export class SessionOrchestrator {
       this.emit();
       return;
     }
-    const req = buildPassB(misses, snapshot, { effort: settings.effort.B, blockedDomains: settings.blockedDomains, context: this.deps.context });
-    const res = await this.execute('B', req);
-    if (!res) return;
-    const text = this.session.snapshot?.text ?? snapshot.text;
-    const verdicts = validatePassB(res.data, misses, text, res.sourcesSeen);
+    const opts = { effort: settings.effort.B, blockedDomains: settings.blockedDomains, context: this.deps.context };
+    const text0 = () => this.session.snapshot?.text ?? snapshot.text;
+    let verdicts: Verdict[];
+    if (this.deps.provider().capabilities.researchMode === 'grounded') {
+      // One search is run per request on grounded providers, so verify one claim per request.
+      // Sequential on purpose: `execute` keeps one controller per pass so an edit cancels the whole batch.
+      verdicts = [];
+      for (const claim of misses) {
+        const res = await this.execute('B', buildPassB([claim], snapshot, opts), { keepRunning: true });
+        if (!res) return;
+        verdicts.push(...validatePassB(res.data, [claim], text0(), res.sourcesSeen));
+        this.session.attachVerdicts(verdicts);
+        this.emit();
+      }
+      this.session.setPass('B', { state: 'done', at: this.now(), detail: undefined });
+    } else {
+      const res = await this.execute('B', buildPassB(misses, snapshot, opts));
+      if (!res) return;
+      verdicts = validatePassB(res.data, misses, text0(), res.sourcesSeen);
+    }
     this.session.attachVerdicts(verdicts);
     for (const v of verdicts) {
       const claim = misses.find((c) => c.id === v.claimId);
@@ -206,7 +221,7 @@ export class SessionOrchestrator {
     }
   }
 
-  private async execute<T extends PassA | PassB | PassC>(pass: PassId, req: PassRequest<T>): Promise<PassResult<T> | null> {
+  private async execute<T extends PassA | PassB | PassC>(pass: PassId, req: PassRequest<T>, opts: { keepRunning?: boolean } = {}): Promise<PassResult<T> | null> {
     this.abort(pass);
     const controller = new AbortController();
     this.controllers[pass] = controller;
@@ -228,7 +243,7 @@ export class SessionOrchestrator {
         this.emit();
         return null;
       }
-      this.session.setPass(pass, { state: 'done', at: this.now(), detail: undefined });
+      if (!opts.keepRunning) this.session.setPass(pass, { state: 'done', at: this.now(), detail: undefined });
       return res;
     } catch (err) {
       if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return null;
@@ -271,7 +286,7 @@ export class SessionOrchestrator {
 
   private accountUsage(res: PassResult<unknown>): void {
     const settings = this.deps.settings();
-    const usd = estimateCostUsd(res.usage, settings.model);
+    const usd = estimateCostUsd(res.usage, activeModel(settings));
     const u = this.session.state.usage;
     u.inputTokens += res.usage.inputTokens;
     u.outputTokens += res.usage.outputTokens;

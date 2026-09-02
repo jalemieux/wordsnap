@@ -1,6 +1,8 @@
 // chrome.runtime.onMessage handler for the options page.
 import { ClaudeProvider } from '../providers/claude';
 import { createProvider } from '../providers';
+import { OpenRouterProvider } from '../providers/openrouter';
+import { challengeFor, codeFromRedirect, exchangeCodeForKey, makeVerifier, openRouterAuthUrl } from '../shared/pkce';
 import { ProviderError } from '../providers/types';
 import { snapshotFromText } from '../shared/anchoring';
 import type { OptionsRequest, OptionsResponse } from '../shared/messages';
@@ -17,7 +19,10 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
     case 'settings/set':
       return { type: 'settings', settings: await store.set(req.patch) };
     case 'settings/validateKey': {
-      const provider = new ClaudeProvider({ apiKey: req.apiKey, model: 'claude-opus-5', workspaceId: req.workspaceId || undefined });
+      const provider =
+        req.provider === 'openrouter'
+          ? new OpenRouterProvider({ apiKey: req.apiKey, model: 'z-ai/glm-5.2' })
+          : new ClaudeProvider({ apiKey: req.apiKey, model: 'claude-opus-5', workspaceId: req.workspaceId || undefined });
       try {
         const models = await provider.listModels();
         return { type: 'validateKey', ok: true, models };
@@ -27,8 +32,36 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
         return { type: 'validateKey', ok: false, error: pe.message, hint };
       }
     }
+    case 'openrouter/connect':
+      return connectOpenRouter(store);
     case 'sample/run':
       return { type: 'sample', state: await runSample(store, cache) };
+  }
+}
+
+/**
+ * One-click OpenRouter sign-in. OAuth PKCE through chrome.identity.launchWebAuthFlow: the user approves on
+ * openrouter.ai, the browser is redirected to the extension's chromiumapp.org URL with a single-use code,
+ * and the code is exchanged for a key the user controls from their OpenRouter account.
+ */
+export async function connectOpenRouter(store: SettingsStore, deps: { launch?: (url: string) => Promise<string>; redirectUrl?: () => string; fetchImpl?: typeof fetch } = {}): Promise<OptionsResponse> {
+  const launch = deps.launch ?? ((url: string) => chrome.identity.launchWebAuthFlow({ url, interactive: true }).then((r) => r ?? ''));
+  const redirectUrl = (deps.redirectUrl ?? (() => chrome.identity.getRedirectURL()))();
+  try {
+    const verifier = makeVerifier();
+    const challenge = await challengeFor(verifier);
+    const returned = await launch(openRouterAuthUrl(redirectUrl, challenge));
+    const code = codeFromRedirect(returned);
+    if (!code) return { type: 'connect', ok: false, error: 'OpenRouter did not return a sign-in code. Try again.' };
+    const key = await exchangeCodeForKey(code, verifier, deps.fetchImpl);
+    const current = await store.get();
+    await store.set({ provider: 'openrouter', openrouter: { ...current.openrouter, apiKey: key }, onboarded: true });
+    const models = await new OpenRouterProvider({ apiKey: key, model: current.openrouter.model, fetchImpl: deps.fetchImpl }).listModels().catch(() => []);
+    return { type: 'connect', ok: true, models };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const cancelled = /canceled|cancelled|closed by the user|did not approve/i.test(message);
+    return { type: 'connect', ok: false, error: cancelled ? 'Sign-in was cancelled.' : message };
   }
 }
 

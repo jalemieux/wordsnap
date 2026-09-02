@@ -15,6 +15,14 @@ const PRICES: Record<string, Price> = {
   'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, searchPerThousand: 10 },
   'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, searchPerThousand: 10 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, searchPerThousand: 10 },
+  // OpenRouter. `searches` counts attached web results there, billed at $4 per 1,000 results.
+  'z-ai/glm-5.2': { input: 0.966, output: 3.036, cacheRead: 0.078, searchPerThousand: 4 },
+  'z-ai/glm-5.3': { input: 1.4, output: 4.4, cacheRead: 0.28, searchPerThousand: 4 },
+  'z-ai/glm-5.3-flash': { input: 0.075, output: 0.25, cacheRead: 0.015, searchPerThousand: 4 },
+  'z-ai/glm-5.1': { input: 0.966, output: 3.036, cacheRead: 0.078, searchPerThousand: 4 },
+  'z-ai/glm-5': { input: 0.6, output: 1.92, cacheRead: 0.06, searchPerThousand: 4 },
+  'anthropic/claude-opus-5': { input: 5, output: 25, cacheRead: 0.5, searchPerThousand: 4 },
+  'anthropic/claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, searchPerThousand: 4 },
 };
 
 const DEFAULT_PRICE: Price = PRICES['claude-opus-5']!;
@@ -22,7 +30,10 @@ const DEFAULT_PRICE: Price = PRICES['claude-opus-5']!;
 export function priceFor(model: string): Price {
   if (PRICES[model]) return PRICES[model]!;
   const family = Object.keys(PRICES).find((k) => model.startsWith(k));
-  return family ? PRICES[family]! : DEFAULT_PRICE;
+  if (family) return PRICES[family]!;
+  // Unknown OpenRouter model: assume a mid-priced open model rather than Opus pricing.
+  if (model.includes('/')) return { input: 1, output: 4, cacheRead: 0.1, searchPerThousand: 4 };
+  return DEFAULT_PRICE;
 }
 
 /** USD for one pass. Cache-read tokens are assumed to be included in `inputTokens` and are re-priced at the cache rate. */

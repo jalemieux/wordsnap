@@ -183,3 +183,20 @@ describe('SessionOrchestrator', () => {
     expect(last(states).clarity.find((c) => c.id === id)!.status).toBe('kept');
   });
 });
+
+describe('grounded research providers', () => {
+  it('verifies one claim per request and keeps B running until the batch is done', async () => {
+    const provider = new MockProvider({ delayMs: 0, researchMode: 'grounded' });
+    const { orch, clock, states } = setup(provider);
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
+    await clock.advance(DEBOUNCE_MS + 10);
+    const bCalls = provider.calls.filter((c) => c.pass === 'B');
+    expect(bCalls).toHaveLength(3);
+    for (const c of bCalls) expect((c.user.match(/"id":/g) ?? []).length).toBe(1);
+    const final = states.at(-1)!;
+    expect(final.passes.B.state).toBe('done');
+    expect(final.claims.filter((c) => c.data.verdict)).toHaveLength(3);
+    // Progressive: a state was emitted with B still running and at least one verdict attached.
+    expect(states.some((s) => s.passes.B.state === 'running' && s.claims.some((c) => c.data.verdict))).toBe(true);
+  });
+});

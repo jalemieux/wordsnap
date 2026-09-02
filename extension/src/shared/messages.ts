@@ -27,13 +27,17 @@ export type BackgroundToContent =
 export type OptionsRequest =
   | { type: 'settings/get' }
   | { type: 'settings/set'; patch: Partial<Settings> }
-  | { type: 'settings/validateKey'; apiKey: string; workspaceId?: string }
+  | { type: 'settings/validateKey'; provider: 'claude' | 'openrouter'; apiKey: string; workspaceId?: string }
+  /** One-click OpenRouter sign-in (OAuth PKCE via chrome.identity). Stores the resulting key on success. */
+  | { type: 'openrouter/connect' }
   | { type: 'sample/run' };
 
 export type OptionsResponse =
   | { type: 'settings'; settings: Settings }
   | { type: 'validateKey'; ok: true; models: { id: string; displayName: string }[] }
   | { type: 'validateKey'; ok: false; error: string; hint?: 'workspace' | 'billing' | 'auth' | 'network' }
+  | { type: 'connect'; ok: true; models: { id: string; displayName: string }[] }
+  | { type: 'connect'; ok: false; error: string }
   | { type: 'sample'; state: SessionState }
   | { type: 'error'; message: string };
 

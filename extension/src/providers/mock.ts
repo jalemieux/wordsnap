@@ -6,6 +6,8 @@ import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from 
 export interface MockProviderOptions {
   delayMs?: number;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  /** Pretend to be a grounded (one search per request) provider, to exercise per-claim fan-out. */
+  researchMode?: 'tool' | 'grounded' | 'none';
 }
 
 function defaultSleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -37,7 +39,7 @@ const MOCK_USAGE: Record<'A' | 'B' | 'C', PassUsage> = {
 
 export class MockProvider implements LLMProvider {
   readonly id = 'mock' as const;
-  readonly capabilities = { streaming: true, structuredOutput: true, webSearch: true };
+  readonly capabilities: { streaming: boolean; structuredOutput: boolean; webSearch: boolean; researchMode: 'tool' | 'grounded' | 'none' } = { streaming: true, structuredOutput: true, webSearch: true, researchMode: 'tool' };
   private readonly delayMs: number;
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   /** Every request seen, for tests. */
@@ -46,6 +48,7 @@ export class MockProvider implements LLMProvider {
   constructor(opts: MockProviderOptions = {}) {
     this.delayMs = opts.delayMs ?? 300;
     this.sleep = opts.sleep ?? defaultSleep;
+    if (opts.researchMode) this.capabilities.researchMode = opts.researchMode;
   }
 
   async listModels() {

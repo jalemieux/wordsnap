@@ -6,6 +6,12 @@ export interface ProviderCapabilities {
   streaming: boolean;
   structuredOutput: boolean;
   webSearch: boolean;
+  /**
+   * 'tool': the model decides when to search and can issue several queries per request (Claude web_search).
+   * 'grounded': one search is run up front on the request text and the results are attached (OpenRouter web plugin).
+   * Grounded research is more accurate when pass B is fanned out one claim per request.
+   */
+  researchMode: 'tool' | 'grounded' | 'none';
 }
 
 export interface ResearchBudget {
@@ -47,7 +53,7 @@ export type PassEvent =
   | { type: 'usage'; usage: Partial<PassUsage> };
 
 export interface LLMProvider {
-  id: 'claude' | 'mock';
+  id: 'openrouter' | 'claude' | 'mock';
   capabilities: ProviderCapabilities;
   runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>>;
   /** Used by settings to validate credentials and populate the model list. */

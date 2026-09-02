@@ -100,7 +100,7 @@ h1.title{font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.02em;fo
       <span>status</span><b>draft for developer review</b>
       <span>date</span><b>2026-09-02</b>
       <span>target</span><b>Chrome, Manifest V3</b>
-      <span>provider</span><b>Claude, user's own key</b>
+      <span>provider</span><b>OpenRouter (GLM 5.2 via Z.AI), Claude optional</b>
     </div>
   </header>
   <div class="grid">
@@ -162,9 +162,9 @@ The user's words stay in the host editor. WordSnap draws over them and only writ
 These came out of the design sessions and are not open:
 
 - Browser extension first. Chrome (Manifest V3) only for v1. Safari is the next target and the design keeps that door open (section 2); Firefox later.
-- No local inference. The user configures an LLM provider in settings. Claude is the first and only provider in v1, with the user's own API key.
-- Research uses Claude's native `web_search` server tool only. No separate search API (Brave was considered and dropped: no free tier since February 2026, and a shared key would need a server).
-- Onboarding is guided bring-your-own-key. Consumer Claude OAuth is prohibited for third-party apps and there is no third-party OAuth for Console accounts, so the extension walks the user to a Console key and validates it on paste.
+- No local inference. The user configures an LLM provider in settings. **OpenRouter is the default provider** (GLM 5.2 served by Z.AI), connected with one click through OpenRouter's OAuth PKCE flow so no key is copied. Anthropic with the user's own API key remains available. Claude Code and claude.ai logins are not usable by third-party apps and are not offered.
+- Research is provider-native: OpenRouter's web plugin (one grounded search per request, citations returned as annotations) or Claude's `web_search` server tool. No separate search API (Brave was considered and dropped: no free tier since February 2026, and a shared key would need a server).
+- Onboarding is one click: Connect OpenRouter (OAuth PKCE via `chrome.identity.launchWebAuthFlow`, code exchanged for a user-controlled key). Pasting an OpenRouter or Anthropic key is the fallback.
 - Commercial path, not v1: a hosted WordSnap service running the agent harness, calling models and web search with WordSnap's own keys behind WordSnap sign-in. The provider layer (section 6) treats it as one more provider so nothing in v1 has to be rewritten.
 - UX: inline fact-check highlights with hover cards (1A), a docked Challenges panel (2B), Apply/Keep buttons with a diff preview (3A), automatic silent re-analysis on edit (4A), a direct share bar with an optional Preview modal (5A with 5B on demand).
 - Voice preservation is a hard constraint. A suggestion may only replace the quoted span, must stay within about 1.3x its length, and must keep the writer's register. "Here is the gap" beats "here is your new sentence."
@@ -296,7 +296,17 @@ interface LLMProvider {
 
 `PassRequest` carries the pass ID, system prompt, user content, a Zod schema for the result, and a research budget. A provider without `webSearch` degrades pass B to "claims extracted, not verified" and pass C to reasoning without sources, and the UI labels them as such. That is how a second provider ships without touching the passes.
 
-### Claude adapter
+### OpenRouter adapter (default)
+
+- Plain `fetch` against `https://openrouter.ai/api/v1/chat/completions`, streaming SSE, `usage: {include: true}`. No SDK; keeps the background bundle small.
+- Model from settings, default `z-ai/glm-5.2`. Provider routing `provider: { order: ['z-ai'], allow_fallbacks: false }` when the user keeps the Z.AI pin, so requests never fall through to a quantized third-party host.
+- Research passes add `plugins: [{ id: 'web', max_results: N }]` (default 5, $4 per 1,000 results). The plugin runs one search on the request text, so pass B is fanned out one claim per request (`researchMode: 'grounded'` in the provider capabilities; the orchestrator handles it). Citations arrive as `url_citation` annotations and populate `sourcesSeen` for the allowlist gate.
+- Structured output: the Z.AI endpoint accepts `response_format` but does not enforce JSON Schema, so the schema is embedded in the system prompt, `json_object` mode is requested, the response is parsed leniently (fences, surrounding prose) and validated with Zod, and one repair request without research fixes a non-conforming answer. Endpoints that report `structured_outputs` can switch to strict `json_schema` mode.
+- `reasoning: { effort }` maps the per-pass effort setting.
+- Errors: 401/403 auth, 402 billing (credits), 429 rate limit with `retry-after`, 5xx network, mid-stream `error` chunks surfaced as provider errors.
+- Sign-in: `chrome.identity.launchWebAuthFlow` opens `https://openrouter.ai/auth?callback_url=<extension redirect>&code_challenge=…&code_challenge_method=S256`; the single-use code (10-minute expiry) is exchanged at `POST /api/v1/auth/keys` with the verifier for a key the user can see and revoke in their OpenRouter account. Needs the `identity` permission and `https://openrouter.ai/*` host permission.
+
+### Claude adapter (alternative)
 
 - Package `@anthropic-ai/sdk`, pinned. Construct with `dangerouslyAllowBrowser: true`; the extension background is a browser context and the SDK refuses to run there otherwise. Also set the header `anthropic-dangerous-direct-browser-access: true` explicitly in `defaultHeaders` so the API's CORS check passes regardless of how the SDK detects the environment. Verify against the pinned SDK version in M0.
 - Model: `claude-opus-5` for all three passes by default. Thinking is adaptive by default on this model; do not send a `thinking` parameter. Effort per pass through `output_config.effort`: A `low`, B `high`, C `high`. Settings expose the model as a dropdown populated from `client.models.list()` so a cheaper model is a user choice, not a code change.
@@ -307,15 +317,15 @@ interface LLMProvider {
 - Prompt caching: the system prompt and the tool list are stable byte-for-byte and carry a `cache_control` breakpoint; the draft text is the volatile tail. Never put a timestamp in the system prompt.
 - Zero data retention: Opus 5 is eligible; note in settings copy that the text goes to the user's own Anthropic account under that account's retention terms.
 
-### Onboarding (guided BYOK)
+### Onboarding
 
-The options page opens on first install with one path and no branching:
+The options page opens on first install with three steps:
 
-1. **Get a key.** One button opens `platform.claude.com/settings/keys` in a new tab with a short note on what to pick: a personal key, scoped to a workspace, with an expiration the user is comfortable with.
-2. **Paste.** On paste the background calls `client.models.list()`. Success shows the model dropdown populated from the response and a green check within a second; a 401 says the key is wrong, a 400 mentioning workspace asks for the workspace ID, a 403 or billing error links to the Console billing page.
-3. **Try it.** A built-in sample draft runs pass A immediately so the user sees a finding before they ever open Gmail.
+1. **Connect a provider.** One button, Connect OpenRouter, runs the OAuth PKCE flow in a popup; the user signs in or creates an OpenRouter account, approves, and the key lands in `chrome.storage.local` without being shown. Under the button, a collapsed "paste a key instead" section accepts an OpenRouter or Anthropic key, validated on paste with specific messages for a rejected key, a missing workspace ID, or missing credits.
+2. **Pick a model.** Dropdown populated from the provider, defaulting to GLM 5.2 on OpenRouter or Claude Opus 5 on Anthropic.
+3. **Try it.** The sample draft runs all three passes so the user sees findings before opening Gmail.
 
-The key is stored in `chrome.storage.local`, redacted after save, and shown as a running cost estimate from `usage` on later responses. Target: under five minutes for someone with no Console account, under one minute for someone with one.
+Target: under a minute for someone with an OpenRouter account, under three for someone without one.
 
 ### Later: hosted WordSnap service
 

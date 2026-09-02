@@ -6,7 +6,7 @@ An AI layer that helps you sharpen your own argument before you send it. Not a g
 - Fact check: every checkable claim, with sources and confidence.
 - Counterargument: the strongest rebuttal, blind spots, gaps.
 
-Your text goes only to the LLM provider you configure, from your own account. There is no WordSnap server.
+Your text goes only to the LLM provider you configure, from your own account. There is no WordSnap server. The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click; an Anthropic API key also works.
 
 ## In this repo
 
@@ -22,7 +22,7 @@ npm install
 npm run build          # production build to extension/dist
 ```
 
-Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). Click the WordSnap icon to open settings, paste an Anthropic API key, and open a Gmail compose window with at least 40 words.
+Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). Click the WordSnap icon to open settings, press **Connect OpenRouter** (or paste an OpenRouter or Anthropic key), and open a Gmail compose window with at least 40 words.
 
 ## Develop
 
@@ -44,7 +44,7 @@ extension/src
   content/      content script: text snapshots, offset maps, session client, share helpers
   adapters/     host adapters: gmail, x, linkedin, generic
   passes/       prompts, request builders, post-validation rules
-  providers/    LLM providers: claude (streaming, web search, structured output), mock
+  providers/    LLM providers: openrouter (default; web plugin, provider routing, JSON repair), claude, mock
   ui/           overlay (highlights, hover card, challenges panel, export bar, preview modal)
   options/      settings page with guided key onboarding
   shared/       schemas, types, message protocol, anchoring, cost, sample draft

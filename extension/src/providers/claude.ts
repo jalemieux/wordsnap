@@ -39,7 +39,7 @@ const MAX_TOKENS = 16000;
 
 export class ClaudeProvider implements LLMProvider {
   readonly id = 'claude' as const;
-  readonly capabilities = { streaming: true, structuredOutput: true, webSearch: true };
+  readonly capabilities = { streaming: true, structuredOutput: true, webSearch: true, researchMode: 'tool' as const };
   private readonly client: ClaudeClientLike;
   private readonly model: string;
   private readonly maxContinuations: number;

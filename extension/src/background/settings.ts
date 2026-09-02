@@ -18,7 +18,7 @@ export class SettingsStore {
 
   async set(patch: Partial<Settings>): Promise<Settings> {
     const current = await this.get();
-    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) } });
+    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) }, openrouter: { ...current.openrouter, ...(patch.openrouter ?? {}) } });
     this.cache = next;
     await this.storage.set(SETTINGS_KEY, next);
     for (const l of this.listeners) l(next);
@@ -50,5 +50,6 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
     blockedDomains: Array.isArray(partial.blockedDomains) ? partial.blockedDomains : [],
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : '',
     model: partial.model || DEFAULT_SETTINGS.model,
+    openrouter: { ...DEFAULT_SETTINGS.openrouter, ...(partial.openrouter ?? {}) },
   };
 }

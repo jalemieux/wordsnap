@@ -72,11 +72,26 @@ export interface SessionState {
   usage: Usage;
 }
 
+export type ProviderId = 'openrouter' | 'claude' | 'mock';
+
+export interface OpenRouterSettings {
+  apiKey: string;
+  model: string;
+  /** Provider slugs to pin, in order. Empty means let OpenRouter choose. */
+  providerOrder: string[];
+  /** When false, a request fails rather than falling through to another provider. */
+  allowFallbacks: boolean;
+  /** Web results attached per research request (OpenRouter's web plugin, $4 per 1,000 results). */
+  webResults: number;
+}
+
 export interface Settings {
-  provider: 'claude' | 'mock';
+  provider: ProviderId;
+  /** Anthropic key, model and workspace (used when provider === 'claude'). */
   apiKey: string;
   model: string;
   workspaceId: string;
+  openrouter: OpenRouterSettings;
   blockedDomains: string[];
   enabledHosts: Record<HostId, boolean>;
   effort: Record<PassId, Effort>;
@@ -85,11 +100,20 @@ export interface Settings {
   onboarded: boolean;
 }
 
+export const DEFAULT_OPENROUTER: OpenRouterSettings = {
+  apiKey: '',
+  model: 'z-ai/glm-5.2',
+  providerOrder: ['z-ai'],
+  allowFallbacks: false,
+  webResults: 5,
+};
+
 export const DEFAULT_SETTINGS: Settings = {
-  provider: 'claude',
+  provider: 'openrouter',
   apiKey: '',
   model: 'claude-opus-5',
   workspaceId: '',
+  openrouter: { ...DEFAULT_OPENROUTER },
   blockedDomains: [],
   enabledHosts: { gmail: true, x: true, linkedin: true, generic: false },
   effort: { A: 'low', B: 'high', C: 'high' },
@@ -114,4 +138,9 @@ export function emptySession(sessionKey: string, host: HostId): SessionState {
     passes: { A: { ...EMPTY_PASSES.A }, B: { ...EMPTY_PASSES.B }, C: { ...EMPTY_PASSES.C } },
     usage: { inputTokens: 0, outputTokens: 0, searches: 0, estCostUsd: 0 },
   };
+}
+
+/** The model the active provider will use. */
+export function activeModel(s: Settings): string {
+  return s.provider === 'openrouter' ? s.openrouter.model : s.model;
 }

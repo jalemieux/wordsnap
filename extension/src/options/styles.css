@@ -59,3 +59,10 @@ h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mute
 .chip.challenge{color:var(--muted)}
 .dev{font-size:11px;color:var(--faint);font-family:var(--mono)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+
+/* provider connect */
+details.alt { margin-top: 10px; }
+details.alt > summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details.alt > summary:hover { color: var(--ink); }
+.btn.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-bg); }
+.step.pending { opacity: 0.55; }
