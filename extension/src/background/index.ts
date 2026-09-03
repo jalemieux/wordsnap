@@ -19,7 +19,33 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') void chrome.runtime.openOptionsPage();
+  // Content scripts only auto-inject into pages loaded after this point. Attach to tabs that are already open
+  // (Gmail tabs live for days), so an install or a dev reload takes effect without a page refresh.
+  void injectIntoOpenTabs();
 });
+
+async function injectIntoOpenTabs(): Promise<void> {
+  const scripts = chrome.runtime.getManifest().content_scripts ?? [];
+  for (const cs of scripts) {
+    const matches = cs.matches ?? [];
+    const files = cs.js ?? [];
+    if (!matches.length || !files.length) continue;
+    let tabs: chrome.tabs.Tab[] = [];
+    try {
+      tabs = await chrome.tabs.query({ url: matches });
+    } catch {
+      continue;
+    }
+    for (const tab of tabs) {
+      if (tab.id === undefined) continue;
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: false }, files });
+      } catch {
+        /* tab not scriptable (chrome://, discarded, or no permission); skip */
+      }
+    }
+  }
+}
 
 chrome.action.onClicked.addListener(() => {
   void chrome.runtime.openOptionsPage();

@@ -30,7 +30,7 @@ function installChrome() {
     ports.push(port);
     return port;
   });
-  (globalThis as unknown as { chrome: unknown }).chrome = { runtime: { connect } };
+  (globalThis as unknown as { chrome: unknown }).chrome = { runtime: { id: 'test-extension', connect } };
   return { ports, connect };
 }
 
@@ -83,6 +83,7 @@ describe('SessionClient', () => {
   it('reports an error instead of throwing when the extension context is gone', () => {
     (globalThis as unknown as { chrome: unknown }).chrome = {
       runtime: {
+        id: 'test-extension',
         connect: () => {
           throw new Error('Extension context invalidated.');
         },

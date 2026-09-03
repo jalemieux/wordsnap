@@ -14,6 +14,7 @@ export class SessionClient {
   private stateCbs = new Set<(s: SessionState) => void>();
   private disabledCbs = new Set<(r: DisabledReason) => void>();
   private configCbs = new Set<(c: { autoAnalyze: boolean }) => void>();
+  private lostCbs = new Set<() => void>();
   private errorCbs = new Set<(m: string) => void>();
 
   constructor(private readonly open: OpenMessage) {
@@ -32,7 +33,7 @@ export class SessionClient {
     } catch (e) {
       // Extension was reloaded or removed; this content script is orphaned.
       this.closed = true;
-      this.errorCbs.forEach((cb) => cb('WordSnap was updated. Reload the page to continue.'));
+      this.lostCbs.forEach((cb) => cb());
       return;
     }
     this.port = port;
@@ -41,6 +42,12 @@ export class SessionClient {
       log.warn('port to the background closed' + (chrome.runtime.lastError ? `: ${chrome.runtime.lastError.message}` : ''));
       this.port = null;
       if (this.closed) return;
+      if (!chrome.runtime?.id) {
+        // Extension context invalidated: the extension was reloaded or updated under this page.
+        this.closed = true;
+        this.lostCbs.forEach((cb) => cb());
+        return;
+      }
       // The service worker may have been evicted; reconnect once and replay what it needs.
       if (!this.reconnected) {
         this.reconnected = true;
@@ -83,6 +90,12 @@ export class SessionClient {
     this.stateCbs.add(cb);
     return () => this.stateCbs.delete(cb);
   }
+  /** The extension was reloaded or removed while this page stayed open. The overlay should remove itself. */
+  onLost(cb: () => void): () => void {
+    this.lostCbs.add(cb);
+    return () => this.lostCbs.delete(cb);
+  }
+
   onConfig(cb: (c: { autoAnalyze: boolean }) => void): () => void {
     this.configCbs.add(cb);
     return () => this.configCbs.delete(cb);

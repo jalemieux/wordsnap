@@ -22,6 +22,7 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+let stopScanning: (() => void) | null = null;
 
 function newSessionKey(adapter: HostAdapter, handle: ComposerHandle): string {
   return `${adapter.id}:${handle.key}:${Date.now().toString(36)}`;
@@ -90,6 +91,11 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
     log.info(`state v${state.snapshotVersion}: A=${p.A.state} B=${p.B.state} C=${p.C.state}`, p.A.error ?? p.B.error ?? p.C.error ?? '');
     overlay.update(state);
   });
+  const unsubLost = client.onLost(() => {
+    log.warn('WordSnap was reloaded or updated; removing this stale overlay. The new version attaches on its own.');
+    for (const s of Array.from(sessions.values())) s.teardown();
+    stopScanning?.();
+  });
   const unsubConfig = client.onConfig((c) => {
     autoAnalyze = c.autoAnalyze;
     if (autoAnalyze && !sentInitial) send(handle.getSnapshot(), 'initial');
@@ -120,6 +126,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
     sessions.delete(sessionKey);
     if (debounce) clearTimeout(debounce);
     unsubState();
+    unsubLost();
     unsubConfig();
     unsubDisabled();
     unsubError();
@@ -192,12 +199,22 @@ export function main(): void {
     }, SCAN_THROTTLE_MS);
   });
   mo.observe(document.body ?? document.documentElement, { childList: true, subtree: true });
+  stopScanning = () => {
+    mo.disconnect();
+    if (timer) clearTimeout(timer);
+    stopScanning = null;
+  };
   window.addEventListener('pagehide', () => {
     for (const s of Array.from(sessions.values())) s.teardown();
   });
 }
 
 if (typeof document !== 'undefined' && !(globalThis as { __WORDSNAP_NO_AUTOSTART__?: boolean }).__WORDSNAP_NO_AUTOSTART__) {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => main(), { once: true });
-  else main();
+  // Guard against running twice in one world (manifest injection plus scripting.executeScript on install).
+  const g = globalThis as { __wordsnapStarted?: boolean };
+  if (!g.__wordsnapStarted) {
+    g.__wordsnapStarted = true;
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => main(), { once: true });
+    else main();
+  }
 }
