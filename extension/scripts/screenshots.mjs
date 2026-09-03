@@ -4,7 +4,7 @@
 import { chromium } from '@playwright/test';
 import path from 'node:path';
 const dist = path.resolve('dist');
-const ctx = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`], viewport: { width: 1400, height: 900 } });
+const ctx = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`], viewport: { width: Number(process.env.W ?? 1400), height: Number(process.env.H ?? 900) } });
 let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent('serviceworker');
 const id = sw.url().split('/')[2];
 const opt = await ctx.newPage(); await opt.goto(`chrome-extension://${id}/options.html`);

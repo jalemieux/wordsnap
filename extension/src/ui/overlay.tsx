@@ -24,6 +24,9 @@ interface Layout {
   viewport: { width: number; height: number };
   rects: Record<string, RectLike[]>;
   panel: Record<string, string>;
+  /** Panel box in viewport coordinates, so other pieces can stay out of its way. */
+  panelBox: RectLike;
+  docked: boolean;
   exportStyle: Record<string, string> | null; // null -> render inside the panel
 }
 
@@ -85,19 +88,26 @@ function computeLayout(handle: ComposerHandle, state: SessionState): Layout {
 
   const roomRight = viewport.width - (anchor.left + anchor.width);
   const docked = roomRight >= PANEL_W + PANEL_GAP + 8 && anchor.height >= 240;
-  const panel: Record<string, string> = docked
-    ? {
-        left: `${anchor.left + anchor.width + PANEL_GAP}px`,
-        top: `${Math.max(8, anchor.top)}px`,
-        maxHeight: `${Math.min(anchor.height, viewport.height - Math.max(8, anchor.top) - 16)}px`,
-      }
-    : { right: '16px', bottom: '16px', maxHeight: '70vh' };
+  let panel: Record<string, string>;
+  let panelBox: RectLike;
+  if (docked) {
+    const top = Math.max(8, anchor.top);
+    const maxH = Math.min(anchor.height, viewport.height - top - 16);
+    panel = { left: `${anchor.left + anchor.width + PANEL_GAP}px`, top: `${top}px`, maxHeight: `${maxH}px` };
+    panelBox = { left: anchor.left + anchor.width + PANEL_GAP, top, width: PANEL_W, height: maxH };
+  } else {
+    const maxH = Math.round(viewport.height * 0.7);
+    panel = { right: '16px', bottom: '16px', maxHeight: `${maxH}px` };
+    panelBox = { left: viewport.width - 16 - PANEL_W, top: viewport.height - 16 - maxH, width: PANEL_W, height: maxH };
+  }
 
+  // The export bar hangs under a popup compose when the panel is docked beside it. Inline replies and cramped
+  // layouts have host toolbars right under the editor, so there it lives in the panel footer instead.
   const belowFits = viewport.height - (anchor.top + anchor.height) >= EXPORT_H + 8;
-  const exportStyle = belowFits
+  const exportStyle = docked && belowFits
     ? { left: `${anchor.left}px`, top: `${anchor.top + anchor.height + 6}px`, width: `${anchor.width}px` }
     : null;
-  return { anchor, viewport, rects, panel, exportStyle };
+  return { anchor, viewport, rects, panel, panelBox, docked, exportStyle };
 }
 
 function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void }) {
@@ -174,7 +184,7 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
 
   const anchorRect = active ? layout.rects[active.f.id]?.[0] : undefined;
 
-  const launcher = <Launcher state={state} anchor={layout.anchor} open={open} onToggle={() => setOpen(!open)} />;
+  const launcher = <Launcher state={state} anchor={layout.anchor} avoid={open ? layout.panelBox : undefined} open={open} onToggle={() => setOpen(!open)} />;
   if (!open) return <div class="ws-root">{launcher}</div>;
 
   return (
