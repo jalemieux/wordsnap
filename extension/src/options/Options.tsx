@@ -457,6 +457,17 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
       </div>
 
       <div class="card">
+        <h3>When to analyze</h3>
+        <div class="checks">
+          <label>
+            <input type="checkbox" checked={settings.autoAnalyze} onChange={(e) => void save({ autoAnalyze: (e.target as HTMLInputElement).checked })} />
+            Start on its own once a draft passes 40 words
+          </label>
+        </div>
+        <p class="msg muted" style={{ marginTop: '6px' }}>Off by default: WordSnap shows a small badge on the compose window and waits until you click it.</p>
+      </div>
+
+      <div class="card">
         <h3>Sites</h3>
         <div class="checks">
           {HOSTS.map((h) => (

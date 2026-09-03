@@ -9,7 +9,8 @@ import { SessionClient } from './session-client';
 import { shareBody, shareUrl } from './share';
 import { log } from '../shared/log';
 
-const MIN_WORDS = 40;
+const MIN_WORDS = 40; // auto mode
+const MIN_WORDS_MANUAL = 8; // after the user clicks the badge
 const EDIT_DEBOUNCE_MS = 800;
 const SCAN_THROTTLE_MS = 250;
 
@@ -31,11 +32,16 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
   const client = new SessionClient({ type: 'session/open', sessionKey, host: adapter.id, platform: handle.platform });
   let sentInitial = false;
   let debounce: ReturnType<typeof setTimeout> | null = null;
+  // Analysis is armed by the user clicking the badge, or by the autoAnalyze setting (delivered via session/config).
+  let armed = false;
+  let autoAnalyze = false;
 
   const send = (snapshot: TextSnapshot, reason: 'initial' | 'edit') => {
+    if (!armed && !autoAnalyze) return;
     const words = countWords(snapshot.text);
-    if (words < MIN_WORDS && !sentInitial) {
-      log.info(`composer ${handle.key}: ${words} words, waiting for ${MIN_WORDS} before analyzing`);
+    const min = armed ? MIN_WORDS_MANUAL : MIN_WORDS;
+    if (words < min && !sentInitial) {
+      log.info(`composer ${handle.key}: ${words} words, waiting for ${min} before analyzing`);
       return;
     }
     if (!sentInitial) {
@@ -68,13 +74,25 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
         const text = shareBody(handle.getSnapshot());
         window.open(shareUrl(target, text), '_blank', 'noopener');
       },
+      onOpenChange(open) {
+        if (!open) return;
+        if (!armed) log.info(`composer ${handle.key}: analysis armed by the user`);
+        armed = true;
+        if (debounce) clearTimeout(debounce);
+        send(handle.getSnapshot(), sentInitial ? 'edit' : 'initial');
+      },
     },
+    minWords: MIN_WORDS_MANUAL,
   });
 
   const unsubState = client.onState((state) => {
     const p = state.passes;
     log.info(`state v${state.snapshotVersion}: A=${p.A.state} B=${p.B.state} C=${p.C.state}`, p.A.error ?? p.B.error ?? p.C.error ?? '');
     overlay.update(state);
+  });
+  const unsubConfig = client.onConfig((c) => {
+    autoAnalyze = c.autoAnalyze;
+    if (autoAnalyze && !sentInitial) send(handle.getSnapshot(), 'initial');
   });
   const unsubDisabled = client.onDisabled((reason) => {
     log.warn(`session disabled (${reason}). ${reason === 'no-key' ? 'Connect a provider in WordSnap settings.' : 'This site is turned off in WordSnap settings.'}`);
@@ -102,6 +120,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
     sessions.delete(sessionKey);
     if (debounce) clearTimeout(debounce);
     unsubState();
+    unsubConfig();
     unsubDisabled();
     unsubError();
     unsubChange();

@@ -11,6 +11,8 @@ export interface OverlayCallbacks {
   onCopy(): Promise<void>;
   /** Open a platform share target with the current text. */
   onShare(target: 'x' | 'linkedin'): void;
+  /** The user opened (true) or collapsed (false) the panel from the launcher badge. */
+  onOpenChange?(open: boolean): void;
 }
 
 export interface OverlayController {
@@ -18,6 +20,8 @@ export interface OverlayController {
   update(state: SessionState): void;
   /** Recompute highlight geometry (scroll, resize, editor mutation). */
   relayout(): void;
+  /** Show or collapse the panel, highlights and export bar. The launcher badge is always visible. */
+  setOpen(open: boolean): void;
   destroy(): void;
 }
 
@@ -26,6 +30,10 @@ export interface MountOverlayOptions {
   callbacks: OverlayCallbacks;
   /** Initial state; the controller renders an empty shell until the first update. */
   initial?: SessionState;
+  /** Start with the panel open. Default false: only the launcher badge shows. */
+  startOpen?: boolean;
+  /** Words needed before analysis starts; shown in the panel while the draft is shorter. */
+  minWords?: number;
 }
 
 /** Implemented in src/ui/overlay.tsx. Mounts a closed Shadow DOM on document.documentElement. */

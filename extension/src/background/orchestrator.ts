@@ -60,7 +60,8 @@ export class SessionOrchestrator {
   }
 
   /** New text from the content script. Debounced; an in-flight pass A is cancelled. */
-  handleSnapshot(snapshot: TextSnapshot): void {
+  /** `immediate` skips the edit debounce: used for the first snapshot after the user asks for an analysis. */
+  handleSnapshot(snapshot: TextSnapshot, immediate = false): void {
     if (this.closed) return;
     this.session.applySnapshot(snapshot);
     this.pendingSnapshot = snapshot;
@@ -70,6 +71,11 @@ export class SessionOrchestrator {
     if (this.retryHandle) {
       this.timers.clearTimeout(this.retryHandle);
       this.retryHandle = null;
+    }
+    if (immediate) {
+      this.debounceHandle = null;
+      void this.run();
+      return;
     }
     this.debounceHandle = this.timers.setTimeout(() => {
       this.debounceHandle = null;

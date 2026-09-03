@@ -20,6 +20,8 @@ export type ContentToBackground =
 /** Background -> content script (over the port). */
 export type BackgroundToContent =
   | { type: 'session/state'; sessionKey: string; state: SessionState }
+  /** Sent once after session/open: per-session behaviour derived from settings. */
+  | { type: 'session/config'; sessionKey: string; autoAnalyze: boolean }
   | { type: 'session/error'; sessionKey: string; message: string }
   | { type: 'session/disabled'; sessionKey: string; reason: 'no-key' | 'host-disabled' };
 

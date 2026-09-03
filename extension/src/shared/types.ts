@@ -98,6 +98,8 @@ export interface Settings {
   /** running estimate across all sessions, in USD */
   lifetimeCostUsd: number;
   onboarded: boolean;
+  /** Analyze as soon as a draft passes the word threshold. Off by default: WordSnap waits for a click on its badge. */
+  autoAnalyze: boolean;
 }
 
 export const DEFAULT_OPENROUTER: OpenRouterSettings = {
@@ -119,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effort: { A: 'low', B: 'high', C: 'high' },
   lifetimeCostUsd: 0,
   onboarded: false,
+  autoAnalyze: false,
 };
 
 export const EMPTY_PASSES: Record<PassId, PassStatus> = {

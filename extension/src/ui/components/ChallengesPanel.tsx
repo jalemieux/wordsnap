@@ -11,10 +11,14 @@ export interface ChallengesPanelProps {
   onHot: (ids: string[]) => void;
   /** Rendered at the bottom of the panel (the export bar when it does not fit under the composer). */
   footer?: ComponentChildren;
+  onClose?: () => void;
+  /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
+  wordCount?: number;
+  minWords?: number;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, footer, now }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, footer, now, onClose, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -26,9 +30,17 @@ export function ChallengesPanel({ state, style, onHot, footer, now }: Challenges
         <Mark />
         <span class="ws-name">WordSnap</span>
         <StatusPill state={state} now={now} />
+        {onClose ? (
+          <button class="ws-close" onClick={onClose} aria-label="Hide WordSnap" title="Hide WordSnap">
+            ✕
+          </button>
+        ) : null}
       </div>
       <div class={`ws-progress${running ? ' running' : ''}`} />
       {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} /> : null}
+      {!running && !state.argument && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error') ? (
+        <IdleHint wordCount={wordCount ?? 0} minWords={minWords ?? 8} />
+      ) : null}
       <div class="ws-summary">
         <span>
           <b>{c.checked}</b> claims checked
@@ -134,6 +146,23 @@ function PassProgress({ state }: { state: SessionState }) {
         })}
       </ul>
       <p class="ws-firstrun-note">Fact checks search the web, so the first pass on a new draft can take up to a minute. Findings appear as each pass finishes.</p>
+    </div>
+  );
+}
+
+function IdleHint({ wordCount, minWords }: { wordCount: number; minWords: number }) {
+  const missing = Math.max(0, minWords - wordCount);
+  return (
+    <div class="ws-idle" role="status">
+      {missing > 0 ? (
+        <>
+          <b>Write {missing} more {missing === 1 ? 'word' : 'words'}</b> and WordSnap will start. It reads for clarity, checks facts against the web and argues back.
+        </>
+      ) : (
+        <>
+          <b>Starting…</b> WordSnap reads for clarity, checks facts against the web and argues back.
+        </>
+      )}
     </div>
   );
 }

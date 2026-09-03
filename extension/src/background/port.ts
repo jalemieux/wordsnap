@@ -66,6 +66,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             });
             sessions.set(raw.sessionKey, orch);
             log.info(`session ${raw.sessionKey} open (${raw.host}, provider ${settings.provider})`);
+            send({ type: 'session/config', sessionKey: raw.sessionKey, autoAnalyze: settings.autoAnalyze });
             send({ type: 'session/state', sessionKey: raw.sessionKey, state: orch.state });
             return;
           }
@@ -76,7 +77,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               return;
             }
             log.info(`session ${raw.sessionKey}: snapshot v${raw.snapshot.version} (${raw.snapshot.text.split(/\s+/).filter(Boolean).length} words, ${raw.reason})`);
-            orch.handleSnapshot(raw.snapshot);
+            orch.handleSnapshot(raw.snapshot, raw.reason === 'initial');
             return;
           }
           case 'finding/action': {

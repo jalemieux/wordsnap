@@ -13,6 +13,7 @@ export class SessionClient {
   private lastSnapshot: TextSnapshot | null = null;
   private stateCbs = new Set<(s: SessionState) => void>();
   private disabledCbs = new Set<(r: DisabledReason) => void>();
+  private configCbs = new Set<(c: { autoAnalyze: boolean }) => void>();
   private errorCbs = new Set<(m: string) => void>();
 
   constructor(private readonly open: OpenMessage) {
@@ -64,6 +65,9 @@ export class SessionClient {
       case 'session/error':
         this.errorCbs.forEach((cb) => cb(msg.message));
         break;
+      case 'session/config':
+        this.configCbs.forEach((cb) => cb({ autoAnalyze: msg.autoAnalyze }));
+        break;
     }
   }
 
@@ -79,6 +83,11 @@ export class SessionClient {
     this.stateCbs.add(cb);
     return () => this.stateCbs.delete(cb);
   }
+  onConfig(cb: (c: { autoAnalyze: boolean }) => void): () => void {
+    this.configCbs.add(cb);
+    return () => this.configCbs.delete(cb);
+  }
+
   onDisabled(cb: (r: DisabledReason) => void): () => void {
     this.disabledCbs.add(cb);
     return () => this.disabledCbs.delete(cb);

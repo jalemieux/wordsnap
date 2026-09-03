@@ -22,7 +22,7 @@ npm install
 npm run build          # production build to extension/dist
 ```
 
-Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). Click the WordSnap icon to open settings, press **Connect OpenRouter** (or paste an OpenRouter or Anthropic key), and open a Gmail compose window with at least 40 words.
+Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). Click the WordSnap icon to open settings, press **Connect OpenRouter** (or paste an OpenRouter or Anthropic key), then open a Gmail compose window. A small **W** badge appears at the top right of the compose frame; click it to analyze the draft.
 
 ## Develop
 

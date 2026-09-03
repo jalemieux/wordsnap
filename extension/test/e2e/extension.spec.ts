@@ -13,11 +13,19 @@ test.beforeEach(async ({ context, extensionId }) => {
   await page.close();
 });
 
+async function openWordSnap(page: import('@playwright/test').Page) {
+  const overlay = page.locator('wordsnap-overlay');
+  await expect(overlay).toHaveCount(1);
+  // Nothing but the badge until the user asks.
+  await expect(overlay.locator('.ws-panel')).toHaveCount(0);
+  await overlay.locator('.ws-launcher').click();
+  return overlay;
+}
+
 test('analyzes the draft, shows highlights, panel and export bar', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(FIXTURE);
-  const overlay = page.locator('wordsnap-overlay');
-  await expect(overlay).toHaveCount(1);
+  const overlay = await openWordSnap(page);
 
   // Challenges panel appears with the strongest rebuttal first.
   const panel = overlay.locator('.ws-panel');
@@ -41,7 +49,7 @@ test('analyzes the draft, shows highlights, panel and export bar', async ({ cont
 test('hover card shows the finding and Apply change edits the draft', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(FIXTURE);
-  const overlay = page.locator('wordsnap-overlay');
+  const overlay = await openWordSnap(page);
   const highlights = overlay.locator('.ws-hl-layer [role="button"]');
   await expect(highlights.first()).toBeVisible({ timeout: 15_000 });
 
@@ -73,7 +81,7 @@ test('hover card shows the finding and Apply change edits the draft', async ({ c
 test('editing a flagged sentence marks its finding stale and re-runs', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(FIXTURE);
-  const overlay = page.locator('wordsnap-overlay');
+  const overlay = await openWordSnap(page);
   const panel = overlay.locator('.ws-panel');
   await expect(panel).toBeVisible({ timeout: 15_000 });
   await expect(overlay.locator('.ws-hl-layer [role="button"]').first()).toBeVisible({ timeout: 15_000 });
@@ -102,4 +110,19 @@ test('editing a flagged sentence marks its finding stale and re-runs', async ({ 
 
   await expect(panel).toContainText(/re-analyzing|re-checking|checked just now/i, { timeout: 15_000 });
   await expect(panel.locator('.ws-ch-row').filter({ hasText: /hallway sample/ })).toContainText(/re-checking|addressed/i, { timeout: 20_000 });
+});
+
+test('collapsing hides the panel, keeps the badge, and shows the open-issue count', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openWordSnap(page);
+  await expect(overlay.locator('.ws-hl-layer [role="button"]').first()).toBeVisible({ timeout: 15_000 });
+  await overlay.locator('.ws-close').click();
+  await expect(overlay.locator('.ws-panel')).toHaveCount(0);
+  await expect(overlay.locator('.ws-hl-layer')).toHaveCount(0);
+  const badge = overlay.locator('.ws-launcher');
+  await expect(badge).toBeVisible();
+  await expect(badge.locator('.ws-launcher-count')).toHaveText('2');
+  await badge.click();
+  await expect(overlay.locator('.ws-panel')).toBeVisible();
 });

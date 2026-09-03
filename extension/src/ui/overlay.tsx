@@ -10,6 +10,7 @@ import { ChallengesPanel } from './components/ChallengesPanel';
 import { ExportBar } from './components/ExportBar';
 import { HighlightLayer, type HighlightItem, type HighlightStatus, type RectLike } from './components/HighlightLayer';
 import { HoverCard, type CardFinding } from './components/HoverCard';
+import { Launcher } from './components/Launcher';
 import { PreviewModal, type PreviewTab } from './components/PreviewModal';
 import { Toast } from './components/Toast';
 import type { MountOverlay, OverlayCallbacks, OverlayController } from './types';
@@ -30,6 +31,8 @@ interface Store {
   state: SessionState;
   layout: Layout;
   text: string;
+  open: boolean;
+  minWords: number;
 }
 
 type Listener = () => void;
@@ -97,10 +100,10 @@ function computeLayout(handle: ComposerHandle, state: SessionState): Layout {
   return { anchor, viewport, rects, panel, exportStyle };
 }
 
-function App({ store, subscribe, handle, callbacks }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks }) {
+function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void }) {
   const [, tick] = useState(0);
   useEffect(() => subscribe(() => tick((n) => n + 1)), [subscribe]);
-  const { state, layout, text } = store;
+  const { state, layout, text, open } = store;
 
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -171,8 +174,12 @@ function App({ store, subscribe, handle, callbacks }: { store: Store; subscribe:
 
   const anchorRect = active ? layout.rects[active.f.id]?.[0] : undefined;
 
+  const launcher = <Launcher state={state} anchor={layout.anchor} open={open} onToggle={() => setOpen(!open)} />;
+  if (!open) return <div class="ws-root">{launcher}</div>;
+
   return (
     <div class="ws-root">
+      {launcher}
       <HighlightLayer
         items={items}
         hot={hotIds}
@@ -202,7 +209,16 @@ function App({ store, subscribe, handle, callbacks }: { store: Store; subscribe:
           }}
         />
       ) : null}
-      <ChallengesPanel state={state} style={layout.panel} onHot={(ids) => setHot(new Set(ids))} footer={layout.exportStyle ? null : exportBar} now={now} />
+      <ChallengesPanel
+        state={state}
+        style={layout.panel}
+        onHot={(ids) => setHot(new Set(ids))}
+        footer={layout.exportStyle ? null : exportBar}
+        now={now}
+        onClose={() => setOpen(false)}
+        wordCount={text.split(/\s+/).filter(Boolean).length}
+        minWords={store.minWords}
+      />
       {layout.exportStyle ? exportBar : null}
       {modal ? (
         <PreviewModal
@@ -223,7 +239,7 @@ function App({ store, subscribe, handle, callbacks }: { store: Store; subscribe:
   );
 }
 
-export const mountOverlay: MountOverlay = ({ handle, callbacks, initial }) => {
+export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOpen, minWords }) => {
   const host = document.createElement('wordsnap-overlay');
   host.setAttribute('data-wordsnap', '');
   host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483000;';
@@ -236,15 +252,23 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial }) => {
   document.documentElement.appendChild(host);
 
   const state0 = initial ?? emptySession(handle.key, 'generic');
-  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0) };
+  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0), open: !!startOpen, minWords: minWords ?? 8 };
   const listeners = new Set<Listener>();
   const subscribe = (l: Listener) => {
     listeners.add(l);
     return () => listeners.delete(l);
   };
   const notify = () => listeners.forEach((l) => l());
+  const setOpen = (open: boolean) => {
+    if (store.open === open) return;
+    store.open = open;
+    store.text = safeText(handle);
+    store.layout = computeLayout(handle, store.state);
+    notify();
+    callbacks.onOpenChange?.(open);
+  };
 
-  render(<App store={store} subscribe={subscribe} handle={handle} callbacks={callbacks} />, mount);
+  render(<App store={store} subscribe={subscribe} handle={handle} callbacks={callbacks} setOpen={setOpen} />, mount);
 
   let raf = 0;
   const relayout = () => {
@@ -270,6 +294,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial }) => {
       notify();
     },
     relayout,
+    setOpen,
     destroy() {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('scroll', onScroll, true);
