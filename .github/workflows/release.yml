@@ -1,7 +1,10 @@
 name: release
 
 # Tag a commit v<version> (matching extension/manifest.json) and this builds the Chrome store zip and the Safari
-# folder zip and attaches both to a GitHub Release. A v<version>-dev.<sha> tag does the same as a pre-release.
+# folder zip and attaches both to a GitHub Release. A v<version>-dev.<N> tag does the same as a pre-release, where N
+# is the commit count of the tagged commit (`git rev-list --count HEAD`): numeric prerelease identifiers sort as
+# numbers under semver, which is how GitHub orders the releases page, so the newest build stays on top. A commit
+# hash there sorts as text and scrambles the page.
 # The upload to the Chrome Web Store, and the Xcode wrap for Safari, stay manual.
 on:
   push:
@@ -29,15 +32,21 @@ jobs:
         id: tag
         run: |
           v=$(node -p "require('./manifest.json').version")
-          case "${GITHUB_REF_NAME}" in
-            "v$v") echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
-            "v$v-dev."*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
-            *) echo "tag ${GITHUB_REF_NAME} but manifest is $v"; exit 1 ;;
-          esac
+          n="${GITHUB_REF_NAME#v$v-dev.}"
+          if [ "${GITHUB_REF_NAME}" = "v$v" ]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "name=WordSnap $v" >> "$GITHUB_OUTPUT"
+          elif [ "$n" != "${GITHUB_REF_NAME}" ] && [ -n "$n" ] && [ -z "${n//[0-9]/}" ]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "name=WordSnap dev build $n ($(git rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag ${GITHUB_REF_NAME} must be v$v or v$v-dev.<number> (manifest is $v)"; exit 1
+          fi
       - run: npm run package
       - run: npm run package:safari
       - uses: softprops/action-gh-release@v2
         with:
           files: extension/wordsnap-*.zip
+          name: ${{ steps.tag.outputs.name }}
           prerelease: ${{ steps.tag.outputs.prerelease }}
           generate_release_notes: true
