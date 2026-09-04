@@ -35,7 +35,7 @@ This writes `extension/wordsnap-0.1.0.zip` and prints its sha256. The script fai
 3. Remote code: **No**.
 4. Data usage: tick **Personal communications**, **Website content**, **Authentication information**. Leave the rest unticked.
 5. Certifications: tick all three (no sale to third parties, no unrelated use, no creditworthiness use).
-6. Privacy policy URL: https://wordsnap.ai/privacy.html. The page must be live and reachable before you submit; reviewers open it.
+6. Privacy policy URL: https://wordsnap.ai/privacy. The page must be live and reachable before you submit; reviewers open it.
 7. Save draft.
 
 ## 5. Distribution tab (2 minutes)

@@ -17,7 +17,7 @@ Quiet by default: a small **W** badge appears on a compose window, and nothing i
 
 The draft text goes only to the provider the user configured, from the user's own account. No WordSnap server, no analytics, no crash reporting.
 
-WordSnap runs on your own OpenRouter account (GLM 5.2 served by Z.AI), connected with one click. You pay OpenRouter, not WordSnap. That is the only model this build supports; its prompts and response parsing are validated against it alone. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
+WordSnap runs on your own OpenRouter account (GLM 5.2 served by Z.AI), connected with one click. You pay OpenRouter, not WordSnap. That is the only model this build supports; its prompts and response parsing are validated against it alone. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy](https://wordsnap.ai/privacy).
 
 ## Install
 

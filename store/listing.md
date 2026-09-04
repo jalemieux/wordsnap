@@ -90,7 +90,7 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 - [x] I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - [x] I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** https://wordsnap.ai/privacy.html
+**Privacy policy URL:** https://wordsnap.ai/privacy
 
 ## Distribution tab
 
