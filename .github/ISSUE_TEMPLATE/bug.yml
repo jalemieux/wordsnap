@@ -1,0 +1,47 @@
+name: Bug report
+description: Something did not work the way CLAUDE.md or the settings page says it should.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: WordSnap version
+      description: From chrome://extensions, or "from source at commit …".
+    validations:
+      required: true
+  - type: dropdown
+    id: site
+    attributes:
+      label: Site
+      options:
+        - Gmail
+        - X
+        - LinkedIn
+        - Another site (via the toolbar icon)
+        - Settings page
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and model
+      placeholder: OpenRouter, z-ai/glm-5.2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: draft
+    attributes:
+      label: A draft that reproduces it
+      description: Paste the text if you can share it. Findings depend on the exact words.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console lines starting with [wordsnap]
+      description: Page console for the overlay; service worker console (chrome://extensions, "Inspect views") for the background. Remove anything private.
+      render: text

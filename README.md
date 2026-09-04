@@ -1,20 +1,26 @@
 # WordSnap
 
-An AI layer that helps you sharpen your own argument before you send it. Not a ghostwriter: a sparring partner that runs three passes over your draft where you already write (Gmail first; X and LinkedIn adapters included) and leaves your voice alone.
+Sharpen your own argument before you send it.
 
-- Clarity and structure: fuzzy thinking, hedges, weak structure.
-- Fact check: every checkable claim, with sources and confidence.
-- Counterargument: the strongest rebuttal, blind spots, gaps.
+WordSnap is a Chrome extension that sits on top of the compose window you are already typing in (Gmail, X, LinkedIn) and runs three passes over the draft:
 
-Your text goes only to the LLM provider you configure, from your own account. There is no WordSnap server. The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click; an Anthropic API key also works.
+- **Clarity and claims.** Fuzzy thinking, hedges, weak structure, and every checkable claim you made.
+- **Fact check.** Each claim verified with web search: supported, contradicted, or needs precision, with sources.
+- **Counterargument.** The thesis as a reader will hear it, then the strongest rebuttal, the blind spots, the gaps.
 
-## In this repo
+It is a sparring partner, not a ghostwriter. Your words stay in the editor. WordSnap draws highlights over them and lists challenges in a docked panel. It writes into the editor only when you click **Apply change**, and a suggestion may only replace the quoted span and must keep your register.
 
-- `extension/`: the Chrome extension (Manifest V3, TypeScript, Preact, Zod, Anthropic SDK).
-- `docs/SPEC.md`: technical spec v0.1. `docs/spec.html` is the same document as a standalone page.
-- `mocks/wordsnap-mocks.html`: the interactive design mock the UI was built against.
+Quiet by default: a small **W** badge appears on a compose window, and nothing is sent anywhere until you click it.
 
-## Run it
+## Privacy
+
+The draft text goes only to the provider the user configured, from the user's own account. No WordSnap server, no analytics, no crash reporting.
+
+The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click. An Anthropic API key also works. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
+
+## Install
+
+From the Chrome Web Store: coming with 0.1. Until then, or to run the current source:
 
 ```
 cd extension
@@ -22,7 +28,7 @@ npm install
 npm run build          # production build to extension/dist
 ```
 
-Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). Click the WordSnap icon to open settings, press **Connect OpenRouter** (or paste an OpenRouter or Anthropic key), then open a Gmail compose window. A small **W** badge appears at the top right of the compose frame; click it to analyze the draft.
+Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). The settings page opens on first install: press **Connect OpenRouter** or paste a key, then open a Gmail compose window and click the **W** badge.
 
 ## Develop
 
@@ -32,9 +38,12 @@ npm run typecheck
 npm test               # unit tests (vitest)
 npm run test:e2e       # dev build + Playwright against test/fixtures/gmail-compose.html with the mock provider
 npm run check          # typecheck + unit tests + production build
+npm run package        # production build, dev-leak checks, wordsnap-<version>.zip for the store
 ```
 
 Dev builds add a mock provider (settings page) that returns canned findings for the sample draft, so the UI can be exercised without a key. Dev builds also open the overlay's shadow root so tests can reach it; production builds keep it closed.
+
+[CLAUDE.md](./CLAUDE.md) is the guide for anyone, human or agent, changing the code: settled decisions, layout, invariants. [CONTRIBUTING.md](./CONTRIBUTING.md) covers the pull request bar. [SECURITY.md](./SECURITY.md) says how to report a vulnerability. `docs/SPEC.md` is the technical spec.
 
 ## Layout
 
@@ -46,12 +55,22 @@ extension/src
   passes/       prompts, request builders, post-validation rules
   providers/    LLM providers: openrouter (default; web plugin, provider routing, JSON repair), claude, mock
   ui/           overlay (highlights, hover card, challenges panel, status pill)
-  options/      settings page with guided key onboarding
+  options/      settings page with one-click OpenRouter connect and guided key fallback
   shared/       schemas, types, message protocol, anchoring, cost, sample draft
 extension/test
   unit/         vitest; DOM tests under unit/dom run in happy-dom
   fixtures/     saved composer DOMs for Gmail, X, LinkedIn
   e2e/          Playwright with the extension loaded in Chromium
+site/           wordsnap.ai, static
+store/          Chrome Web Store listing copy and screenshots
+docs/           technical spec, release plan
+mocks/          the interactive design mock the UI was built against
 ```
 
-Status: M1 implemented (Gmail end to end, Chrome only). X and LinkedIn adapters exist but are untested against the live sites. See `docs/SPEC.md` section 12 for milestones and section 6 for the M0 verifications still open.
+## Status
+
+0.1: Gmail end to end, X in daily use, LinkedIn adapter written against a saved DOM and not yet exercised on the live site. Chrome only; Safari is a later milestone. See `docs/SPEC.md` section 12 for milestones.
+
+## License
+
+[Apache-2.0](./LICENSE).

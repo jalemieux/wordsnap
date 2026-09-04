@@ -7,6 +7,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:dev": "node scripts/build.mjs --dev",
+    "icons": "node scripts/icons.mjs",
+    "package": "node scripts/package.mjs",
     "watch": "node scripts/build.mjs --dev --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

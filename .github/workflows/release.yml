@@ -1,0 +1,35 @@
+name: release
+
+# Tag a commit v<version> (matching extension/manifest.json) and this builds the store zip
+# and attaches it to a GitHub Release. The upload to the Chrome Web Store stays manual.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck && npm test
+      - run: npm run package
+      - name: Check the tag matches the manifest version
+        run: |
+          v=$(node -p "require('./manifest.json').version")
+          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} but manifest is $v"; exit 1; }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: extension/wordsnap-*.zip
+          generate_release_notes: true
