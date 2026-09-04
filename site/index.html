@@ -82,8 +82,8 @@
     .hero .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
     .hero .actions small{color:var(--muted);font-size:.9rem}
     figure.shot{margin:12px 0 0;display:grid;gap:10px}
-    figure.shot .frame{aspect-ratio:1280/800;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
-    figure.shot img{display:block;width:100%;height:100%;object-fit:cover}
+    figure.shot .frame{aspect-ratio:1280/880;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+    figure.shot img,figure.shot video{display:block;width:100%;height:100%;object-fit:contain}
     figure.shot figcaption{font-size:.9rem;color:var(--muted)}
     .passes{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--ink)}
     .pass{padding:20px 20px 24px 0;display:grid;gap:8px;align-content:start;border-right:1px solid var(--line)}
@@ -148,8 +148,8 @@
       <figure class="shot">
         <div class="frame">
           <!-- 25 second recording from extension/scripts/demo-video.mjs; the PNG is the poster and the fallback. -->
-          <video src="/demo.webm" poster="/screenshot-open.png" width="1280" height="800" autoplay muted loop playsinline aria-label="A Gmail draft. The WordSnap badge is clicked, findings appear as highlights with a docked Challenges panel, a hover card opens on one sentence, and Apply change edits that sentence in place.">
-            <img src="/screenshot-open.png" width="1280" height="800" alt="A Gmail compose window with WordSnap highlights over the draft, a hover card on one sentence, and the Challenges panel docked at the right listing the open claims.">
+          <video src="/demo.webm" poster="/screenshot-open.png" width="1280" height="880" autoplay muted loop playsinline aria-label="A Gmail draft. The WordSnap badge is clicked, findings appear as highlights with a docked Challenges panel, a hover card opens on one sentence, and Apply change edits that sentence in place.">
+            <img src="/screenshot-open.png" width="1280" height="880" alt="A Gmail compose window with WordSnap highlights over the draft, a hover card on one sentence, and the Challenges panel docked at the right listing the open claims.">
           </video>
         </div>
         <figcaption>Click the badge, read the findings, apply the one change you agree with. Twenty five seconds, no editing.</figcaption>

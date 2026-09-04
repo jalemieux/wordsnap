@@ -35,7 +35,7 @@ await opt.waitForTimeout(500);
 await opt.close();
 
 const page = await ctx.newPage();
-await page.goto('http://127.0.0.1:4173/gmail-compose.html');
+await page.goto(`http://127.0.0.1:${process.env.PORT ?? 4173}/gmail-compose.html`);
 await page.waitForTimeout(800);
 await page.screenshot({ path: path.join(shots, '01-badge.png') });
 await page.locator('wordsnap-overlay .ws-launcher').click();
