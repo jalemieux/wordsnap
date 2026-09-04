@@ -9,7 +9,7 @@ import { estimateCostUsd } from '../shared/cost';
 import type { Claim, PassA, PassB, PassC, Verdict } from '../shared/schemas';
 import { activeModel, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
 import type { ClaimCache } from './cache';
-import { Session } from './session';
+import { Session, type SavedSession } from './session';
 
 export const DEBOUNCE_MS = 800;
 export const C_THROTTLE_MS = 20_000;
@@ -57,6 +57,16 @@ export class SessionOrchestrator {
 
   get state(): SessionState {
     return this.session.state;
+  }
+
+  /** Pick up a session saved before the service worker restarted. Call before the first snapshot. */
+  restore(saved: SavedSession): void {
+    this.session.load(saved);
+    this.lastCRun = this.session.state.passes.C.at ?? -Infinity;
+  }
+
+  dump(): SavedSession {
+    return this.session.dump();
   }
 
   /**

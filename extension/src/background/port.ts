@@ -6,6 +6,7 @@ import { PORT_NAME, type BackgroundToContent, type ContentToBackground } from '.
 import type { Settings } from '../shared/types';
 import type { ClaimCache } from './cache';
 import { SessionOrchestrator } from './orchestrator';
+import type { SavedSession } from './session';
 import type { SettingsStore } from './settings';
 
 export class ProviderHolder {
@@ -23,10 +24,51 @@ export class ProviderHolder {
   }
 }
 
+/** Session state outlives the service worker in chrome.storage.session (cleared when the browser closes). */
+const sessionStore = {
+  key: (sessionKey: string) => `session:${sessionKey}`,
+  async get(sessionKey: string): Promise<SavedSession | undefined> {
+    try {
+      const res = await chrome.storage.session?.get(this.key(sessionKey));
+      return res?.[this.key(sessionKey)] as SavedSession | undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  async set(sessionKey: string, saved: SavedSession): Promise<void> {
+    try {
+      await chrome.storage.session?.set({ [this.key(sessionKey)]: saved });
+    } catch {
+      /* quota or no session storage: the session just will not survive a worker restart */
+    }
+  },
+  async remove(sessionKey: string): Promise<void> {
+    try {
+      await chrome.storage.session?.remove(this.key(sessionKey));
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
 export function registerPortHandler(store: SettingsStore, cache: ClaimCache): void {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== PORT_NAME) return;
     const sessions = new Map<string, SessionOrchestrator>();
+    const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const persist = (sessionKey: string) => {
+      // Trailing debounce: emits come in bursts during a run.
+      const prev = saveTimers.get(sessionKey);
+      if (prev) clearTimeout(prev);
+      saveTimers.set(
+        sessionKey,
+        setTimeout(() => {
+          saveTimers.delete(sessionKey);
+          const orch = sessions.get(sessionKey);
+          if (orch) void sessionStore.set(sessionKey, orch.dump());
+        }, 250),
+      );
+    };
     let settings: Settings | null = null;
     const holder = new ProviderHolder(() => settings!);
     const unsubscribe = store.onChange((s) => {
@@ -60,12 +102,17 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               provider: () => holder.get(),
               settings: () => settings!,
               cache,
-              emit: (state) => send({ type: 'session/state', sessionKey: raw.sessionKey, state }),
+              emit: (state) => {
+                send({ type: 'session/state', sessionKey: raw.sessionKey, state });
+                persist(raw.sessionKey);
+              },
               onCost: (usd) => void store.addCost(usd),
               context: { platform: raw.platform.kind },
             });
+            const saved = await sessionStore.get(raw.sessionKey);
+            if (saved) orch.restore(saved);
             sessions.set(raw.sessionKey, orch);
-            log.info(`session ${raw.sessionKey} open (${raw.host}, provider ${settings.provider})`);
+            log.info(`session ${raw.sessionKey} open (${raw.host}, provider ${settings.provider}${saved ? ', restored after a worker restart' : ''})`);
             send({ type: 'session/config', sessionKey: raw.sessionKey, autoAnalyze: settings.autoAnalyze });
             send({ type: 'session/state', sessionKey: raw.sessionKey, state: orch.state });
             return;
@@ -94,9 +141,15 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             orch.analyzeNow();
             return;
           }
+          case 'session/ping':
+            return;
           case 'session/close': {
             sessions.get(raw.sessionKey)?.close();
             sessions.delete(raw.sessionKey);
+            const t = saveTimers.get(raw.sessionKey);
+            if (t) clearTimeout(t);
+            saveTimers.delete(raw.sessionKey);
+            void sessionStore.remove(raw.sessionKey);
             return;
           }
         }

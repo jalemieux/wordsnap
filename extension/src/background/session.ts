@@ -6,6 +6,13 @@ import type { Claim, ClarityFinding, Verdict } from '../shared/schemas';
 import type { Anchored, AnchoredChallenge, ClaimWithVerdict, HostId, SessionState, Span, TextSnapshot } from '../shared/types';
 import { emptySession } from '../shared/types';
 
+/** Everything needed to pick a session up after the service worker restarts. */
+export interface SavedSession {
+  state: SessionState;
+  snapshot: TextSnapshot | null;
+  analyzedSnapshot: TextSnapshot | null;
+}
+
 export class Session {
   state: SessionState;
   snapshot: TextSnapshot | null = null;
@@ -14,6 +21,18 @@ export class Session {
 
   constructor(sessionKey: string, host: HostId) {
     this.state = emptySession(sessionKey, host);
+  }
+
+  dump(): SavedSession {
+    return structuredClone({ state: this.state, snapshot: this.snapshot, analyzedSnapshot: this.analyzedSnapshot });
+  }
+
+  load(saved: SavedSession): void {
+    this.state = structuredClone(saved.state);
+    this.snapshot = saved.snapshot ? structuredClone(saved.snapshot) : null;
+    this.analyzedSnapshot = saved.analyzedSnapshot ? structuredClone(saved.analyzedSnapshot) : null;
+    // A run that was in flight when the worker stopped never finished; do not show it as running.
+    for (const p of Object.values(this.state.passes)) if (p.state === 'running') p.state = p.at ? 'done' : 'idle';
   }
 
   /** New text arrived: shift spans, mark changed open findings stale, drop what disappeared. */

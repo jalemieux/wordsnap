@@ -17,6 +17,8 @@ export type ContentToBackground =
   | { type: 'finding/action'; sessionKey: string; findingId: string; action: 'applied' | 'kept' }
   /** The user asked for a fresh analysis of the latest snapshot: no debounce, no C throttle. */
   | { type: 'session/analyze'; sessionKey: string }
+  /** Keepalive while a composer is open: any port message resets the service worker's idle timer. */
+  | { type: 'session/ping'; sessionKey: string }
   | { type: 'session/close'; sessionKey: string };
 
 /** Background -> content script (over the port). */

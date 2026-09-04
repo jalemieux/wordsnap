@@ -6,10 +6,16 @@ import type { SessionState, TextSnapshot } from '../shared/types';
 type OpenMessage = Extract<ContentToBackground, { type: 'session/open' }>;
 type DisabledReason = Extract<BackgroundToContent, { type: 'session/disabled' }>['reason'];
 
+/** Chrome stops an idle MV3 service worker after ~30s without messages; a ping well inside that keeps it up. */
+export const KEEPALIVE_MS = 20_000;
+const RECONNECT_MIN_MS = 400;
+const RECONNECT_MAX_MS = 10_000;
+
 export class SessionClient {
   private port: chrome.runtime.Port | null = null;
   private closed = false;
-  private reconnected = false;
+  private reconnects = 0;
+  private keepalive: ReturnType<typeof setInterval> | null = null;
   private lastSnapshot: TextSnapshot | null = null;
   private stateCbs = new Set<(s: SessionState) => void>();
   private disabledCbs = new Set<(r: DisabledReason) => void>();
@@ -48,20 +54,21 @@ export class SessionClient {
         this.lostCbs.forEach((cb) => cb());
         return;
       }
-      // The service worker may have been evicted; reconnect once and replay what it needs.
-      if (!this.reconnected) {
-        this.reconnected = true;
-        setTimeout(() => this.connect(), 400);
-      } else {
-        this.errorCbs.forEach((cb) => cb('Lost connection to WordSnap.'));
-      }
+      // The service worker was stopped or crashed. Reconnect, backing off, and replay what it needs;
+      // the background restores the session's findings from session storage on open.
+      const wait = Math.min(RECONNECT_MIN_MS * 2 ** this.reconnects, RECONNECT_MAX_MS);
+      this.reconnects += 1;
+      if (this.reconnects === 3) this.errorCbs.forEach((cb) => cb('Lost connection to WordSnap; retrying.'));
+      setTimeout(() => this.connect(), wait);
     });
     this.post(this.open);
     if (this.lastSnapshot) this.post({ type: 'session/snapshot', sessionKey: this.sessionKey, snapshot: this.lastSnapshot, reason: 'initial' });
+    if (!this.keepalive) this.keepalive = setInterval(() => this.post({ type: 'session/ping', sessionKey: this.sessionKey }), KEEPALIVE_MS);
   }
 
   private dispatch(msg: BackgroundToContent): void {
     if (!msg || msg.sessionKey !== this.sessionKey) return;
+    this.reconnects = 0; // the background is answering: reset the backoff
     switch (msg.type) {
       case 'session/state':
         this.stateCbs.forEach((cb) => cb(msg.state));
@@ -128,6 +135,8 @@ export class SessionClient {
     if (this.closed) return;
     this.post({ type: 'session/close', sessionKey: this.sessionKey });
     this.closed = true;
+    if (this.keepalive) clearInterval(this.keepalive);
+    this.keepalive = null;
     try {
       this.port?.disconnect();
     } catch {

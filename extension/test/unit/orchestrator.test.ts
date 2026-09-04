@@ -226,6 +226,32 @@ describe('on-demand mode (autoAnalyze off, the default)', () => {
   });
 });
 
+describe('surviving a service worker restart', () => {
+  it('dump + restore keeps findings, and the replayed snapshot does not re-run unchanged text', async () => {
+    const first = setup(undefined, { autoAnalyze: false });
+    first.orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await first.clock.advance(0);
+    const saved = first.orch.dump();
+    expect(saved.state.claims).toHaveLength(3);
+
+    const second = setup(undefined, { autoAnalyze: false });
+    second.orch.restore(saved);
+    expect(second.orch.state.challenges).toHaveLength(4);
+    expect(second.orch.state.passes.A.state).toBe('done');
+    // the content script replays its last snapshot as 'initial' on reconnect
+    second.orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await second.clock.advance(0);
+    expect(second.provider.calls).toHaveLength(0);
+    expect(last(second.states).claims).toHaveLength(3);
+    // an edit made while the worker was down is picked up as an incremental run on Re-analyze
+    const edited = SAMPLE_TEXT.replace('20 minutes', 'thirty minutes');
+    second.orch.handleSnapshot(snapshotFromText(edited, 2));
+    second.orch.analyzeNow();
+    await second.clock.advance(0);
+    expect(second.provider.calls.find((c) => c.pass === 'A')!.user).toMatch(/Only these paragraphs changed/);
+  });
+});
+
 describe('grounded research providers', () => {
   it('verifies one claim per request and keeps B running until the batch is done', async () => {
     const provider = new MockProvider({ delayMs: 0, researchMode: 'grounded' });

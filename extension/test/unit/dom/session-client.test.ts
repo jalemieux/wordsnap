@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { PORT_NAME } from '../../../src/shared/messages';
 import { emptySession } from '../../../src/shared/types';
-import { SessionClient } from '../../../src/content/session-client';
+import { KEEPALIVE_MS, SessionClient } from '../../../src/content/session-client';
 
 interface FakePort {
   name: string;
@@ -63,7 +63,7 @@ describe('SessionClient', () => {
     expect(port.disconnect).toHaveBeenCalled();
   });
 
-  it('reconnects once after the service worker drops the port and replays open + last snapshot', async () => {
+  it('reconnects every time the service worker drops the port, backing off, and replays open + last snapshot', async () => {
     vi.useFakeTimers();
     const { ports } = installChrome();
     const client = new SessionClient({ type: 'session/open', sessionKey: 's2', host: 'x', platform: { kind: 'post', charLimit: 280 } });
@@ -76,10 +76,21 @@ describe('SessionClient', () => {
     expect(ports).toHaveLength(2);
     expect(ports[1]!.posted[0]).toMatchObject({ type: 'session/open', sessionKey: 's2' });
     expect(ports[1]!.posted[1]).toMatchObject({ type: 'session/snapshot', reason: 'initial', snapshot });
+    // second drop: still reconnects, after a longer wait
     ports[1]!.onDisconnect.fire();
     await vi.advanceTimersByTimeAsync(500);
     expect(ports).toHaveLength(2);
-    expect(errors).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(ports).toHaveLength(3);
+    expect(errors).toHaveLength(0);
+    // a message from the background resets the backoff
+    ports[2]!.onMessage.fire({ type: 'session/config', sessionKey: 's2', autoAnalyze: false });
+    ports[2]!.onDisconnect.fire();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(ports).toHaveLength(4);
+    // keepalive pings flow while connected
+    await vi.advanceTimersByTimeAsync(KEEPALIVE_MS + 10);
+    expect(ports[3]!.posted.some((m) => (m as { type: string }).type === 'session/ping')).toBe(true);
   });
 
   it('reports an error instead of throwing when the extension context is gone', () => {
