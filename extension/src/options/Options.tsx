@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { sendToBackground, type OptionsResponse } from '../shared/messages';
-import { DEFAULT_OPENROUTER, type Effort, type HostId, type PassId, type ProviderId, type SessionState, type Settings } from '../shared/types';
+import { SAMPLE_PARAGRAPHS, SAMPLE_SUBJECT } from '../shared/sample';
+import { DEFAULT_OPENROUTER, type Effort, type HostId, type PassId, type ProviderId, type SessionState, type Settings, type Span } from '../shared/types';
 import { CHALLENGE_LABEL, CLARITY_LABEL, VERDICT_LABEL, sortChallenges } from '../ui/format';
 
 const OPENROUTER_KEYS_URL = 'https://openrouter.ai/settings/keys';
@@ -252,7 +253,8 @@ function Onboarding({ settings, save, reload }: { settings: Settings; save: (p: 
         <span class="n">3</span>
         <div>
           <h2>Try it</h2>
-          <p>Run the three passes on a sample email before you open Gmail.</p>
+          <p>Run the three passes on this sample email before you open Gmail. It has a few things wrong with it on purpose.</p>
+          <SampleDraft state={sample} busy={sampleBusy} />
           <div class="row">
             <button class="btn primary" disabled={!connected || sampleBusy} onClick={runSample}>
               {sampleBusy ? <span class="spin" /> : null}
@@ -299,6 +301,59 @@ function ModelSelect({ value, models, disabled, onChange }: { value: string; mod
       ))}
     </select>
   );
+}
+
+/** The sample email, with the located findings underlined the way the Gmail overlay draws them. */
+function SampleDraft({ state, busy }: { state: SessionState | null; busy: boolean }) {
+  const marks = state ? sampleMarks(state) : [];
+  let offset = 0;
+  return (
+    <div class={`draft${busy ? ' busy' : ''}`} aria-label="Sample email">
+      <div class="draft-subject">{SAMPLE_SUBJECT}</div>
+      {SAMPLE_PARAGRAPHS.map((para, i) => {
+        const start = offset;
+        offset += para.length + 2; // paragraphs are joined with a blank line
+        return <p key={i}>{markUp(para, start, marks)}</p>;
+      })}
+    </div>
+  );
+}
+
+interface Mark {
+  span: Span;
+  status: string;
+}
+
+/** Located claims with a verdict, plus clarity findings; overlaps resolved first-come, earliest start wins. */
+function sampleMarks(state: SessionState): Mark[] {
+  const all: Mark[] = [];
+  for (const c of state.claims) if (c.span && c.data.verdict) all.push({ span: c.span, status: c.data.verdict.status });
+  for (const c of state.clarity) if (c.span) all.push({ span: c.span, status: 'clarity' });
+  all.sort((a, b) => a.span.start - b.span.start || b.span.end - a.span.end);
+  const out: Mark[] = [];
+  for (const m of all) if (!out.length || m.span.start >= out[out.length - 1]!.span.end) out.push(m);
+  return out;
+}
+
+function markUp(text: string, base: number, marks: Mark[]) {
+  const parts = [];
+  let cursor = 0;
+  for (const m of marks) {
+    const s = m.span.start - base;
+    const e = m.span.end - base;
+    if (e <= 0 || s >= text.length) continue;
+    const from = Math.max(s, cursor);
+    const to = Math.min(e, text.length);
+    if (from > cursor) parts.push(text.slice(cursor, from));
+    parts.push(
+      <mark key={m.span.start} data-status={m.status}>
+        {text.slice(from, to)}
+      </mark>,
+    );
+    cursor = to;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
 }
 
 function SampleFindings({ state }: { state: SessionState }) {

@@ -60,6 +60,19 @@ h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mute
 .dev{font-size:11px;color:var(--faint);font-family:var(--mono)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important}}
 
+/* sample email in the try-it step */
+.draft{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 12px;background:var(--bg);font-size:13.5px;line-height:1.5;color:var(--ink);transition:opacity .2s}
+.draft.busy{opacity:.7}
+.draft-subject{font-weight:600;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.draft p{margin:0 0 8px;color:var(--ink)}
+.draft p:last-child{margin-bottom:0}
+.draft mark{background:transparent;color:inherit;border-radius:2px;border-bottom:2px solid transparent;padding-bottom:1px}
+.draft mark[data-status="contradicted"]{background:rgba(180,35,24,.14);border-bottom-color:var(--red)}
+.draft mark[data-status="needs_precision"]{background:rgba(168,105,15,.16);border-bottom-color:var(--amber)}
+.draft mark[data-status="supported"]{border-bottom:1px dotted var(--green)}
+.draft mark[data-status="unverifiable"]{border-bottom:1px dotted var(--faint)}
+.draft mark[data-status="clarity"]{border-bottom:2px dotted var(--accent)}
+
 /* provider connect */
 details.alt { margin-top: 10px; }
 details.alt > summary { cursor: pointer; color: var(--muted); font-size: 13px; }
