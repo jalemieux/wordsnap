@@ -3,10 +3,12 @@
 // citations come back as `url_citation` annotations and feed `sourcesSeen` for the source allowlist gate.
 // Structured output: `response_format` json_schema when the endpoint enforces schemas; the Z.AI endpoint does
 // not, so every response is parsed leniently, validated with Zod, and repaired once by a second request if needed.
-import type { ZodType } from 'zod';
-import { z } from 'zod';
+import { log } from '../shared/log';
+import { parseJson, schemaFor, type JsonSchema } from './lenient';
 import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from './types';
 import { ProviderError } from './types';
+
+export { parseJson } from './lenient';
 
 export const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const APP_HEADERS = { 'HTTP-Referer': 'https://github.com/wordsnap', 'X-Title': 'WordSnap' };
@@ -35,6 +37,8 @@ interface Annotation {
 }
 
 const EFFORT: Record<string, 'low' | 'medium' | 'high'> = { low: 'low', medium: 'medium', high: 'high' };
+/** Counts reasoning tokens too on most OpenRouter endpoints, so leave room for a high-effort pass to think. */
+const MAX_TOKENS = 16_384;
 
 export class OpenRouterProvider implements LLMProvider {
   readonly id = 'openrouter' as const;
@@ -67,27 +71,33 @@ export class OpenRouterProvider implements LLMProvider {
   }
 
   async runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>> {
-    const body = this.body(req);
+    const schema = schemaFor(req.schema);
+    const body = this.body(req, schema);
     if (req.research) onEvent({ type: 'search', query: firstLine(req.user) });
     onEvent({ type: 'status', text: 'Thinking…' });
     const first = await this.stream(body, signal, onEvent);
-    let parsed = parseJson(first.text, req.schema);
+    let parsed = parseJson(first.text, req.schema, schema);
     let usage = first.usage;
     if (!parsed.ok) {
+      log.warn(`pass ${req.pass}: answer did not parse (finish_reason ${first.finishReason ?? 'none'}, ${first.text.length} chars): ${parsed.error}`, tail(first.text));
       // One repair round: no research, low effort, the broken output and the validation errors.
       onEvent({ type: 'status', text: 'Tidying the response…' });
-      const repair = this.body({ ...req, research: undefined, effort: 'low' }, first.text, parsed.error);
+      const cutOff = first.finishReason === 'length';
+      const repair = this.body({ ...req, research: undefined, effort: 'low' }, schema, first.text, cutOff ? `the answer was cut off before it ended (${parsed.error})` : parsed.error);
       const second = await this.stream(repair, signal, onEvent);
       usage = addUsage(usage, second.usage);
-      parsed = parseJson(second.text, req.schema);
-      if (!parsed.ok) throw new ProviderError(`Model output did not match the schema: ${parsed.error}`, 'invalid');
+      parsed = parseJson(second.text, req.schema, schema);
+      if (!parsed.ok) {
+        log.warn(`pass ${req.pass}: repair did not parse (finish_reason ${second.finishReason ?? 'none'}, ${second.text.length} chars): ${parsed.error}`, tail(second.text));
+        throw new ProviderError(`Model output did not match the schema: ${parsed.error}`, 'invalid');
+      }
     }
+    if (parsed.notes.length) log.info(`pass ${req.pass}: accepted with ${parsed.notes.length} fix-up(s): ${parsed.notes.slice(0, 6).join('; ')}`);
     return { data: parsed.data, sourcesSeen: first.sources, usage };
   }
 
   /** Builds the chat completion body. `previous`/`errors` switch it into repair mode. */
-  body<T>(req: PassRequest<T>, previous?: string, errors?: string): Record<string, unknown> {
-    const schema = z.toJSONSchema(req.schema, { target: 'draft-7', io: 'output' }) as Record<string, unknown>;
+  body<T>(req: PassRequest<T>, schema: JsonSchema, previous?: string, errors?: string): Record<string, unknown> {
     const messages: { role: string; content: string }[] = [
       { role: 'system', content: `${req.system}\n\nRespond with a single JSON object matching this JSON Schema and nothing else:\n${JSON.stringify(schema)}` },
       { role: 'user', content: req.user },
@@ -97,11 +107,11 @@ export class OpenRouterProvider implements LLMProvider {
       messages.push({ role: 'user', content: `That was not valid against the schema: ${errors}. Return the corrected JSON object only.` });
     }
     const body: Record<string, unknown> = {
-      model: req.research && !previous ? this.opts.model : this.opts.model,
+      model: this.opts.model,
       messages,
       stream: true,
       usage: { include: true },
-      max_tokens: 8192,
+      max_tokens: MAX_TOKENS,
       response_format: this.opts.schemaEnforced
         ? { type: 'json_schema', json_schema: { name: `pass_${req.pass}`, strict: true, schema } }
         : { type: 'json_object' },
@@ -116,7 +126,7 @@ export class OpenRouterProvider implements LLMProvider {
     return body;
   }
 
-  private async stream(body: Record<string, unknown>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<{ text: string; sources: string[]; usage: PassUsage }> {
+  private async stream(body: Record<string, unknown>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<{ text: string; sources: string[]; usage: PassUsage; finishReason?: string }> {
     let res: Response;
     try {
       res = await this.fetchImpl(`${OPENROUTER_BASE}/chat/completions`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal });
@@ -131,9 +141,11 @@ export class OpenRouterProvider implements LLMProvider {
     const sources = new Set<string>();
     const usage: PassUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, searches: 0 };
     let sawContent = false;
+    let finishReason: string | undefined;
     for await (const chunk of sseChunks(res.body, signal)) {
       if (chunk.error) throw new ProviderError(chunk.error.message ?? 'OpenRouter error', kindFromCode(chunk.error.code));
       const choice = chunk.choices?.[0];
+      if (choice?.finish_reason) finishReason = choice.finish_reason;
       const delta = choice?.delta ?? choice?.message;
       if (delta?.content) {
         text += delta.content;
@@ -150,7 +162,7 @@ export class OpenRouterProvider implements LLMProvider {
       }
     }
     if (body.plugins) usage.searches = sources.size || (this.opts.webResults ?? 5);
-    return { text, sources: [...sources], usage };
+    return { text, sources: [...sources], usage, finishReason };
   }
 }
 
@@ -185,30 +197,6 @@ async function* sseChunks(stream: ReadableStream<Uint8Array>, signal: AbortSigna
   }
 }
 
-export function parseJson<T>(text: string, schema: ZodType<T>): { ok: true; data: T } | { ok: false; error: string } {
-  const candidates: string[] = [];
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) candidates.push(fenced[1]);
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first >= 0 && last > first) candidates.push(text.slice(first, last + 1));
-  candidates.push(text);
-  let lastError = 'no JSON object found';
-  for (const c of candidates) {
-    let value: unknown;
-    try {
-      value = JSON.parse(c);
-    } catch (e) {
-      lastError = (e as Error).message;
-      continue;
-    }
-    const r = schema.safeParse(value);
-    if (r.success) return { ok: true, data: r.data };
-    lastError = r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).slice(0, 6).join('; ');
-  }
-  return { ok: false, error: lastError };
-}
-
 async function toProviderError(res: Response): Promise<ProviderError> {
   let message = `OpenRouter HTTP ${res.status}`;
   try {
@@ -233,6 +221,10 @@ function kindFromCode(code: number | string | undefined): ProviderError['kind'] 
 
 function addUsage(a: PassUsage, b: PassUsage): PassUsage {
   return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens, cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens, searches: a.searches + b.searches };
+}
+
+function tail(text: string): string {
+  return text.length > 400 ? `…${text.slice(-400)}` : text;
 }
 
 function firstLine(s: string): string {

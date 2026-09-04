@@ -55,9 +55,9 @@ const baseReq = (research: boolean): PassRequest<z.infer<typeof Small>> => ({
 
 describe('parseJson', () => {
   it('accepts a bare object, a fenced block, and prose around an object', () => {
-    expect(parseJson('{"a":1,"b":"x"}', Small)).toEqual({ ok: true, data: { a: 1, b: 'x' } });
-    expect(parseJson('Here you go:\n```json\n{"a":2,"b":"y"}\n```', Small)).toEqual({ ok: true, data: { a: 2, b: 'y' } });
-    expect(parseJson('Sure. {"a":3,"b":"z"} Done.', Small)).toEqual({ ok: true, data: { a: 3, b: 'z' } });
+    expect(parseJson('{"a":1,"b":"x"}', Small)).toEqual({ ok: true, data: { a: 1, b: 'x' }, notes: [] });
+    expect(parseJson('Here you go:\n```json\n{"a":2,"b":"y"}\n```', Small)).toEqual({ ok: true, data: { a: 2, b: 'y' }, notes: [] });
+    expect(parseJson('Sure. {"a":3,"b":"z"} Done.', Small)).toEqual({ ok: true, data: { a: 3, b: 'z' }, notes: [] });
   });
   it('reports schema errors', () => {
     const r = parseJson('{"a":"nope","b":1}', Small);
