@@ -5,11 +5,20 @@
 import * as esbuild from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const dist = path.join(root, 'dist');
 const dev = process.argv.includes('--dev');
+
+function gitSha() {
+  try {
+    return execSync('git rev-parse --short HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 const watch = process.argv.includes('--watch');
 
 const common = {
@@ -37,6 +46,8 @@ const bundles = [
 async function staticFiles() {
   await mkdir(dist, { recursive: true });
   const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
+  // chrome://extensions shows version_name, so a person can tell which build they loaded.
+  manifest.version_name = `${manifest.version} (${gitSha()}${dev ? ', dev' : ''})`;
   if (dev) {
     // Let the content script run on the local fixture pages used by the e2e suite.
     const local = ['http://127.0.0.1/*', 'http://localhost/*'];
