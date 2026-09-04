@@ -4,7 +4,7 @@ Read this before touching code. `docs/SPEC.md` is the long form; this file is wh
 
 ## What this is
 
-A Chrome extension (Manifest V3) that sits on top of the composer a person is already typing in (Gmail first; X and LinkedIn adapters exist but are untested on the live sites) and runs three analysis passes over the draft:
+A Chrome extension (Manifest V3) that sits on top of the composer a person is already typing in (Gmail first; X in daily use by the maintainer; the LinkedIn adapter is untested on the live site) and runs three analysis passes over the draft:
 
 - **A. Clarity and claims**: fuzzy thinking, hedges, weak structure, plus extraction of every checkable claim. No research.
 - **B. Fact check**: verifies each claim with web search, returns status, finding, confidence, sources, optional tighter wording.

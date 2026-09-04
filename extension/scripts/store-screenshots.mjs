@@ -27,7 +27,9 @@ const id = sw.url().split('/')[2];
 const opt = await ctx.newPage();
 await opt.goto(`chrome-extension://${id}/options.html`);
 await opt.waitForTimeout(400);
+const hideDev = await opt.addStyleTag({ content: '.dev{display:none}' }); // the dev-build row is not in a production build
 await opt.screenshot({ path: path.join(shots, '05-settings.png') });
+await hideDev.evaluate((el) => el.remove());
 await opt.getByRole('button', { name: /use the mock provider/i }).click();
 await opt.waitForTimeout(500);
 await opt.close();
