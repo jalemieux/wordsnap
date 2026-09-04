@@ -2,7 +2,7 @@
 
 Make your point. Keep your voice.
 
-WordSnap is a Chrome extension that works like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in.
+WordSnap is a browser extension for Chrome and Safari that works like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in.
 
 - **Structure.** Your thesis as a reader will hear it, and where the narrative loses them.
 - **Polish.** Fuzzy sentences, hedges, filler. A tighter phrasing inside your own sentence, in your register. Never a rewrite.
@@ -21,15 +21,20 @@ WordSnap runs on your own OpenRouter account (GLM 5.2 served by Z.AI), connected
 
 ## Install
 
-From the Chrome Web Store: coming with 0.1. Until then, or to run the current source:
+From the Chrome Web Store and the Mac App Store: coming with 0.1. Until then, or to run the current source:
 
 ```
 cd extension
 npm install
-npm run build          # production build to extension/dist
+npm run build          # Chrome: production build to extension/dist
+npm run build:safari   # Safari: production build to extension/dist-safari
 ```
 
-Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on). The settings page opens on first install: press **Connect OpenRouter** or paste a key, then open a Gmail compose window and click the **W** badge.
+**Chrome.** Load `extension/dist` as an unpacked extension at `chrome://extensions` (Developer mode on).
+
+**Safari.** On a Mac with Xcode, run `extension/scripts/safari-xcode.sh`, open the generated project in `safari/WordSnap`, run it once, then enable WordSnap in Safari > Settings > Extensions (Develop > Allow Unsigned Extensions first). Safari asks before the extension can read a site: choose Always Allow for Gmail and openrouter.ai. Details and the current caveats are in [docs/SAFARI.md](docs/SAFARI.md).
+
+Either way, the settings page opens on first install: press **Connect OpenRouter** or paste a key, then open a Gmail compose window and click the **W** badge.
 
 ## Develop
 
@@ -64,13 +69,13 @@ extension/test
   e2e/          Playwright with the extension loaded in Chromium
 site/           wordsnap.ai, static
 store/          Chrome Web Store listing copy and screenshots
-docs/           technical spec, release plan
+docs/           technical spec, release plan, Safari build notes
 mocks/          the interactive design mock the UI was built against
 ```
 
 ## Status
 
-0.1: Gmail end to end, X in daily use, LinkedIn adapter written against a saved DOM and not yet exercised on the live site. Chrome only; Safari is a later milestone. See `docs/SPEC.md` section 12 for milestones.
+0.1: Gmail end to end, X in daily use, LinkedIn adapter written against a saved DOM and not yet exercised on the live site. Chrome, and Safari from the same source (a developer build for now; the Mac App Store listing comes after the first round of testing on Safari). See `docs/SPEC.md` section 12 for milestones.
 
 ## License
 

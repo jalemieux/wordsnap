@@ -8,7 +8,7 @@ One page. Every public surface (site, store listing, README, manifest, launch po
 
 ## What it is, in one breath
 
-WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in.
+WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
 
 ## The four verbs
 
