@@ -305,6 +305,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     },
     relayout,
     setOpen,
+    isOpen: () => store.open,
     destroy() {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('scroll', onScroll, true);

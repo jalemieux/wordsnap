@@ -126,3 +126,42 @@ test('collapsing hides the panel, keeps the badge, and shows the open-issue coun
   await badge.click();
   await expect(overlay.locator('.ws-panel')).toBeVisible();
 });
+
+test('the panel survives the host swapping the body element under the same compose', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openWordSnap(page);
+  await expect(overlay.locator('.ws-panel')).toBeVisible({ timeout: 15_000 });
+
+  // Gmail re-creates the editable body inside the same dialog. The session restarts on the new element.
+  await page.evaluate(() => {
+    const body = document.getElementById('message-body')!;
+    body.replaceWith(body.cloneNode(true));
+  });
+  await page.waitForTimeout(600);
+  await expect(page.locator('wordsnap-overlay')).toHaveCount(1);
+  await expect(page.locator('wordsnap-overlay .ws-panel')).toBeVisible();
+  // Analysis was armed by the click, so the new session runs it again without another click.
+  await expect(page.locator('wordsnap-overlay .ws-panel .ws-ch-row')).toHaveCount(4, { timeout: 15_000 });
+});
+
+test('a momentary hide of the composer does not close the session', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openWordSnap(page);
+  await expect(overlay.locator('.ws-panel')).toBeVisible({ timeout: 15_000 });
+
+  await page.evaluate(() => {
+    const body = document.getElementById('message-body')!;
+    body.style.display = 'none';
+    // Force a couple of mutation scans while hidden.
+    document.body.appendChild(document.createElement('i'));
+    setTimeout(() => {
+      body.style.display = '';
+      document.body.appendChild(document.createElement('i'));
+    }, 350);
+  });
+  await page.waitForTimeout(1200);
+  await expect(page.locator('wordsnap-overlay')).toHaveCount(1);
+  await expect(page.locator('wordsnap-overlay .ws-panel')).toBeVisible();
+});

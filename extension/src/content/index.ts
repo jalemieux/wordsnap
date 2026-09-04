@@ -13,28 +13,41 @@ const MIN_WORDS = 40; // auto mode
 const MIN_WORDS_MANUAL = 8; // after the user clicks the badge
 const EDIT_DEBOUNCE_MS = 800;
 const SCAN_THROTTLE_MS = 250;
+/** A composer must be missing or hidden on this many consecutive scans before its session closes. Hosts re-render. */
+const HIDDEN_SCANS_TO_CLOSE = 3;
+/** How long a closed session's UI state (panel open, analysis armed) survives for a composer with the same key. */
+const CARRY_TTL_MS = 15_000;
+
+/** UI state that survives a session restart on the same composer, so a host re-render does not collapse the panel. */
+interface Carry {
+  open: boolean;
+  armed: boolean;
+}
 
 interface Session {
   handle: ComposerHandle;
   client: SessionClient;
   overlay: OverlayController;
+  hiddenScans: number;
+  carry(): Carry;
   teardown(): void;
 }
 
 const sessions = new Map<string, Session>();
+const carried = new Map<string, { carry: Carry; at: number }>();
 let stopScanning: (() => void) | null = null;
 
 function newSessionKey(adapter: HostAdapter, handle: ComposerHandle): string {
   return `${adapter.id}:${handle.key}:${Date.now().toString(36)}`;
 }
 
-function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
+function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carry): void {
   const sessionKey = newSessionKey(adapter, handle);
   const client = new SessionClient({ type: 'session/open', sessionKey, host: adapter.id, platform: handle.platform });
   let sentInitial = false;
   let debounce: ReturnType<typeof setTimeout> | null = null;
   // Analysis is armed by the user clicking the badge, or by the autoAnalyze setting (delivered via session/config).
-  let armed = false;
+  let armed = carry?.armed ?? false;
   let autoAnalyze = false;
 
   const send = (snapshot: TextSnapshot, reason: 'initial' | 'edit') => {
@@ -84,6 +97,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
       },
     },
     minWords: MIN_WORDS_MANUAL,
+    startOpen: carry?.open ?? false,
   });
 
   const unsubState = client.onState((state) => {
@@ -138,9 +152,32 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle): void {
     client.close();
   };
 
-  sessions.set(sessionKey, { handle, client, overlay, teardown });
-  log.info(`session ${sessionKey} opened on ${adapter.id} composer ${handle.key}`);
+  sessions.set(sessionKey, { handle, client, overlay, hiddenScans: 0, carry: () => ({ open: overlay.isOpen(), armed }), teardown });
+  log.info(`session ${sessionKey} opened on ${adapter.id} composer ${handle.key}${carry ? ` (carried: open=${carry.open}, armed=${carry.armed})` : ''}`);
   send(handle.getSnapshot(), 'initial');
+}
+
+/** One line on why a composer no longer qualifies, for the page console. */
+function describeComposer(handle: ComposerHandle): string {
+  const el = handle.element;
+  const r = el.getBoundingClientRect();
+  let display = '?';
+  try {
+    display = getComputedStyle(el).display;
+  } catch {
+    /* detached */
+  }
+  return `alive=${handle.isAlive()} connected=${el.isConnected} size=${Math.round(r.width)}x${Math.round(r.height)} display=${display} contenteditable=${el.getAttribute('contenteditable')}`;
+}
+
+function rememberCarry(s: Session): void {
+  carried.set(s.handle.key, { carry: s.carry(), at: Date.now() });
+}
+
+function takeCarry(key: string): Carry | undefined {
+  const c = carried.get(key);
+  carried.delete(key);
+  return c && Date.now() - c.at <= CARRY_TTL_MS ? c.carry : undefined;
 }
 
 /** Gmail and others keep hidden or zero-size editors in the DOM (templates, collapsed drafts). Only visible ones get a session. */
@@ -159,24 +196,32 @@ function sessionForHandle(handle: ComposerHandle): Session | undefined {
 }
 
 function scan(adapter: HostAdapter): void {
-  // Drop sessions whose composer went away or got hidden.
+  // Drop sessions whose composer went away or stayed hidden. A single hidden scan is a host re-render, not a close.
   for (const s of Array.from(sessions.values())) {
-    if (!s.handle.isAlive() || !isVisibleComposer(s.handle)) {
-      log.info(`composer ${s.handle.key} gone or hidden, closing its session`);
-      s.teardown();
+    const ok = s.handle.isAlive() && isVisibleComposer(s.handle);
+    if (ok) {
+      s.hiddenScans = 0;
+      continue;
     }
+    s.hiddenScans += 1;
+    if (s.hiddenScans === 1) log.info(`composer ${s.handle.key} not visible (${describeComposer(s.handle)}); closing if it stays that way`);
+    if (s.hiddenScans < HIDDEN_SCANS_TO_CLOSE) continue;
+    log.info(`composer ${s.handle.key} gone or hidden, closing its session (${describeComposer(s.handle)})`);
+    rememberCarry(s);
+    s.teardown();
   }
   for (const handle of adapter.findComposers(document)) {
     if (!isVisibleComposer(handle)) continue;
     if (sessionForHandle(handle)) continue;
     // One session per composer key. Gmail swaps the body element under the same compose window;
-    // when that happens the old session is closed and a fresh one starts on the new element.
+    // when that happens the old session is closed and a fresh one starts on the new element with the same UI state.
     const dup = sessionForKey(handle.key);
     if (dup) {
-      log.info(`composer ${handle.key} was replaced, restarting its session`);
+      log.info(`composer ${handle.key} was replaced (old: ${describeComposer(dup.handle)}), restarting its session`);
+      rememberCarry(dup);
       dup.teardown();
     }
-    startSession(adapter, handle);
+    startSession(adapter, handle, takeCarry(handle.key));
   }
 }
 

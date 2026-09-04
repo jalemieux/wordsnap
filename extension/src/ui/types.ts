@@ -22,6 +22,7 @@ export interface OverlayController {
   relayout(): void;
   /** Show or collapse the panel, highlights and export bar. The launcher badge is always visible. */
   setOpen(open: boolean): void;
+  isOpen(): boolean;
   destroy(): void;
 }
 
