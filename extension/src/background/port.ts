@@ -8,6 +8,7 @@ import type { ClaimCache } from './cache';
 import { SessionOrchestrator } from './orchestrator';
 import type { SavedSession } from './session';
 import type { SettingsStore } from './settings';
+import { serialQueue } from './queue';
 
 export class ProviderHolder {
   private provider: LLMProvider | null = null;
@@ -83,8 +84,10 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
       }
     };
 
+    // One message at a time, in arrival order: `session/open` must finish before the snapshot sent right behind it.
+    const enqueue = serialQueue((err) => log.error('port handler failed:', err));
     port.onMessage.addListener((raw: ContentToBackground) => {
-      void (async () => {
+      enqueue(async () => {
         settings = await store.get();
         switch (raw.type) {
           case 'session/open': {
@@ -153,7 +156,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             return;
           }
         }
-      })();
+      });
     });
 
     port.onDisconnect.addListener(() => {
