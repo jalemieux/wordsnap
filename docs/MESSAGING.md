@@ -25,17 +25,27 @@ Use these as the structure whenever the product is explained. Always in this ord
 
 It never writes for you. It shows you the gap. A suggestion can only replace the words it quotes, stays close to their length, and keeps your register. Nothing changes in your draft until you click Apply.
 
+## The quiet line
+
+Quiet by default. A small badge appears on the compose window. Nothing is read or sent until you click it.
+
 ## The key line
 
-Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap.
+Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap. GLM 5.2 served by Z.AI is the only model this build runs; its prompts and response parsing are validated against it alone.
 
 ## The privacy line
 
-Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no account.
+Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no crash reporting, no account.
 
 ## Store summary (132 characters max)
 
 Structure your narrative, polish your wording, fact-check your claims, hear the counterargument. Your voice stays yours.
+
+## GitHub About
+
+Description: Make your point. Keep your voice. Structure your narrative, polish your wording, fact-check your claims, hear the counterargument. Inside Gmail, X and LinkedIn, on Chrome and Safari.
+
+Homepage: https://wordsnap.ai. Topics: browser-extension, chrome-extension, safari-extension, writing, fact-checking, gmail, openrouter, typescript, preact. Set with `gh repo edit`.
 
 ## Words we do not use
 
