@@ -192,6 +192,7 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         now={now}
         onClose={() => setOpen(false)}
         onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
+        onChecks={callbacks.onChecks ? (c) => callbacks.onChecks?.(c) : undefined}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />

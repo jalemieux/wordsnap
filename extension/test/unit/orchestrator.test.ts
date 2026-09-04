@@ -48,7 +48,8 @@ function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof 
   const states: SessionState[] = [];
   const costs: number[] = [];
   // Most cases below exercise auto mode (re-run on edit); on-demand mode, the default, has its own describe.
-  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const, autoAnalyze: true, ...settingsOverride };
+  // Every check on: these cases cover the passes themselves; the picker has its own file (checks.test.ts).
+  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const, autoAnalyze: true, checks: { structure: true, polish: true, facts: true, challenge: true }, ...settingsOverride };
   const orch = new SessionOrchestrator('s1', 'gmail', {
     provider: () => provider,
     settings: () => settings,
@@ -135,7 +136,7 @@ describe('SessionOrchestrator', () => {
     const states: SessionState[] = [];
     const orch2 = new SessionOrchestrator('s2', 'gmail', {
       provider: () => provider2,
-      settings: () => ({ ...DEFAULT_SETTINGS, provider: 'mock' }),
+      settings: () => ({ ...DEFAULT_SETTINGS, provider: 'mock', checks: { structure: true, polish: true, facts: true, challenge: true } }),
       cache: first.cache,
       emit: (s) => states.push(s),
       now: () => first.clock.now,

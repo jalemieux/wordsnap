@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, SUPPORTED_MODEL, SUPPORTED_PROVIDER_ORDER, type Settings } from '../shared/types';
+import { DEFAULT_CHECKS, DEFAULT_SETTINGS, SUPPORTED_MODEL, SUPPORTED_PROVIDER_ORDER, type Settings } from '../shared/types';
 import type { KeyValueStorage } from './storage';
 
 export const SETTINGS_KEY = 'settings';
@@ -18,7 +18,7 @@ export class SettingsStore {
 
   async set(patch: Partial<Settings>): Promise<Settings> {
     const current = await this.get();
-    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) }, openrouter: { ...current.openrouter, ...(patch.openrouter ?? {}) } });
+    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) }, openrouter: { ...current.openrouter, ...(patch.openrouter ?? {}) }, checks: { ...current.checks, ...(patch.checks ?? {}) } });
     this.cache = next;
     await this.storage.set(SETTINGS_KEY, next);
     for (const l of this.listeners) l(next);
@@ -53,6 +53,7 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
     provider: partial.provider === 'mock' ? 'mock' : 'openrouter',
     enabledHosts: { ...DEFAULT_SETTINGS.enabledHosts, ...(partial.enabledHosts ?? {}) },
     effort: { ...DEFAULT_SETTINGS.effort, ...(partial.effort ?? {}) },
+    checks: { ...DEFAULT_CHECKS, ...(partial.checks ?? {}) },
     blockedDomains: Array.isArray(partial.blockedDomains) ? partial.blockedDomains : [],
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : '',
     model: partial.model || DEFAULT_SETTINGS.model,

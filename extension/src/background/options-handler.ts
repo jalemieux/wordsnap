@@ -6,7 +6,7 @@ import { ProviderError } from '../providers/types';
 import { snapshotFromText } from '../shared/anchoring';
 import type { OptionsEvent, OptionsRequest, OptionsResponse } from '../shared/messages';
 import { SAMPLE_SUBJECT, SAMPLE_TEXT } from '../shared/sample';
-import { SUPPORTED_MODEL, type SessionState, type Settings } from '../shared/types';
+import { ALL_CHECKS, SUPPORTED_MODEL, type SessionState, type Settings } from '../shared/types';
 import type { LLMProvider } from '../providers/types';
 import { AUTH_TIMEOUT_MS, TAB_CALLBACK_URL, beginAuthTab, cancelAuthTab, catchAuthCallback, chromeAuthTabDeps, type AuthTabDeps } from './auth-tab';
 import type { ClaimCache } from './cache';
@@ -169,7 +169,7 @@ export async function runSample(store: SettingsStore, cache: ClaimCache): Promis
   let latest: SessionState | null = null;
   const orch = new SessionOrchestrator('sample', 'generic', {
     provider: () => provider,
-    settings: () => settings,
+    settings: () => ({ ...settings, checks: { ...ALL_CHECKS } }),
     cache,
     emit: (s) => {
       latest = s;

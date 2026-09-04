@@ -1,7 +1,7 @@
 // Builders that turn a snapshot into PassRequest objects. Pure; no I/O.
 import type { PassRequest } from '../providers/types';
 import type { Claim, ClarityFinding } from '../shared/schemas';
-import { PassA, PassB, PassC } from '../shared/schemas';
+import { PassA, PassB, PassC, PassCThesis } from '../shared/schemas';
 import type { Effort, TextSnapshot } from '../shared/types';
 import { PASS_A_SYSTEM, PASS_B_SYSTEM, PASS_C_SYSTEM } from './prompts';
 
@@ -31,6 +31,10 @@ export interface PassAOptions {
   /** 0-based indexes of paragraphs that changed since the last run; omit for a full run. */
   changedParagraphs?: number[];
   previous?: { clarity: ClarityFinding[]; claims: Claim[] };
+  /** Default true. False when neither Polish nor Structure is on: the model is told to return no clarity findings. */
+  clarity?: boolean;
+  /** Default true. False when Facts is off: the model is told to extract no claims. */
+  claims?: boolean;
 }
 
 export function buildPassA(snapshot: TextSnapshot, opts: PassAOptions): PassRequest<PassA> {
@@ -42,6 +46,8 @@ export function buildPassA(snapshot: TextSnapshot, opts: PassAOptions): PassRequ
       scope += `Your previous findings for those paragraphs, for id continuity:\n${JSON.stringify(opts.previous)}\n\n`;
     }
   }
+  if (opts.clarity === false) scope += 'Skip the clarity part this time: return an empty clarity array.\n\n';
+  if (opts.claims === false) scope += 'Skip claim extraction this time: return an empty claims array.\n\n';
   return {
     pass: 'A',
     system: PASS_A_SYSTEM,
@@ -74,9 +80,20 @@ export interface PassCOptions {
   effort: Effort;
   blockedDomains: string[];
   context?: DraftContext;
+  /** Structure on, Challenge off: thesis and premises only, no challenges, no research, low effort. */
+  thesisOnly?: boolean;
 }
 
 export function buildPassC(snapshot: TextSnapshot, opts: PassCOptions): PassRequest<PassC> {
+  if (opts.thesisOnly) {
+    return {
+      pass: 'C',
+      system: `${PASS_C_SYSTEM}\n\nThis run is thesis-only: state the thesis and the premises, return an empty challenges array, and do not search.`,
+      user: `${contextLine(opts.context)}<draft>\n${numberedDraft(snapshot)}\n</draft>`,
+      schema: PassCThesis,
+      effort: 'low',
+    };
+  }
   return {
     pass: 'C',
     system: PASS_C_SYSTEM,

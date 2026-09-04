@@ -88,3 +88,45 @@ describe('StatusPill', () => {
     expect(statusOf(idle).text).toBe('Waiting for text');
   });
 });
+
+describe('check picker chips', () => {
+  it('renders four chips from the state and reports a flipped set', () => {
+    const s = sampleState();
+    s.checks = { structure: true, polish: true, facts: true, challenge: false };
+    const onChecks = vi.fn();
+    const c = document.createElement('div');
+    render(<ChallengesPanel state={s} onHot={() => {}} onChecks={onChecks} />, c);
+    const chips = [...c.querySelectorAll('.ws-pick')];
+    expect(chips.map((b) => b.textContent?.trim())).toEqual(['Structure', 'Polish', 'Facts', 'Challenge']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'true', 'true', 'false']);
+    click(c.querySelector('.ws-pick[data-check="challenge"]'));
+    expect(onChecks).toHaveBeenCalledWith({ structure: true, polish: true, facts: true, challenge: true });
+    click(c.querySelector('.ws-pick[data-check="facts"]'));
+    expect(onChecks).toHaveBeenLastCalledWith({ structure: true, polish: true, facts: false, challenge: false });
+  });
+
+  it('with Challenge off, the section says so and the summary drops the challenge count', () => {
+    const s = sampleState();
+    s.checks = { structure: true, polish: true, facts: true, challenge: false };
+    s.challenges = [];
+    const onChecks = vi.fn();
+    const c = document.createElement('div');
+    render(<ChallengesPanel state={s} onHot={() => {}} onChecks={onChecks} />, c);
+    expect(c.querySelector('.ws-off')?.textContent).toContain('Turn on Challenge');
+    expect(c.querySelector('.ws-summary')?.textContent).not.toContain('challenges');
+    expect(c.querySelector('.ws-summary')?.textContent).toContain('claims checked');
+    click(c.querySelector('.ws-off .link'));
+    expect(onChecks).toHaveBeenCalledWith(expect.objectContaining({ challenge: true }));
+  });
+
+  it('a flipped chip enables Re-analyze and the pill says why', () => {
+    const s = sampleState();
+    s.analyzedVersion = s.snapshotVersion;
+    s.analyzedChecks = { structure: true, polish: true, facts: true, challenge: false };
+    s.checks = { structure: true, polish: true, facts: true, challenge: true };
+    expect(statusOf(s).text).toBe('Checks changed');
+    const c = document.createElement('div');
+    render(<ChallengesPanel state={s} onHot={() => {}} onAnalyze={() => {}} />, c);
+    expect((c.querySelector('.ws-reanalyze') as HTMLButtonElement).disabled).toBe(false);
+  });
+});

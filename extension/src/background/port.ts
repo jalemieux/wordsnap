@@ -134,6 +134,11 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             sessions.get(raw.sessionKey)?.handleAction(raw.findingId, raw.action);
             return;
           }
+          case 'session/checks': {
+            settings = await store.set({ checks: raw.checks });
+            sessions.get(raw.sessionKey)?.setChecks(raw.checks);
+            return;
+          }
           case 'session/analyze': {
             const orch = sessions.get(raw.sessionKey);
             if (!orch) {

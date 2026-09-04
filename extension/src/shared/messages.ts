@@ -1,7 +1,7 @@
 // Message protocol.
 //  - Content script <-> background: a long-lived chrome.runtime.Port named PORT_NAME, one per composer session.
 //  - Options page  <-> background: chrome.runtime.sendMessage request/response.
-import type { HostId, SessionState, Settings, TextSnapshot } from './types';
+import type { HostId, SessionState, Settings, TextSnapshot, Checks } from './types';
 
 export const PORT_NAME = 'wordsnap-session';
 
@@ -17,6 +17,8 @@ export type ContentToBackground =
   | { type: 'finding/action'; sessionKey: string; findingId: string; action: 'applied' | 'kept' }
   /** The user asked for a fresh analysis of the latest snapshot: no debounce, no C throttle. */
   | { type: 'session/analyze'; sessionKey: string }
+  /** The user flipped a check chip in the panel: remember it and drop findings the new set no longer covers. */
+  | { type: 'session/checks'; sessionKey: string; checks: Checks }
   /** Keepalive while a composer is open: any port message resets the service worker's idle timer. */
   | { type: 'session/ping'; sessionKey: string }
   | { type: 'session/close'; sessionKey: string };

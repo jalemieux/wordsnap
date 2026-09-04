@@ -1,6 +1,6 @@
 // Contract between the content script (owner of the composer) and the overlay UI (renderer).
 import type { ComposerHandle } from '../adapters/types';
-import type { SessionState } from '../shared/types';
+import type { Checks, SessionState } from '../shared/types';
 
 export interface OverlayCallbacks {
   /** User clicked Apply change on a finding. The content script performs the edit and reports it. */
@@ -11,6 +11,8 @@ export interface OverlayCallbacks {
   onOpenChange?(open: boolean): void;
   /** The user pressed Re-analyze in the panel. */
   onAnalyze?(): void;
+  /** The user flipped a check chip in the panel. */
+  onChecks?(checks: Checks): void;
 }
 
 export interface OverlayController {

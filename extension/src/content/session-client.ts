@@ -1,7 +1,7 @@
 // Typed wrapper over the long-lived port to the background. One instance per composer session.
 import { log } from '../shared/log';
 import { PORT_NAME, type BackgroundToContent, type ContentToBackground } from '../shared/messages';
-import type { SessionState, TextSnapshot } from '../shared/types';
+import type { SessionState, TextSnapshot, Checks } from '../shared/types';
 
 type OpenMessage = Extract<ContentToBackground, { type: 'session/open' }>;
 type DisabledReason = Extract<BackgroundToContent, { type: 'session/disabled' }>['reason'];
@@ -125,6 +125,10 @@ export class SessionClient {
   /** Ask for a fresh run on the latest snapshot. Send the snapshot first so the background has the current text. */
   analyze(): void {
     this.post({ type: 'session/analyze', sessionKey: this.sessionKey });
+  }
+
+  setChecks(checks: Checks): void {
+    this.post({ type: 'session/checks', sessionKey: this.sessionKey, checks });
   }
 
   sendAction(findingId: string, action: 'applied' | 'kept'): void {

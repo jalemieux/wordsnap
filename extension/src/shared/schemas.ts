@@ -65,3 +65,5 @@ export const PassC = z.object({
   challenges: z.array(Challenge).min(1).max(5), // strongest first
 });
 export type PassC = z.infer<typeof PassC>;
+/** Pass C in thesis-only mode (Structure on, Challenge off): the challenges array is expected empty. */
+export const PassCThesis = PassC.extend({ challenges: z.array(Challenge).max(5) });

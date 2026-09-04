@@ -101,6 +101,10 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
         client.sendSnapshot(snapshot, 'edit');
         client.analyze();
       },
+      onChecks(checks) {
+        log.info(`composer ${handle.key}: checks ${Object.entries(checks).filter(([, on]) => on).map(([k]) => k).join(', ') || 'none'}`);
+        client.setChecks(checks);
+      },
     },
     minWords: MIN_WORDS_MANUAL,
     startOpen: carry?.open ?? false,

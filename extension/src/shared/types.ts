@@ -59,6 +59,25 @@ export interface Usage {
   estCostUsd: number;
 }
 
+/**
+ * The four checks a person can pick in the panel. Structure and Polish are the two halves of pass A's clarity notes,
+ * Facts is pass B, Challenge is pass C. With Structure on and Challenge off, C runs thesis-only without research.
+ */
+export type CheckId = 'structure' | 'polish' | 'facts' | 'challenge';
+export type Checks = Record<CheckId, boolean>;
+export const CHECK_IDS: readonly CheckId[] = ['structure', 'polish', 'facts', 'challenge'];
+export const DEFAULT_CHECKS: Checks = { structure: true, polish: true, facts: true, challenge: false };
+export const ALL_CHECKS: Checks = { structure: true, polish: true, facts: true, challenge: true };
+export type ClarityKindFilter = (kind: ClarityFinding['kind']) => boolean;
+/** Which clarity kinds a check set keeps: Polish owns fuzzy, hedge and grammar; Structure owns structure and unsupported_leap. */
+export function clarityKindFilter(checks: Checks): ClarityKindFilter {
+  return (kind) => (kind === 'structure' || kind === 'unsupported_leap' ? checks.structure : checks.polish);
+}
+export function sameChecks(a: Checks | undefined, b: Checks | undefined): boolean {
+  if (!a || !b) return a === b;
+  return CHECK_IDS.every((k) => a[k] === b[k]);
+}
+
 /** Full state of one composer session. The background sends the whole thing on every change. */
 export interface SessionState {
   sessionKey: string;
@@ -66,6 +85,10 @@ export interface SessionState {
   snapshotVersion: number;
   /** Version of the snapshot the last run started on; differs from snapshotVersion when the draft changed since. */
   analyzedVersion?: number;
+  /** Checks selected in the panel (from settings at open); absent on states from older workers means all on. */
+  checks?: Checks;
+  /** Checks the findings on screen reflect: set by a run, narrowed when a chip is turned off. A chip turned on since makes it differ from `checks`. */
+  analyzedChecks?: Checks;
   clarity: Anchored<ClarityFinding>[];
   claims: Anchored<ClaimWithVerdict>[];
   argument?: { thesis: string; premises: string[] };
@@ -110,6 +133,8 @@ export interface Settings {
   onboarded: boolean;
   /** Analyze as soon as a draft passes the word threshold. Off by default: WordSnap waits for a click on its badge. */
   autoAnalyze: boolean;
+  /** Which checks run, as last picked in the panel. Remembered per browser, not per draft. */
+  checks: Checks;
 }
 
 export const DEFAULT_OPENROUTER: OpenRouterSettings = {
@@ -132,6 +157,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lifetimeCostUsd: 0,
   onboarded: false,
   autoAnalyze: false,
+  checks: { ...DEFAULT_CHECKS },
 };
 
 export const EMPTY_PASSES: Record<PassId, PassStatus> = {

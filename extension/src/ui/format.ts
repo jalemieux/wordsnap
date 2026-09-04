@@ -1,5 +1,5 @@
 // Pure helpers for the overlay: text shaping for share targets, counts, relative time.
-import type { SessionState } from '../shared/types';
+import { ALL_CHECKS, sameChecks, type CheckId, type Checks, SessionState } from '../shared/types';
 
 export function paragraphsOf(text: string): string[] {
   return text
@@ -131,6 +131,24 @@ export function summaryCounts(state: SessionState): SummaryCounts {
 export function draftChanged(state: SessionState): boolean {
   return state.analyzedVersion !== undefined && state.snapshotVersion !== state.analyzedVersion;
 }
+
+/** True once an analysis has run and a check chip was flipped since. */
+export function checksChanged(state: SessionState): boolean {
+  return state.analyzedChecks !== undefined && !sameChecks(state.analyzedChecks, checksOf(state));
+}
+
+/** Checks in effect for a state; a state from a worker that predates the picker means everything on. */
+export function checksOf(state: SessionState): Checks {
+  return state.checks ?? ALL_CHECKS;
+}
+
+export const CHECK_LABEL: Record<CheckId, string> = { structure: 'Structure', polish: 'Polish', facts: 'Facts', challenge: 'Challenge' };
+export const CHECK_HINT: Record<CheckId, string> = {
+  structure: 'Your thesis as a reader will hear it, and where the narrative loses them.',
+  polish: 'Fuzzy sentences, hedges, filler. A tighter phrasing in your register.',
+  facts: 'Every factual claim verified with sources.',
+  challenge: 'The strongest counterargument, the blind spots, the gaps.',
+};
 
 export function anyRunning(state: SessionState): boolean {
   return Object.values(state.passes).some((p) => p.state === 'running');

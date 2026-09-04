@@ -4,7 +4,7 @@ import { paragraphIndexAt, shiftSpans, stableId } from '../shared/anchoring';
 import type { Located, LocatedChallenge } from '../passes/validate';
 import type { Claim, ClarityFinding, Verdict } from '../shared/schemas';
 import type { Anchored, AnchoredChallenge, ClaimWithVerdict, HostId, SessionState, Span, TextSnapshot } from '../shared/types';
-import { emptySession } from '../shared/types';
+import { emptySession, type Checks, type ClarityKindFilter } from '../shared/types';
 
 /** Everything needed to pick a session up after the service worker restarts. */
 export interface SavedSession {
@@ -130,6 +130,22 @@ export class Session {
       claim.data.verdict = v;
       if (claim.status === 'stale') claim.status = 'open';
     }
+  }
+
+  /**
+   * The chips changed. A check turned off is pruned here and needs no run; one turned on shows as stale until the
+   * next run: `analyzedChecks` tracks what the findings on screen still reflect, so it loses the pruned checks too.
+   */
+  applyChecks(checks: Checks, keep: ClarityKindFilter): void {
+    this.state.checks = { ...checks };
+    if (this.state.analyzedChecks) {
+      const a = this.state.analyzedChecks;
+      this.state.analyzedChecks = { structure: a.structure && checks.structure, polish: a.polish && checks.polish, facts: a.facts && checks.facts, challenge: a.challenge && checks.challenge };
+    }
+    this.state.clarity = this.state.clarity.filter((f) => keep(f.data.kind));
+    if (!checks.facts) this.state.claims = [];
+    if (!checks.challenge) this.state.challenges = [];
+    if (!checks.challenge && !checks.structure) this.state.argument = undefined;
   }
 
   mergePassC(result: { thesis: string; premises: string[]; challenges: LocatedChallenge[] }): void {

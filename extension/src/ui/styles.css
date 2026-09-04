@@ -186,6 +186,14 @@ h3,h4,p{margin:0}
 .ws-launcher-count.ok{background:var(--green)}
 .ws-launcher-count.stale{background:var(--amber)}
 @media (prefers-reduced-motion: reduce){.ws-launcher-ring{animation:none}}
+/* check picker chips under the panel header */
+.ws-picks{display:flex;align-items:center;gap:5px;padding:0 14px 10px;flex-wrap:wrap}
+.ws-pick{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:11.5px;font-weight:500;white-space:nowrap}
+.ws-pick:hover{background:var(--bg)}
+.ws-pick.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
+.ws-pick svg{flex:none}
+.ws-off{font-size:12.5px;color:var(--faint)}
+.ws-off .link{color:var(--accent-ink);text-decoration:underline dotted;text-underline-offset:2px}
 /* panel close + idle hint */
 .ws-close{margin-left:6px;width:22px;height:22px;border-radius:6px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;display:grid;place-items:center;padding:0}
 .ws-close:hover{background:var(--bg);color:var(--ink)}

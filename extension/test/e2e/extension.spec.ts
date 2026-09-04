@@ -14,6 +14,12 @@ test.beforeEach(async ({ context, extensionId }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('select').first()).toHaveValue('mock', { timeout: 10_000 });
   await page.close();
+  // Challenge is off by default; these tests assert on the challenge rows, so turn every check on.
+  const [worker] = context.serviceWorkers();
+  await worker!.evaluate(async () => {
+    const { settings } = (await chrome.storage.local.get('settings')) as { settings: Record<string, unknown> };
+    await chrome.storage.local.set({ settings: { ...settings, checks: { structure: true, polish: true, facts: true, challenge: true } } });
+  });
 });
 
 async function openWordSnap(page: import('@playwright/test').Page) {
@@ -172,4 +178,31 @@ test('a momentary hide of the composer does not close the session', async ({ con
   await page.waitForTimeout(1200);
   await expect(page.locator('wordsnap-overlay')).toHaveCount(1);
   await expect(page.locator('wordsnap-overlay .ws-panel')).toBeVisible();
+});
+
+test('the check chips gate what runs: Challenge off drops the rows, on again needs Re-analyze', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openWordSnap(page);
+  const panel = overlay.locator('.ws-panel');
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(4, { timeout: 15_000 });
+  await expect(panel.locator('.ws-pick[data-check="challenge"]')).toHaveAttribute('aria-pressed', 'true');
+
+  // Off: the challenges go away at once, nothing runs, and there is nothing to re-analyze.
+  await panel.locator('.ws-pick[data-check="challenge"]').click();
+  await expect(panel.locator('.ws-pick[data-check="challenge"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(0);
+  await expect(panel.locator('.ws-off')).toContainText(/turn on challenge/i);
+  await expect(panel.locator('.ws-status')).toContainText(/checked/i);
+  await expect(panel.locator('.ws-reanalyze')).toBeDisabled();
+
+  // On again: the pill says why, Re-analyze lights up, and the rows come back only after it is pressed.
+  await panel.locator('.ws-off .link').click();
+  await expect(panel.locator('.ws-pick[data-check="challenge"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(0);
+  await expect(panel.locator('.ws-status')).toContainText(/checks changed/i);
+  await expect(panel.locator('.ws-reanalyze')).toBeEnabled();
+  await panel.locator('.ws-reanalyze').click();
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(4, { timeout: 15_000 });
+  await expect(panel.locator('.ws-status')).toContainText(/checked/i);
 });
