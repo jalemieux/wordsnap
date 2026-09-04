@@ -25,6 +25,10 @@ Use these as the structure whenever the product is explained. Always in this ord
 
 It never writes for you. It shows you the gap. A suggestion can only replace the words it quotes, stays close to their length, and keeps your register. Nothing changes in your draft until you click Apply.
 
+## The key line
+
+Works with your own OpenRouter or Claude (Anthropic) API key. OpenRouter connects with one click; a Claude key is pasted once. You pay your provider, not WordSnap.
+
 ## The privacy line
 
 Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no account.

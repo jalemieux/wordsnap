@@ -30,7 +30,9 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 >
 > Quiet by default. A small badge appears on the compose window. Nothing is read or sent until you click it.
 >
-> Your draft goes to the provider you chose, from your own account, and nowhere else. OpenRouter connects with one click; an Anthropic API key also works. No WordSnap server, no analytics, no account.
+> Works with your own OpenRouter or Claude (Anthropic) API key. OpenRouter connects with one click; a Claude key is pasted once. You pay your provider, not WordSnap.
+>
+> Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no account.
 >
 > Open source under Apache-2.0: https://github.com/jalemieux/wordsnap
 

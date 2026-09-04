@@ -17,7 +17,7 @@ Quiet by default: a small **W** badge appears on a compose window, and nothing i
 
 The draft text goes only to the provider the user configured, from the user's own account. No WordSnap server, no analytics, no crash reporting.
 
-The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click. An Anthropic API key also works. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
+Works with your own OpenRouter or Claude (Anthropic) API key. The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click; a Claude key is pasted once. You pay your provider, not WordSnap. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
 
 ## Install
 
