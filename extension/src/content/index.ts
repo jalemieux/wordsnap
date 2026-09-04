@@ -223,6 +223,11 @@ function scan(adapter: HostAdapter): void {
     // when that happens the old session is closed and a fresh one starts on the new element with the same UI state.
     const dup = sessionForKey(handle.key);
     if (dup) {
+      if (dup.handle.isAlive() && isVisibleComposer(dup.handle)) {
+        // Two live elements under one key is an adapter bug (two editors in one compose window); never flap between them.
+        if (dup.hiddenScans === 0) log.warn(`composer ${handle.key}: a second editor matched (${describeComposer(handle)}); keeping the current one`);
+        continue;
+      }
       log.info(`composer ${handle.key} was replaced (old: ${describeComposer(dup.handle)}), restarting its session`);
       rememberCarry(dup);
       dup.teardown();

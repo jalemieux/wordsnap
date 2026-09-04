@@ -37,8 +37,11 @@ describe('gmail adapter', () => {
   beforeEach(() => loadFixture('gmail-compose.html'));
 
   it('finds exactly one composer with email platform and a stable handle', () => {
+    // The fixture also carries Gemini's "Describe your change" textbox inside the dialog; it must not win.
+    expect(document.querySelectorAll('[role="dialog"] [role="textbox"][contenteditable="true"]')).toHaveLength(2);
     const first = gmailAdapter.findComposers(document);
     expect(first).toHaveLength(1);
+    expect(first[0]!.element.id).toBe('message-body');
     expect(first[0]!.platform).toEqual({ kind: 'email' });
     expect(first[0]!.getSnapshot().text).toBe(SAMPLE_TEXT);
     const second = gmailAdapter.findComposers(document);

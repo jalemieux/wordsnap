@@ -1,5 +1,7 @@
 // Gmail compose. Select on ARIA and Gmail's own g_editable flag, never on class names.
 // Caveat: aria-label="Message Body" is localized; g_editable and role=textbox inside a dialog cover other locales.
+// One composer per compose window: Gmail's Gemini bar ("Describe your change") is also a contenteditable textbox
+// inside the same dialog, so candidates are grouped by frame and the message body wins over any other textbox.
 import { ContenteditableComposer, cachedHandle, ensureKey } from './base';
 import type { ComposerHandle, HostAdapter } from './types';
 
@@ -30,7 +32,7 @@ export const gmailAdapter: HostAdapter = {
   },
   findComposers(root) {
     const out: ComposerHandle[] = [];
-    root.querySelectorAll<HTMLElement>(BODY_SELECTOR).forEach((body) => {
+    for (const body of pickBodies(root)) {
       const frame = frameOf(body);
       const key = ensureKey(frame ?? body, 'gmail');
       out.push(
@@ -44,7 +46,44 @@ export const gmailAdapter: HostAdapter = {
           }),
         ),
       );
-    });
+    }
     return out;
   },
 };
+
+/** Gmail marks the real message body with g_editable; the localized aria-label is the next best signal. */
+function isMessageBody(el: HTMLElement): boolean {
+  return el.getAttribute('g_editable') === 'true' || el.getAttribute('aria-label') === 'Message Body';
+}
+
+/** At most one body per frame: the marked message body if there is one, else the largest multiline textbox. */
+export function pickBodies(root: ParentNode): HTMLElement[] {
+  const byFrame = new Map<HTMLElement | null, HTMLElement[]>();
+  root.querySelectorAll<HTMLElement>(BODY_SELECTOR).forEach((el) => {
+    const frame = frameOf(el);
+    const list = byFrame.get(frame) ?? [];
+    list.push(el);
+    byFrame.set(frame, list);
+  });
+  const out: HTMLElement[] = [];
+  for (const [frame, list] of byFrame) {
+    if (!frame) {
+      out.push(...list);
+      continue;
+    }
+    const marked = list.find(isMessageBody);
+    if (marked) {
+      out.push(marked);
+      continue;
+    }
+    const multiline = list.filter((el) => el.getAttribute('aria-multiline') === 'true');
+    const pool = multiline.length ? multiline : list;
+    out.push(pool.reduce((best, el) => (area(el) > area(best) ? el : best)));
+  }
+  return out;
+}
+
+function area(el: HTMLElement): number {
+  const r = el.getBoundingClientRect();
+  return r.width * r.height;
+}
