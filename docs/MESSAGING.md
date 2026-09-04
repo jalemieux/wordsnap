@@ -8,6 +8,8 @@ One page. Every public surface (site, store listing, README, manifest, launch po
 
 ## What it is, in one breath
 
+On the site this is three short paragraphs (break before "Like your very own" and before "It works inside"), the four capabilities highlighted in teal, "your voice" bold on yellow.
+
 WordSnap helps you structure your thoughts, sharpen your wording, fact-check your claims and shows you the counterarguments, while preserving your voice. Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
 
 ## The four verbs

@@ -26,7 +26,7 @@
       --accent:#0E7C7B; --accent-ink:#0A5E5D; --accent-bg:#E6F3F2; --accent-line:#B7DAD7;
       --ink:#1B2A2A; --muted:#5C6B6B; --line:#DCE4E3; --bg:#F6F8F8; --card:#FFFFFF;
       --red:#B42318; --red-bg:#FCE9E7; --amber:#A8690F; --amber-bg:#FBF1DF; --green:#2E7D4F; --green-bg:#E6F4EC;
-      --code:#EEF2F2; --on-accent:#FFFFFF;
+      --code:#EEF2F2; --on-accent:#FFFFFF; --mark:#FFF1A8;
       color-scheme:light dark;
     }
     @media (prefers-color-scheme:dark){
@@ -34,14 +34,14 @@
         --accent:#5FC2BC; --accent-ink:#8ED9D4; --accent-bg:#17302F; --accent-line:#2F5654;
         --ink:#E6ECEB; --muted:#A3B1B0; --line:#2A3635; --bg:#141C1C; --card:#1A2222;
         --red:#F08A80; --red-bg:#3A1F1C; --amber:#E0B25C; --amber-bg:#3A2E15; --green:#7CC79A; --green-bg:#173124;
-        --code:#222C2C; --on-accent:#0F1A19;
+        --code:#222C2C; --on-accent:#0F1A19; --mark:#5A4A0E;
       }
     }
     :root[data-theme="dark"]{
       --accent:#5FC2BC; --accent-ink:#8ED9D4; --accent-bg:#17302F; --accent-line:#2F5654;
       --ink:#E6ECEB; --muted:#A3B1B0; --line:#2A3635; --bg:#141C1C; --card:#1A2222;
       --red:#F08A80; --red-bg:#3A1F1C; --amber:#E0B25C; --amber-bg:#3A2E15; --green:#7CC79A; --green-bg:#173124;
-      --code:#222C2C; --on-accent:#0F1A19;
+      --code:#222C2C; --on-accent:#0F1A19; --mark:#5A4A0E;
     }
     *,*::before,*::after{box-sizing:border-box}
     html{-webkit-text-size-adjust:100%}
@@ -78,8 +78,9 @@
 
     .hero{padding:64px 0 48px;border-bottom:1px solid var(--line)}
     .hero .wrap{display:grid;gap:22px}
-    .hero p.lede{font-size:1.2rem;max-width:62ch}
-    .hero p.lede em.verb{font-style:normal;font-weight:650;color:var(--ink);background:var(--accent-bg);border-bottom:2px solid var(--accent);padding:0 3px;border-radius:2px}
+    .hero .lede{font-size:1.2rem;max-width:62ch;display:grid;gap:.75em}
+    .hero .lede mark.voice{font-weight:700;color:var(--ink);background:var(--mark);padding:0 3px;border-radius:2px}
+    .hero .lede em.verb{font-style:normal;font-weight:650;color:var(--ink);background:var(--accent-bg);border-bottom:2px solid var(--accent);padding:0 3px;border-radius:2px}
     .hero .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
     .hero .actions small{color:var(--muted);font-size:.9rem}
     figure.shot{margin:12px 0 0;display:grid;gap:10px}
@@ -138,7 +139,11 @@
   <section class="hero">
     <div class="wrap">
       <h1>Make your point. Keep your voice.</h1>
-      <p class="lede">WordSnap helps you <em class="verb">structure your thoughts</em>, <em class="verb">sharpen your wording</em>, <em class="verb">fact-check your claims</em> and <em class="verb">shows you the counterarguments</em>, while preserving your voice. Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.</p>
+      <div class="lede">
+        <p>WordSnap helps you <em class="verb">structure your thoughts</em>, <em class="verb">sharpen your wording</em>, <em class="verb">fact-check your claims</em> and <em class="verb">shows you the counterarguments</em>, while preserving <mark class="voice">your voice</mark>.</p>
+        <p>Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop.</p>
+        <p>It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.</p>
+      </div>
       <div class="actions">
         <!-- Chrome Web Store listing pending review. When it is live, put back before the GitHub link:
              <a class="btn" href="https://chromewebstore.google.com/detail/wordsnap/EXTENSION_ID">Add to Chrome</a>
