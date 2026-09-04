@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type Settings } from '../shared/types';
+import { DEFAULT_SETTINGS, SUPPORTED_MODEL, SUPPORTED_PROVIDER_ORDER, type Settings } from '../shared/types';
 import type { KeyValueStorage } from './storage';
 
 export const SETTINGS_KEY = 'settings';
@@ -41,15 +41,27 @@ export class SettingsStore {
   }
 }
 
+/**
+ * Fill defaults and pin what this build supports: OpenRouter serving z-ai/glm-5.2 from Z.AI with no fallbacks. A stored
+ * 'claude' provider (from an earlier build) becomes OpenRouter; its key stays in `apiKey`, unused. The mock provider is
+ * left alone so dev builds and tests keep working.
+ */
 export function mergeSettings(partial: Partial<Settings>): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...partial,
+    provider: partial.provider === 'mock' ? 'mock' : 'openrouter',
     enabledHosts: { ...DEFAULT_SETTINGS.enabledHosts, ...(partial.enabledHosts ?? {}) },
     effort: { ...DEFAULT_SETTINGS.effort, ...(partial.effort ?? {}) },
     blockedDomains: Array.isArray(partial.blockedDomains) ? partial.blockedDomains : [],
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : '',
     model: partial.model || DEFAULT_SETTINGS.model,
-    openrouter: { ...DEFAULT_SETTINGS.openrouter, ...(partial.openrouter ?? {}) },
+    openrouter: {
+      ...DEFAULT_SETTINGS.openrouter,
+      ...(partial.openrouter ?? {}),
+      model: SUPPORTED_MODEL,
+      providerOrder: [...SUPPORTED_PROVIDER_ORDER],
+      allowFallbacks: false,
+    },
   };
 }

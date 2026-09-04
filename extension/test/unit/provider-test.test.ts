@@ -3,6 +3,7 @@ import { SettingsStore } from '../../src/background/settings';
 import { MemoryStorage } from '../../src/background/storage';
 import { MockProvider } from '../../src/providers/mock';
 import { ProviderError, type LLMProvider } from '../../src/providers/types';
+import { DEFAULT_OPENROUTER } from '../../src/shared/types';
 
 function failing(err: Error): LLMProvider {
   const inner = new MockProvider({ delayMs: 0 });
@@ -28,7 +29,7 @@ describe('testProvider', () => {
 
   it('maps provider errors to hints and does not mark onboarding done', async () => {
     const store = new SettingsStore(new MemoryStorage());
-    await store.set({ provider: 'claude', apiKey: 'sk-ant-x', model: 'claude-opus-5' });
+    await store.set({ provider: 'openrouter', openrouter: { ...DEFAULT_OPENROUTER, apiKey: 'sk-or-v1-x' } });
     const r = await testProvider(store, { provider: () => failing(new ProviderError('Billing is not set up for this key', 'billing')) });
     expect(r).toEqual({ type: 'test', ok: false, error: 'Billing is not set up for this key', hint: 'billing' });
     expect((await store.get()).onboarded).toBe(false);
@@ -36,11 +37,11 @@ describe('testProvider', () => {
 
   it('reports a timeout as a network problem naming the model', async () => {
     const store = new SettingsStore(new MemoryStorage());
-    await store.set({ provider: 'claude', apiKey: 'sk-ant-x', model: 'claude-opus-5' });
+    await store.set({ provider: 'openrouter', openrouter: { ...DEFAULT_OPENROUTER, apiKey: 'sk-or-v1-x' } });
     const timeout = new Error('signal timed out');
     timeout.name = 'TimeoutError';
     const r = await testProvider(store, { provider: () => failing(timeout) });
-    expect(r.type === 'test' && !r.ok && r.hint === 'network' && /claude-opus-5 did not answer/.test(r.error)).toBe(true);
+    expect(r.type === 'test' && !r.ok && r.hint === 'network' && /z-ai\/glm-5.2 did not answer/.test(r.error)).toBe(true);
   });
 
   it('uses the mock provider without a key', async () => {

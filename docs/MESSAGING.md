@@ -27,7 +27,7 @@ It never writes for you. It shows you the gap. A suggestion can only replace the
 
 ## The key line
 
-Works with your own OpenRouter or Claude (Anthropic) API key. OpenRouter connects with one click; a Claude key is pasted once. You pay your provider, not WordSnap.
+Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap.
 
 ## The privacy line
 

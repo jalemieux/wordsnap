@@ -76,6 +76,14 @@ export interface SessionState {
 
 export type ProviderId = 'openrouter' | 'claude' | 'mock';
 
+/**
+ * The only model this build runs. Prompts, lenient parsing and the repair round are validated against it and nothing
+ * else, so settings are normalized to it on every read and write (see mergeSettings). 'claude' remains in ProviderId
+ * for stored-settings compatibility; the store maps it back to OpenRouter and the provider code stays dormant.
+ */
+export const SUPPORTED_MODEL = 'z-ai/glm-5.2';
+export const SUPPORTED_PROVIDER_ORDER: readonly string[] = ['z-ai'];
+
 export interface OpenRouterSettings {
   apiKey: string;
   model: string;
@@ -106,8 +114,8 @@ export interface Settings {
 
 export const DEFAULT_OPENROUTER: OpenRouterSettings = {
   apiKey: '',
-  model: 'z-ai/glm-5.2',
-  providerOrder: ['z-ai'],
+  model: SUPPORTED_MODEL,
+  providerOrder: [...SUPPORTED_PROVIDER_ORDER],
   allowFallbacks: false,
   webResults: 5,
 };

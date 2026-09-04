@@ -30,7 +30,7 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 >
 > Quiet by default. A small badge appears on the compose window. Nothing is read or sent until you click it.
 >
-> Works with your own OpenRouter or Claude (Anthropic) API key. OpenRouter connects with one click; a Claude key is pasted once. You pay your provider, not WordSnap.
+> Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap.
 >
 > Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no account.
 >

@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { sendToBackground, type OptionsEvent, type OptionsResponse } from '../shared/messages';
-import { type Effort, type HostId, type PassId, type ProviderId, type Settings } from '../shared/types';
+import { SUPPORTED_MODEL, type Effort, type HostId, type PassId, type ProviderId, type Settings } from '../shared/types';
 
 const OPENROUTER_KEYS_URL = 'https://openrouter.ai/settings/keys';
 const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/settings/credits';
-const CLAUDE_KEYS_URL = 'https://platform.claude.com/settings/keys';
-const CLAUDE_BILLING_URL = 'https://platform.claude.com/settings/billing';
 const GMAIL_COMPOSE_URL = 'https://mail.google.com/mail/?view=cm';
 const SAFARI = __WORDSNAP_BROWSER__ === 'safari';
 /** Sign-in in a tab (Safari) has no tab-closed signal for the page; give up after the code's own lifetime. */
@@ -22,7 +20,7 @@ const PASSES: { id: PassId; label: string }[] = [
   { id: 'C', label: 'Counterargument' },
 ];
 
-type KeyProvider = 'openrouter' | 'claude';
+type KeyProvider = 'openrouter';
 type Model = { id: string; displayName: string };
 type Validation =
   | { kind: 'idle' }
@@ -121,13 +119,12 @@ function ValidationMessage({ v, provider, workspaceId, onWorkspaceInput, retry }
   if (v.kind === 'idle') return null;
   if (v.kind === 'checking') return <p class="msg muted"><span class="spin" /> Checking the key…</p>;
   if (v.kind === 'ok') return <p class="msg ok">✓ Key accepted. {v.models.length} models available.</p>;
-  const billingUrl = provider === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_BILLING_URL;
   return (
     <div>
       <p class="msg err">
         {v.hint === 'auth' ? 'That key was not accepted. Check for missing characters.' : v.hint === 'network' ? 'Could not reach the provider.' : v.error}
         {v.hint === 'network' ? <> <button class="link" onClick={retry}>Retry</button></> : null}
-        {v.hint === 'billing' ? <> <a href={billingUrl} target="_blank" rel="noopener noreferrer">{provider === 'openrouter' ? 'Add credits ↗' : 'Set up billing ↗'}</a></> : null}
+        {v.hint === 'billing' ? <> <a href={OPENROUTER_CREDITS_URL} target="_blank" rel="noopener noreferrer">Add credits ↗</a></> : null}
       </p>
       {v.hint === 'workspace' ? (
         <div class="field">
@@ -212,7 +209,6 @@ const SITES: { label: string; origins: string[]; why: string }[] = [
   { label: 'X', origins: ['https://x.com/*', 'https://twitter.com/*'], why: 'the post composer' },
   { label: 'LinkedIn', origins: ['https://www.linkedin.com/*'], why: 'the post composer' },
   { label: 'OpenRouter', origins: ['https://openrouter.ai/*'], why: 'the model requests' },
-  { label: 'Anthropic', origins: ['https://api.anthropic.com/*'], why: 'the model requests, with an Anthropic key' },
 ];
 
 /** Safari only: which of the sites WordSnap works on it may read, with a button to allow each. */
@@ -287,23 +283,22 @@ function seconds(ms: number): string {
 }
 
 function hasKey(s: Settings): boolean {
-  return s.provider === 'mock' || (s.provider === 'openrouter' ? s.openrouter.apiKey : s.apiKey).trim().length > 0;
+  return s.provider === 'mock' || s.openrouter.apiKey.trim().length > 0;
 }
 
 function modelOf(s: Settings): string {
-  return s.provider === 'openrouter' ? s.openrouter.model : s.provider === 'claude' ? s.model : 'mock';
+  return s.provider === 'mock' ? 'mock' : s.openrouter.model;
 }
 
 function providerName(s: Settings): string {
-  return s.provider === 'openrouter' ? 'OpenRouter' : s.provider === 'claude' ? 'Anthropic' : 'the mock provider';
+  return s.provider === 'mock' ? 'the mock provider' : 'OpenRouter';
 }
 
 function TestError({ t, provider, onRetry }: { t: Extract<TestState, { kind: 'error' }>; provider: ProviderId; onRetry: () => void }) {
-  const billingUrl = provider === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_BILLING_URL;
   return (
     <p class="msg err">
       {t.hint === 'auth' ? 'The key was not accepted.' : t.hint === 'network' ? `Could not reach the provider. ${t.error}` : t.error}
-      {t.hint === 'billing' ? <> <a href={billingUrl} target="_blank" rel="noopener noreferrer">{provider === 'openrouter' ? 'Add credits ↗' : 'Set up billing ↗'}</a></> : null}
+      {t.hint === 'billing' ? <> <a href={OPENROUTER_CREDITS_URL} target="_blank" rel="noopener noreferrer">Add credits ↗</a></> : null}
       {t.hint === 'network' || t.hint === 'billing' ? <> <button class="link" onClick={onRetry}>Try again</button></> : null}
     </p>
   );
@@ -328,7 +323,6 @@ function Onboarding({ settings, save, reload, finish }: { settings: Settings; sa
   };
   const { c, connect } = useConnect(() => testAfter(reload));
   const kvOpenRouter = useKeyValidation('openrouter', (apiKey) => testAfter(() => save({ provider: 'openrouter', openrouter: { ...settings.openrouter, apiKey } })));
-  const kvClaude = useKeyValidation('claude', (apiKey, workspaceId) => testAfter(() => save({ provider: 'claude', apiKey, workspaceId })));
 
   useEffect(() => {
     if (hasKey(settings)) void testAfter(async () => undefined);
@@ -385,44 +379,17 @@ function Onboarding({ settings, save, reload, finish }: { settings: Settings; sa
             </p>
           ) : (
             <>
-              <p>WordSnap runs on an account you control. The fastest way is OpenRouter: one sign-in, no keys to copy, pay only for what you use.</p>
+              <p>WordSnap runs on your own OpenRouter account: one sign-in, no keys to copy, pay only for what you use. It runs <code>{SUPPORTED_MODEL}</code>, the one model its prompts and parsing are validated against.</p>
               <ConnectButton c={c} connect={connect} label="Connect OpenRouter" />
-              <details class="alt" open={manual !== null}>
-                <summary>Or paste a key instead</summary>
-                <div class="row" style={{ margin: '8px 0' }}>
-                  <button
-                    class={`btn${manual === 'openrouter' ? ' on' : ''}`}
-                    onClick={() => {
-                      if (SAFARI) void requestSiteAccess(['https://openrouter.ai/*']);
-                      setManual('openrouter');
-                    }}
-                  >
-                    OpenRouter key
-                  </button>
-                  <button
-                    class={`btn${manual === 'claude' ? ' on' : ''}`}
-                    onClick={() => {
-                      if (SAFARI) void requestSiteAccess(['https://api.anthropic.com/*']);
-                      setManual('claude');
-                    }}
-                  >
-                    Anthropic key
-                  </button>
-                </div>
-                {manual === 'openrouter' ? (
-                  <>
-                    <p class="msg muted">Create one at <a href={OPENROUTER_KEYS_URL} target="_blank" rel="noopener noreferrer">openrouter.ai/settings/keys ↗</a></p>
-                    <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
-                    <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
-                  </>
-                ) : null}
-                {manual === 'claude' ? (
-                  <>
-                    <p class="msg muted">Create a personal key at <a href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">platform.claude.com ↗</a>. Claude Code and claude.ai logins do not work here.</p>
-                    <input type="password" placeholder="sk-ant-api03-…" aria-label="Anthropic API key" autocomplete="off" value={kvClaude.key} onInput={(e) => kvClaude.onKeyInput((e.target as HTMLInputElement).value)} />
-                    <ValidationMessage v={kvClaude.v} provider="claude" workspaceId={kvClaude.workspaceId} onWorkspaceInput={kvClaude.onWorkspaceInput} retry={kvClaude.retry} />
-                  </>
-                ) : null}
+              <details class="alt" open={manual !== null} onToggle={(e) => {
+                  const open = (e.target as HTMLDetailsElement).open;
+                  if (open && SAFARI) void requestSiteAccess(['https://openrouter.ai/*']);
+                  setManual(open ? 'openrouter' : null);
+                }}>
+                <summary>Or paste an OpenRouter key instead</summary>
+                <p class="msg muted">Create one at <a href={OPENROUTER_KEYS_URL} target="_blank" rel="noopener noreferrer">openrouter.ai/settings/keys ↗</a></p>
+                <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
+                <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
               </details>
             </>
           )}
@@ -501,51 +468,25 @@ function BadgePreview() {
   );
 }
 
-function ModelSelect({ value, models, disabled, onChange }: { value: string; models: Model[]; disabled?: boolean; onChange: (m: string) => void }) {
-  const options = models.length ? models : [{ id: value, displayName: value }];
-  const known = options.some((m) => m.id === value);
-  return (
-    <select value={value} disabled={disabled} onChange={(e) => onChange((e.target as HTMLSelectElement).value)}>
-      {known ? null : <option value={value}>{value}</option>}
-      {options.map((m) => (
-        <option key={m.id} value={m.id}>
-          {m.displayName}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 /* ---------------- settings ---------------- */
 
 function SettingsView({ settings, save, reload }: { settings: Settings; save: (p: Partial<Settings>) => Promise<void>; reload: () => Promise<void> }) {
   const [replacing, setReplacing] = useState(false);
-  const [models, setModels] = useState<Model[]>([]);
   const [domains, setDomains] = useState(settings.blockedDomains.join('\n'));
   const { c, connect } = useConnect(async () => {
     setReplacing(false);
     await reload();
   });
-  useEffect(() => {
-    if (c.kind === 'ok') setModels(c.models);
-  }, [c]);
 
-  const kvOpenRouter = useKeyValidation('openrouter', async (apiKey, _ws, ms) => {
-    setModels(ms);
+  const kvOpenRouter = useKeyValidation('openrouter', async (apiKey) => {
     setReplacing(false);
     await save({ openrouter: { ...settings.openrouter, apiKey } });
-  });
-  const kvClaude = useKeyValidation('claude', async (apiKey, workspaceId, ms) => {
-    setModels(ms);
-    setReplacing(false);
-    await save({ apiKey, workspaceId });
   });
 
   const { t, run: runTest } = useProviderTest();
   const p = settings.provider;
-  const key = p === 'openrouter' ? settings.openrouter.apiKey : p === 'claude' ? settings.apiKey : 'mock';
+  const key = p === 'mock' ? 'mock' : settings.openrouter.apiKey;
   const showReplace = replacing || (!key && p !== 'mock');
-  const pinned = settings.openrouter.providerOrder.includes('z-ai');
 
   return (
     <>
@@ -554,44 +495,36 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
         <div class="field">
           <label>Provider</label>
           <select value={p} onChange={(e) => void save({ provider: (e.target as HTMLSelectElement).value as ProviderId })}>
-            <option value="openrouter">OpenRouter (recommended)</option>
-            <option value="claude">Claude (Anthropic API key)</option>
+            <option value="openrouter">OpenRouter</option>
             {__WORDSNAP_DEV__ || p === 'mock' ? <option value="mock">Mock (dev only)</option> : null}
           </select>
 
           {p !== 'mock' ? (
             <>
-              <label>{p === 'openrouter' ? 'Account' : 'API key'}</label>
+              <label>Account</label>
               <div>
                 {showReplace ? (
-                  p === 'openrouter' ? (
-                    <>
-                      <ConnectButton c={c} connect={connect} label="Connect OpenRouter" />
-                      <details class="alt">
-                        <summary>Or paste a key</summary>
-                        <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
-                        <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
-                      </details>
-                    </>
-                  ) : (
-                    <>
-                      <input type="password" placeholder="sk-ant-api03-…" aria-label="Anthropic API key" autocomplete="off" value={kvClaude.key} onInput={(e) => kvClaude.onKeyInput((e.target as HTMLInputElement).value)} />
-                      <ValidationMessage v={kvClaude.v} provider="claude" workspaceId={kvClaude.workspaceId || settings.workspaceId} onWorkspaceInput={kvClaude.onWorkspaceInput} retry={kvClaude.retry} />
-                    </>
-                  )
+                  <>
+                    <ConnectButton c={c} connect={connect} label="Connect OpenRouter" />
+                    <details class="alt">
+                      <summary>Or paste a key</summary>
+                      <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
+                      <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
+                    </details>
+                  </>
                 ) : (
                   <div>
                     <div class="row">
                       <code>{redact(key)}</code>
                       <button class="btn" onClick={() => setReplacing(true)}>
-                        {p === 'openrouter' ? 'Reconnect' : 'Replace'}
+                        Reconnect
                       </button>
                       <button class="btn" disabled={t.kind === 'busy'} onClick={() => void runTest()}>
                         {t.kind === 'busy' ? <span class="spin" /> : null}
                         Test
                       </button>
-                      <a href={p === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
-                        {p === 'openrouter' ? 'Credits ↗' : 'Console ↗'}
+                      <a href={OPENROUTER_CREDITS_URL} target="_blank" rel="noopener noreferrer">
+                        Credits ↗
                       </a>
                     </div>
                     {t.kind === 'ok' ? (
@@ -606,30 +539,9 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
               </div>
 
               <label>Model</label>
-              <ModelSelect
-                value={p === 'openrouter' ? settings.openrouter.model : settings.model}
-                models={models}
-                onChange={(m) => void (p === 'openrouter' ? save({ openrouter: { ...settings.openrouter, model: m } }) : save({ model: m }))}
-              />
-            </>
-          ) : null}
-
-          {p === 'openrouter' ? (
-            <>
-              <label>Routing</label>
-              <div class="checks">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={pinned}
-                    onChange={(e) => {
-                      const on = (e.target as HTMLInputElement).checked;
-                      void save({ openrouter: { ...settings.openrouter, providerOrder: on ? ['z-ai'] : [], allowFallbacks: !on } });
-                    }}
-                  />
-                  Serve Z.AI models from Z.AI only (no fallbacks)
-                </label>
-              </div>
+              <p class="msg muted" style={{ marginTop: 0 }}>
+                <code>{SUPPORTED_MODEL}</code>, served by Z.AI with no fallbacks. WordSnap's prompts and response parsing are validated against this model only, so it is not a setting yet.
+              </p>
               <label>Web results</label>
               <select value={String(settings.openrouter.webResults)} onChange={(e) => void save({ openrouter: { ...settings.openrouter, webResults: Number((e.target as HTMLSelectElement).value) } })}>
                 {[3, 5, 8].map((n) => (

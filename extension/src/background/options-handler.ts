@@ -1,5 +1,4 @@
 // chrome.runtime.onMessage handler for the options page.
-import { ClaudeProvider } from '../providers/claude';
 import { createProvider, providerReady } from '../providers';
 import { OpenRouterProvider } from '../providers/openrouter';
 import { challengeFor, codeFromRedirect, exchangeCodeForKey, makeVerifier, openRouterAuthUrl } from '../shared/pkce';
@@ -7,7 +6,7 @@ import { ProviderError } from '../providers/types';
 import { snapshotFromText } from '../shared/anchoring';
 import type { OptionsEvent, OptionsRequest, OptionsResponse } from '../shared/messages';
 import { SAMPLE_SUBJECT, SAMPLE_TEXT } from '../shared/sample';
-import type { SessionState, Settings } from '../shared/types';
+import { SUPPORTED_MODEL, type SessionState, type Settings } from '../shared/types';
 import type { LLMProvider } from '../providers/types';
 import { AUTH_TIMEOUT_MS, TAB_CALLBACK_URL, beginAuthTab, cancelAuthTab, catchAuthCallback, chromeAuthTabDeps, type AuthTabDeps } from './auth-tab';
 import type { ClaimCache } from './cache';
@@ -27,10 +26,10 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
     case 'settings/set':
       return { type: 'settings', settings: await store.set(req.patch) };
     case 'settings/validateKey': {
-      const provider =
-        req.provider === 'openrouter'
-          ? new OpenRouterProvider({ apiKey: req.apiKey, model: 'z-ai/glm-5.2' })
-          : new ClaudeProvider({ apiKey: req.apiKey, model: 'claude-opus-5', workspaceId: req.workspaceId || undefined });
+      if (req.provider !== 'openrouter') {
+        return { type: 'validateKey', ok: false, error: `Only OpenRouter keys work in this build; WordSnap is validated against ${SUPPORTED_MODEL} only.` };
+      }
+      const provider = new OpenRouterProvider({ apiKey: req.apiKey, model: SUPPORTED_MODEL });
       try {
         const models = await provider.listModels();
         return { type: 'validateKey', ok: true, models };
@@ -64,7 +63,7 @@ const PROBE_TIMEOUT_MS = 45_000;
  */
 export async function testProvider(store: SettingsStore, deps: { provider?: (s: Settings) => LLMProvider; now?: () => number } = {}): Promise<OptionsResponse> {
   const settings = await store.get();
-  const model = settings.provider === 'openrouter' ? settings.openrouter.model : settings.provider === 'claude' ? settings.model : 'mock';
+  const model = settings.provider === 'mock' ? 'mock' : settings.openrouter.model;
   if (!providerReady(settings)) return { type: 'test', ok: false, error: 'No key is configured.', hint: 'auth' };
   const now = deps.now ?? (() => Date.now());
   const started = now();

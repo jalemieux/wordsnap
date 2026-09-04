@@ -30,8 +30,8 @@ Two routes. Both need macOS.
 **Site access is granted per site.** Chrome grants every host in the manifest at install. Safari grants nothing until the user allows it, on a prompt it only shows from a user gesture. The extension handles this in three places:
 
 - The Connect OpenRouter button asks for `openrouter.ai` inside the click, before the sign-in tab opens, so the redirect back is visible to the extension.
-- The OpenRouter key and Anthropic key buttons on the paste path ask for the provider host, so the key check and later analyses can reach it.
-- Settings has a Site access card listing Gmail, X, LinkedIn, OpenRouter and Anthropic with an Allow button each. It is only rendered in Safari builds.
+- Opening the paste-a-key section asks for the OpenRouter host, so the key check and later analyses can reach it.
+- Settings has a Site access card listing Gmail, X, LinkedIn and OpenRouter with an Allow button each. It is only rendered in Safari builds.
 
 If the badge does not show on a Gmail compose window, the fix is to click the WordSnap icon in Safari's toolbar on that tab and choose Always Allow. The setup-complete screen says so in Safari builds.
 

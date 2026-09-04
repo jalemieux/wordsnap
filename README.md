@@ -17,7 +17,7 @@ Quiet by default: a small **W** badge appears on a compose window, and nothing i
 
 The draft text goes only to the provider the user configured, from the user's own account. No WordSnap server, no analytics, no crash reporting.
 
-Works with your own OpenRouter or Claude (Anthropic) API key. The default provider is OpenRouter (GLM 5.2 served by Z.AI), connected with one click; a Claude key is pasted once. You pay your provider, not WordSnap. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
+WordSnap runs on your own OpenRouter account (GLM 5.2 served by Z.AI), connected with one click. You pay OpenRouter, not WordSnap. That is the only model this build supports; its prompts and response parsing are validated against it alone. The key lives in the extension's local storage, is only ever read by the background service worker, and never reaches a web page. Full policy: [wordsnap.ai/privacy.html](https://wordsnap.ai/privacy.html).
 
 ## Install
 
@@ -54,7 +54,7 @@ extension/src
   content/      content script: text snapshots, offset maps, session client
   adapters/     host adapters: gmail, x, linkedin, generic
   passes/       prompts, request builders, post-validation rules
-  providers/    LLM providers: openrouter (default; web plugin, provider routing, JSON repair), claude, mock
+  providers/    LLM providers: openrouter (the only one wired; web plugin, provider routing, JSON repair), claude (dormant), mock
   ui/           overlay (highlights, hover card, challenges panel, status pill)
   options/      settings page with one-click OpenRouter connect and guided key fallback
   shared/       schemas, types, message protocol, anchoring, cost, sample draft
