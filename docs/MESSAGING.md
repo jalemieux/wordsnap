@@ -8,7 +8,7 @@ One page. Every public surface (site, store listing, README, manifest, launch po
 
 ## What it is, in one breath
 
-WordSnap helps you structure your narrative, polish your wording, fact-check your claims and hear the counterargument, before you send. It works inside the Gmail, X or LinkedIn window you already write in. Your words stay yours. No AI slop.
+WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in.
 
 ## The four verbs
 
@@ -35,4 +35,4 @@ Structure your narrative, polish your wording, fact-check your claims, hear the 
 
 ## Words we do not use
 
-AI writer, ghostwriter, generate, rewrite, polished message, perfect, magic, supercharge, assistant, copilot. Never "consider". Never praise the user.
+AI writer, generate, rewrite, polished message, perfect, magic, supercharge, assistant, copilot. "Ghostwriter" is used only in the form "your own ghostwriter", paired with preserving your voice. Never "consider". Never praise the user.
