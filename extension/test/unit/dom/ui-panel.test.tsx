@@ -51,6 +51,31 @@ describe('StatusPill', () => {
     expect(c.textContent).toContain('UK four-day week pilot');
     expect(c.querySelector('.ws-status')?.classList.contains('running')).toBe(true);
   });
+  it('offers Re-analyze only when the draft changed or a pass failed, and says so in the pill', () => {
+    const fresh = sampleState();
+    fresh.analyzedVersion = fresh.snapshotVersion;
+    const c = document.createElement('div');
+    const onAnalyze = vi.fn();
+    render(<ChallengesPanel state={fresh} onHot={() => {}} onAnalyze={onAnalyze} />, c);
+    const btn = c.querySelector<HTMLButtonElement>('.ws-reanalyze')!;
+    expect(btn).toBeTruthy();
+    expect(btn.disabled).toBe(true);
+    expect(statusOf(fresh).mode).toBe('done');
+
+    const changed = sampleState();
+    changed.analyzedVersion = changed.snapshotVersion - 1;
+    render(<ChallengesPanel state={changed} onHot={() => {}} onAnalyze={onAnalyze} />, c);
+    const btn2 = c.querySelector<HTMLButtonElement>('.ws-reanalyze')!;
+    expect(btn2.disabled).toBe(false);
+    expect(statusOf(changed)).toEqual({ mode: 'stale', text: 'Draft changed' });
+    click(btn2);
+    expect(onAnalyze).toHaveBeenCalledTimes(1);
+
+    const never = sampleState();
+    delete never.analyzedVersion;
+    render(<ChallengesPanel state={never} onHot={() => {}} onAnalyze={onAnalyze} />, c);
+    expect(c.querySelector('.ws-reanalyze')).toBeNull();
+  });
   it('shows checked time when done, error when failed, waiting when idle', () => {
     const now = Date.now();
     const done = sampleState();

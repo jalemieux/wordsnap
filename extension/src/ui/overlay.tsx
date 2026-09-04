@@ -191,6 +191,7 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         onHot={(ids) => setHot(new Set(ids))}
         now={now}
         onClose={() => setOpen(false)}
+        onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />

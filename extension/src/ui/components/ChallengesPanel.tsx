@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { SessionState } from '../../shared/types';
-import { CHALLENGE_LABEL, sortChallenges, summaryCounts } from '../format';
+import { CHALLENGE_LABEL, draftChanged, firstError, sortChallenges, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
@@ -9,17 +9,21 @@ export interface ChallengesPanelProps {
   style?: Record<string, string>;
   onHot: (ids: string[]) => void;
   onClose?: () => void;
+  /** Re-analyze button. Enabled when the draft changed since the last run or a pass failed. */
+  onAnalyze?: () => void;
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
   minWords?: number;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
   const running = Object.values(state.passes).some((p) => p.state === 'running');
+  const analyzed = state.analyzedVersion !== undefined;
+  const canAnalyze = !running && (draftChanged(state) || !!firstError(state));
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
@@ -27,6 +31,16 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, wordCount, 
         <Mark />
         <span class="ws-name">WordSnap</span>
         <StatusPill state={state} now={now} />
+        {onAnalyze && analyzed ? (
+          <button
+            class="ws-btn ws-reanalyze"
+            disabled={!canAnalyze}
+            onClick={onAnalyze}
+            title={canAnalyze ? 'Re-run clarity on the changed paragraphs, check new claims, and refresh the counterargument' : running ? 'Analyzing…' : 'Nothing changed since the last analysis'}
+          >
+            Re-analyze
+          </button>
+        ) : null}
         {onClose ? (
           <button class="ws-close" onClick={onClose} aria-label="Hide WordSnap" title="Hide WordSnap">
             ✕

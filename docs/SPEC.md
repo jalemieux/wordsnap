@@ -23,7 +23,7 @@ These came out of the design sessions and are not open:
 - Research is provider-native: OpenRouter's web plugin (one grounded search per request, citations returned as annotations) or Claude's `web_search` server tool. No separate search API (Brave was considered and dropped: no free tier since February 2026, and a shared key would need a server).
 - Onboarding is one click: Connect OpenRouter (OAuth PKCE via `chrome.identity.launchWebAuthFlow`, code exchanged for a user-controlled key). Pasting an OpenRouter or Anthropic key is the fallback.
 - Commercial path, not v1: a hosted WordSnap service running the agent harness, calling models and web search with WordSnap's own keys behind WordSnap sign-in. The provider layer (section 6) treats it as one more provider so nothing in v1 has to be rewritten.
-- UX: inline fact-check highlights with hover cards (1A), a docked Challenges panel (2B), Apply/Keep buttons with a diff preview (3A), automatic silent re-analysis on edit (4A), no share or export controls: the user sends from the composer they are already in (the 5A share bar was built and then dropped; the Preview modal with X thread splitting is kept unwired for M2).
+- UX: inline fact-check highlights with hover cards (1A), a docked Challenges panel (2B), Apply/Keep buttons with a diff preview (3A), re-analysis on demand (4A, revised September 2026: edits update anchors and stale findings at once, and a Re-analyze button in the panel runs the passes; the `autoAnalyze` setting restores silent re-runs), no share or export controls: the user sends from the composer they are already in (the 5A share bar was built and then dropped; the Preview modal with X thread splitting is kept unwired for M2).
 - Voice preservation is a hard constraint. A suggestion may only replace the quoted span, must stay within about 1.3x its length, and must keep the writer's register. "Here is the gap" beats "here is your new sentence."
 - Client code is open source.
 
@@ -123,7 +123,7 @@ Runs in the background per composer session.
 **Triggers.**
 - The user clicks the launcher badge (8-word minimum), or, with the auto setting on, the draft crosses 40 words: full run.
 - Input: 800 ms debounce, then an incremental run.
-- Nothing runs on every keystroke, and there is no visible re-run button (4A). The status pill is the only feedback.
+- Nothing runs on a keystroke. Edits shift anchors and mark touched findings stale; the status pill reads "Draft changed" and the panel's Re-analyze button runs the passes (4A). With `autoAnalyze` on, runs are debounced and silent instead.
 
 **Sequence.** Pass A runs first and streams. Pass B starts as soon as A's claim list arrives. Pass C starts in parallel with A on the full text. All three write to the same findings map keyed by finding ID, and the UI renders whatever is present.
 

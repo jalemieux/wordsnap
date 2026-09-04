@@ -516,10 +516,10 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
         <div class="checks">
           <label>
             <input type="checkbox" checked={settings.autoAnalyze} onChange={(e) => void save({ autoAnalyze: (e.target as HTMLInputElement).checked })} />
-            Start on its own once a draft passes 40 words
+            Analyze on its own: start once a draft passes 40 words, and re-check as you edit
           </label>
         </div>
-        <p class="msg muted" style={{ marginTop: '6px' }}>Off by default: WordSnap shows a small badge on the compose window and waits until you click it.</p>
+        <p class="msg muted" style={{ marginTop: '6px' }}>Off by default: WordSnap waits for you. Click the badge on a compose window to analyze, and press Re-analyze in the panel after you edit. Highlights follow your edits either way.</p>
       </div>
 
       <div class="card">

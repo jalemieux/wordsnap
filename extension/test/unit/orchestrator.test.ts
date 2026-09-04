@@ -40,14 +40,15 @@ const flush = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
-function setup(providerOverride?: LLMProvider) {
+function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof DEFAULT_SETTINGS> = {}) {
   const clock = new FakeClock();
   const provider = providerOverride ?? new MockProvider({ delayMs: 0 });
   const storage = new MemoryStorage();
   const cache = new ClaimCache(storage, () => clock.now);
   const states: SessionState[] = [];
   const costs: number[] = [];
-  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const };
+  // Most cases below exercise auto mode (re-run on edit); on-demand mode, the default, has its own describe.
+  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const, autoAnalyze: true, ...settingsOverride };
   const orch = new SessionOrchestrator('s1', 'gmail', {
     provider: () => provider,
     settings: () => settings,
@@ -140,8 +141,8 @@ describe('SessionOrchestrator', () => {
       now: () => first.clock.now,
       timers: first.clock,
     });
-    orch2.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
-    await first.clock.advance(DEBOUNCE_MS);
+    orch2.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true); // default settings: on demand, so the first run is the user's click
+    await first.clock.advance(0);
     expect(provider2.calls.filter((c) => c.pass === 'B')).toHaveLength(0);
     expect(last(states).claims.filter((c) => c.data.verdict)).toHaveLength(3);
   });
@@ -181,6 +182,46 @@ describe('SessionOrchestrator', () => {
     const id = last(states).clarity[0]!.id;
     orch.handleAction(id, 'kept');
     expect(last(states).clarity.find((c) => c.id === id)!.status).toBe('kept');
+  });
+});
+
+describe('on-demand mode (autoAnalyze off, the default)', () => {
+  it('runs the first snapshot when asked, then only shifts anchors on edits until analyzeNow', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass).sort()).toEqual(['A', 'B', 'C']);
+    expect(last(states).analyzedVersion).toBe(1);
+    provider.calls.length = 0;
+
+    const edited = SAMPLE_TEXT.replace('not a single company went back to five days', 'almost all of them kept it');
+    orch.handleSnapshot(snapshotFromText(edited, 2));
+    await clock.advance(DEBOUNCE_MS * 3);
+    expect(provider.calls).toHaveLength(0);
+    const s = last(states);
+    expect(s.snapshotVersion).toBe(2);
+    expect(s.analyzedVersion).toBe(1); // draft changed since the last run
+    expect(s.claims.find((c) => c.quote.includes('almost all'))?.status ?? s.claims.some((c) => c.status === 'stale')).toBeTruthy();
+
+    orch.analyzeNow();
+    await clock.advance(0);
+    const passes = provider.calls.map((c) => c.pass);
+    expect(passes).toContain('A');
+    expect(passes).toContain('C'); // explicit request ignores the 20s throttle
+    expect(provider.calls.find((c) => c.pass === 'A')!.user).toMatch(/Only these paragraphs changed/);
+    expect(last(states).analyzedVersion).toBe(2);
+  });
+
+  it('analyzeNow on unchanged text is a full run', async () => {
+    const { orch, clock, provider } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    provider.calls.length = 0;
+    orch.analyzeNow();
+    await clock.advance(0);
+    const a = provider.calls.find((c) => c.pass === 'A')!;
+    expect(a.user).not.toMatch(/Only these paragraphs changed/);
+    expect(provider.calls.map((c) => c.pass)).toContain('C');
   });
 });
 

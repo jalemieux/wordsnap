@@ -1,6 +1,6 @@
 // The always-visible entry point: a small badge on the compose window. Click to open or collapse WordSnap.
 import type { SessionState } from '../../shared/types';
-import { anyRunning, openIssueCount } from '../format';
+import { anyRunning, draftChanged, openIssueCount } from '../format';
 import type { RectLike } from './HighlightLayer';
 
 export interface LauncherProps {
@@ -30,12 +30,13 @@ export function Launcher({ state, anchor, avoid, open, onToggle }: LauncherProps
   const running = anyRunning(state);
   const issues = openIssueCount(state);
   const analyzed = !!state.argument || state.claims.some((c) => c.data.verdict) || state.clarity.length > 0;
-  const title = open ? 'Hide WordSnap' : running ? 'WordSnap is analyzing your draft' : analyzed ? `WordSnap: ${issues} ${issues === 1 ? 'thing' : 'things'} to look at` : 'Check this draft with WordSnap';
+  const changed = analyzed && draftChanged(state);
+  const title = open ? 'Hide WordSnap' : running ? 'WordSnap is analyzing your draft' : changed ? 'Draft changed since WordSnap last checked it' : analyzed ? `WordSnap: ${issues} ${issues === 1 ? 'thing' : 'things'} to look at` : 'Check this draft with WordSnap';
   return (
     <button class={`ws-launcher${open ? ' open' : ''}${running ? ' running' : ''}`} style={launcherStyle(anchor, avoid)} onClick={onToggle} title={title} aria-label={title} aria-pressed={open}>
       <span class="ws-launcher-mark">W</span>
       {running ? <span class="ws-launcher-ring" /> : null}
-      {!open && !running && analyzed ? <span class={`ws-launcher-count${issues ? ' warn' : ' ok'}`}>{issues || '✓'}</span> : null}
+      {!open && !running && analyzed ? <span class={`ws-launcher-count${changed ? ' stale' : issues ? ' warn' : ' ok'}`}>{changed ? '↻' : issues || '✓'}</span> : null}
     </button>
   );
 }

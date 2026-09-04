@@ -49,8 +49,10 @@ describe('SessionClient', () => {
     const snapshot = { text: 'hello', paragraphs: [{ start: 0, end: 5 }], version: 1 };
     client.sendSnapshot(snapshot, 'initial');
     client.sendAction('f1', 'kept');
+    client.analyze();
     expect(port.posted[1]).toMatchObject({ type: 'session/snapshot', reason: 'initial' });
     expect(port.posted[2]).toMatchObject({ type: 'finding/action', findingId: 'f1', action: 'kept' });
+    expect(port.posted[3]).toMatchObject({ type: 'session/analyze', sessionKey: 's1' });
     const states: unknown[] = [];
     client.onState((s) => states.push(s));
     port.onMessage.fire({ type: 'session/state', sessionKey: 'other', state: emptySession('other', 'gmail') });

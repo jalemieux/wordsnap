@@ -108,6 +108,11 @@ test('editing a flagged sentence marks its finding stale and re-runs', async ({ 
   });
   await page.keyboard.type('the eleven engineers and designers I asked');
 
+  // On demand: the edit marks the draft changed and nothing runs until Re-analyze.
+  await expect(panel.locator('.ws-status')).toHaveText(/draft changed/i, { timeout: 5_000 });
+  const reanalyze = panel.locator('.ws-reanalyze');
+  await expect(reanalyze).toBeEnabled();
+  await reanalyze.click();
   await expect(panel).toContainText(/re-analyzing|re-checking|checked just now/i, { timeout: 15_000 });
   await expect(panel.locator('.ws-ch-row').filter({ hasText: /hallway sample/ })).toContainText(/re-checking|addressed/i, { timeout: 20_000 });
 });
