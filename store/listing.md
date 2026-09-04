@@ -16,7 +16,7 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 
 > Make your point. Keep your voice.
 >
-> WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in.
+> WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
 >
 > Structure. Your thesis as a reader will hear it, and where the narrative loses them.
 >
@@ -30,9 +30,9 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 >
 > Quiet by default. A small badge appears on the compose window. Nothing is read or sent until you click it.
 >
-> Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap.
+> Works with your own OpenRouter account, connected with one click, running GLM 5.2. You pay OpenRouter, not WordSnap. GLM 5.2 served by Z.AI is the only model this build runs; its prompts and response parsing are validated against it alone.
 >
-> Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no account.
+> Your draft goes to the provider you chose, from your own account, and nowhere else. No WordSnap server, no analytics, no crash reporting, no account.
 >
 > Open source under Apache-2.0: https://github.com/jalemieux/wordsnap
 
