@@ -1,14 +1,15 @@
 # WordSnap
 
-Sharpen your own argument before you send it.
+Make your point. Keep your voice.
 
-WordSnap is a Chrome extension that sits on top of the compose window you are already typing in (Gmail, X, LinkedIn) and runs three passes over the draft:
+WordSnap is a Chrome extension that helps you structure your narrative, polish your wording, fact-check your claims and hear the counterargument, before you send. It works inside the Gmail, X or LinkedIn window you already write in. Your words stay yours. No AI slop.
 
-- **Clarity and claims.** Fuzzy thinking, hedges, weak structure, and every checkable claim you made.
-- **Fact check.** Each claim verified with web search: supported, contradicted, or needs precision, with sources.
-- **Counterargument.** The thesis as a reader will hear it, then the strongest rebuttal, the blind spots, the gaps.
+- **Structure.** Your thesis as a reader will hear it, and where the narrative loses them.
+- **Polish.** Fuzzy sentences, hedges, filler. A tighter phrasing inside your own sentence, in your register. Never a rewrite.
+- **Check.** Every factual claim verified with sources: supported, contradicted, or needs precision.
+- **Challenge.** The strongest counterargument, the blind spots, the gaps.
 
-It is a sparring partner, not a ghostwriter. Your words stay in the editor. WordSnap draws highlights over them and lists challenges in a docked panel. It writes into the editor only when you click **Apply change**, and a suggestion may only replace the quoted span and must keep your register.
+It never writes for you. It shows you the gap. A suggestion can only replace the words it quotes, stays close to their length, and keeps your register. Nothing changes in your draft until you click **Apply**. The wording for every public surface lives in `docs/MESSAGING.md`.
 
 Quiet by default: a small **W** badge appears on a compose window, and nothing is sent anywhere until you click it.
 

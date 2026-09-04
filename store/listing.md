@@ -10,23 +10,27 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 
 **Summary** (132 chars max):
 
-> Sharpen your own argument before you send it. Clarity, fact check and counterargument passes over your draft, in place, in your voice.
+> Structure your narrative, polish your wording, fact-check your claims, hear the counterargument. Your voice stays yours.
 
 **Description:**
 
-> WordSnap sits on top of the compose window you are already typing in and runs three passes over your draft:
+> Make your point. Keep your voice.
 >
-> Clarity and claims. Fuzzy thinking, hedges, weak structure, and every checkable claim you made.
+> WordSnap helps you structure your narrative, polish your wording, fact-check your claims and hear the counterargument, before you send. It works inside the Gmail, X or LinkedIn window you already write in. Your words stay yours. No AI slop.
 >
-> Fact check. Each claim verified with web search: supported, contradicted, or needs precision, with sources and a tighter wording when one exists.
+> Structure. Your thesis as a reader will hear it, and where the narrative loses them.
 >
-> Counterargument. The thesis as a reader will hear it, then the strongest rebuttal, the blind spots, and the gaps.
+> Polish. Fuzzy sentences, hedges, filler. A tighter phrasing inside your own sentence, in your register. Never a rewrite.
 >
-> Your words stay in the editor. WordSnap draws highlights over them and shows a docked panel of challenges. It writes into the editor only when you click Apply change, and a suggestion may only replace the quoted span and must keep your register. It is a sparring partner, not a ghostwriter.
+> Check. Every factual claim verified with sources: supported, contradicted, or needs precision.
 >
-> Quiet by default. A small badge appears on a compose window in Gmail, X or LinkedIn. Nothing is sent anywhere until you click it.
+> Challenge. The strongest counterargument, the blind spots, the gaps.
 >
-> Your text goes only to the LLM provider you configure, from your own account. OpenRouter connects with one click; an Anthropic API key also works. There is no WordSnap server, no account, no analytics.
+> It never writes for you. It shows you the gap. A suggestion can only replace the words it quotes, stays close to their length, and keeps your register. Nothing changes in your draft until you click Apply.
+>
+> Quiet by default. A small badge appears on the compose window. Nothing is read or sent until you click it.
+>
+> Your draft goes to the provider you chose, from your own account, and nowhere else. OpenRouter connects with one click; an Anthropic API key also works. No WordSnap server, no analytics, no account.
 >
 > Open source under Apache-2.0: https://github.com/jalemieux/wordsnap
 

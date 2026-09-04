@@ -61,8 +61,8 @@ const card = (w, h, scale) => `
 </style>
 <div class="wrap">
   <div class="row">${icon}<div class="name">WordSnap</div></div>
-  <div class="thesis">Sharpen your own argument before you send it.</div>
-  <div class="sub">Clarity, fact check and counterargument passes over your draft. In place, in your voice.</div>
+  <div class="thesis">Make your point. Keep your voice.</div>
+  <div class="sub">Structure your narrative, polish your wording, fact-check your claims, hear the counterargument.</div>
 </div>`;
 const tile = await ctx.newPage();
 await tile.setViewportSize({ width: 440, height: 280 });
