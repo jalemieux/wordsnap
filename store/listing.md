@@ -16,7 +16,7 @@ Package: `cd extension && npm run package` produces `wordsnap-<version>.zip`. Sc
 
 > Make your point. Keep your voice.
 >
-> WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
+> WordSnap helps you structure your thoughts, sharpen your wording, fact-check your claims and shows you the counterarguments, while preserving your voice. Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
 >
 > Structure. Your thesis as a reader will hear it, and where the narrative loses them.
 >

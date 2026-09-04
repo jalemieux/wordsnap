@@ -8,7 +8,7 @@ One page. Every public surface (site, store listing, README, manifest, launch po
 
 ## What it is, in one breath
 
-WordSnap is like having your own ghostwriter: it helps you structure your thoughts, polish your use of the language, fact-check your claims and shows you the counterarguments, while preserving your voice. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
+WordSnap helps you structure your thoughts, sharpen your wording, fact-check your claims and shows you the counterarguments, while preserving your voice. Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop. It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.
 
 ## The four verbs
 
@@ -49,4 +49,4 @@ Homepage: https://wordsnap.ai. Topics: browser-extension, chrome-extension, safa
 
 ## Words we do not use
 
-AI writer, generate, rewrite, polished message, perfect, magic, supercharge, assistant, copilot. "Ghostwriter" is used only in the form "your own ghostwriter", paired with preserving your voice. Never "consider". Never praise the user.
+AI writer, generate, rewrite, polished message, perfect, magic, supercharge, assistant, copilot. "Ghostwriter" appears only in the line "Like your very own ghostwriter and editor team", after the capabilities and after "preserving your voice". Never "consider". Never praise the user.
