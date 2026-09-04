@@ -21,7 +21,7 @@ export interface ComposerHandle {
   applyEdit(span: Span, replacement: string): boolean;
   /** Fires on input. The caller debounces. Returns an unsubscribe function. */
   onChange(cb: (snapshot: TextSnapshot) => void): () => void;
-  /** Where to dock the panel and export bar: the composer's outer frame in viewport coordinates. */
+  /** Where to dock the panel: the composer's outer frame in viewport coordinates. */
   anchorRect(): DOMRect;
   /** The composer's scroll container, for repositioning highlights. */
   scrollParent(): HTMLElement;

@@ -15,6 +15,8 @@ export type ContentToBackground =
   | { type: 'session/open'; sessionKey: string; host: HostId; platform: PlatformInfo }
   | { type: 'session/snapshot'; sessionKey: string; snapshot: TextSnapshot; reason: 'initial' | 'edit' }
   | { type: 'finding/action'; sessionKey: string; findingId: string; action: 'applied' | 'kept' }
+  /** The user asked for a fresh analysis of the latest snapshot: no debounce, no C throttle. */
+  | { type: 'session/analyze'; sessionKey: string }
   | { type: 'session/close'; sessionKey: string };
 
 /** Background -> content script (over the port). */

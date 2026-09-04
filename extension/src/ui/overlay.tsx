@@ -7,17 +7,14 @@ import { emptySession } from '../shared/types';
 import css from './styles.css';
 import { bodyText } from './format';
 import { ChallengesPanel } from './components/ChallengesPanel';
-import { ExportBar } from './components/ExportBar';
 import { HighlightLayer, type HighlightItem, type HighlightStatus, type RectLike } from './components/HighlightLayer';
 import { HoverCard, type CardFinding } from './components/HoverCard';
 import { Launcher } from './components/Launcher';
-import { PreviewModal, type PreviewTab } from './components/PreviewModal';
 import { Toast } from './components/Toast';
 import type { MountOverlay, OverlayCallbacks, OverlayController } from './types';
 
 const PANEL_W = 336;
 const PANEL_GAP = 14;
-const EXPORT_H = 40;
 
 interface Layout {
   anchor: RectLike;
@@ -27,7 +24,6 @@ interface Layout {
   /** Panel box in viewport coordinates, so other pieces can stay out of its way. */
   panelBox: RectLike;
   docked: boolean;
-  exportStyle: Record<string, string> | null; // null -> render inside the panel
 }
 
 interface Store {
@@ -101,13 +97,7 @@ function computeLayout(handle: ComposerHandle, state: SessionState): Layout {
     panelBox = { left: viewport.width - 16 - PANEL_W, top: viewport.height - 16 - maxH, width: PANEL_W, height: maxH };
   }
 
-  // The export bar hangs under a popup compose when the panel is docked beside it. Inline replies and cramped
-  // layouts have host toolbars right under the editor, so there it lives in the panel footer instead.
-  const belowFits = viewport.height - (anchor.top + anchor.height) >= EXPORT_H + 8;
-  const exportStyle = docked && belowFits
-    ? { left: `${anchor.left}px`, top: `${anchor.top + anchor.height + 6}px`, width: `${anchor.width}px` }
-    : null;
-  return { anchor, viewport, rects, panel, panelBox, docked, exportStyle };
+  return { anchor, viewport, rects, panel, panelBox, docked };
 }
 
 function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void }) {
@@ -119,7 +109,6 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [cardHover, setCardHover] = useState(false);
   const [hot, setHot] = useState<ReadonlySet<string>>(new Set());
-  const [modal, setModal] = useState<PreviewTab | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
@@ -158,29 +147,6 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
     for (const chId of hot) state.challenges.find((c) => c.id === chId)?.spans.forEach((_, i) => s.add(`${chId}#${i}`));
     return s;
   }, [hot, state]);
-
-  const doCopy = async (t: string, msg: string) => {
-    try {
-      await navigator.clipboard.writeText(t);
-      setToast(msg);
-    } catch {
-      setToast('Copy failed. Select the text and copy it yourself.');
-    }
-  };
-
-  const exportBar = (
-    <ExportBar
-      state={state}
-      text={text}
-      style={layout.exportStyle ?? undefined}
-      inPanel={!layout.exportStyle}
-      onCopy={() => {
-        void callbacks.onCopy().then(() => setToast('Copied to clipboard'), () => setToast('Copy failed'));
-      }}
-      onShare={(t) => callbacks.onShare(t)}
-      onPreview={() => setModal('email')}
-    />
-  );
 
   const anchorRect = active ? layout.rects[active.f.id]?.[0] : undefined;
 
@@ -223,27 +189,11 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         state={state}
         style={layout.panel}
         onHot={(ids) => setHot(new Set(ids))}
-        footer={layout.exportStyle ? null : exportBar}
         now={now}
         onClose={() => setOpen(false)}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />
-      {layout.exportStyle ? exportBar : null}
-      {modal ? (
-        <PreviewModal
-          state={state}
-          text={text}
-          tab={modal}
-          onTab={setModal}
-          onClose={() => setModal(null)}
-          onCopy={(t, msg) => void doCopy(t, msg)}
-          onShare={(t) => {
-            setModal(null);
-            callbacks.onShare(t);
-          }}
-        />
-      ) : null}
       <Toast text={toast} />
     </div>
   );

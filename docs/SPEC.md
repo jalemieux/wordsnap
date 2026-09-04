@@ -23,7 +23,7 @@ These came out of the design sessions and are not open:
 - Research is provider-native: OpenRouter's web plugin (one grounded search per request, citations returned as annotations) or Claude's `web_search` server tool. No separate search API (Brave was considered and dropped: no free tier since February 2026, and a shared key would need a server).
 - Onboarding is one click: Connect OpenRouter (OAuth PKCE via `chrome.identity.launchWebAuthFlow`, code exchanged for a user-controlled key). Pasting an OpenRouter or Anthropic key is the fallback.
 - Commercial path, not v1: a hosted WordSnap service running the agent harness, calling models and web search with WordSnap's own keys behind WordSnap sign-in. The provider layer (section 6) treats it as one more provider so nothing in v1 has to be rewritten.
-- UX: inline fact-check highlights with hover cards (1A), a docked Challenges panel (2B), Apply/Keep buttons with a diff preview (3A), automatic silent re-analysis on edit (4A), a direct share bar with an optional Preview modal (5A with 5B on demand).
+- UX: inline fact-check highlights with hover cards (1A), a docked Challenges panel (2B), Apply/Keep buttons with a diff preview (3A), automatic silent re-analysis on edit (4A), no share or export controls: the user sends from the composer they are already in (the 5A share bar was built and then dropped; the Preview modal with X thread splitting is kept unwired for M2).
 - Voice preservation is a hard constraint. A suggestion may only replace the quoted span, must stay within about 1.3x its length, and must keep the writer's register. "Here is the gap" beats "here is your new sentence."
 - Client code is open source.
 
@@ -35,7 +35,7 @@ Four runtime parts, all inside the extension. There is no WordSnap server in v1.
 host page (Gmail / X / LinkedIn)
  └─ content script (isolated world)
      ├─ HostAdapter        finds the composer, reads text, maps offsets ⇄ DOM ranges, applies approved edits
-     ├─ Overlay (Shadow DOM) highlights, hover card, Challenges panel, export bar, preview modal
+     ├─ Overlay (Shadow DOM) highlights, hover card, Challenges panel
      └─ Port ──────────────────────────────┐  chrome.runtime.connect, one port per composer session
                                            ▼
 background (MV3 service worker)
@@ -83,7 +83,7 @@ interface ComposerHandle {
   rangeFor(span: Span): Range | null;                    // for highlight geometry; null if the text moved
   applyEdit(span: Span, replacement: string): boolean;   // user-approved edits only
   onChange(cb: (s: TextSnapshot) => void): () => void;   // input events, debounced upstream
-  anchorRect(): DOMRect;                                 // where to dock the panel and export bar
+  anchorRect(): DOMRect;                                 // where to dock the panel
   platform: { charLimit?: number; kind: 'email' | 'post' };
 }
 ```
@@ -112,8 +112,7 @@ Components, matching the mock one for one:
 - **HighlightLayer.** One absolutely positioned box per client rect of each fact span. Amber for `needs_precision`, red for `contradicted`, dotted green for `supported`, dotted teal for clarity notes. Repositioned on scroll, resize, and editor mutation via `ResizeObserver` plus a `requestAnimationFrame` loop while the composer is focused.
 - **HoverCard.** Opens on hover or keyboard focus of a highlight, pins on click. Shows status chip, the quoted text, finding, a five-segment confidence meter, sources, and for 3A the diff (`del` original, `ins` suggestion) with **Apply change** and **Keep as-is**.
 - **ChallengesPanel.** Docked to the right of `anchorRect`, falls back to a floating panel when there is no room. Header with status pill (Checked just now / Re-analyzing), summary counts, "Your argument as WordSnap reads it," then the challenge list with strongest rebuttal first. Hovering a challenge highlights its anchor sentences. A challenge whose anchors changed is re-evaluated and, if the new text answers it, shown as addressed.
-- **ExportBar.** Sits above the host's send row. Copy, Post on X (with live character count), LinkedIn, Preview. Shows a red note while any claim is still contradicted or imprecise.
-- **PreviewModal.** Email, X, LinkedIn tabs. X splits into a numbered thread and flags which post still carries an open claim. LinkedIn marks the 210-character fold.
+- **PreviewModal** (unwired). Email, X, LinkedIn tabs. X splits into a numbered thread and flags which post still carries an open claim. LinkedIn marks the 210-character fold. Nothing opens it today; it returns on X only, when a draft runs past the character limit, once that adapter is proven on the live site.
 
 Accessibility: every highlight is a focusable element with `aria-describedby` pointing to its card content; the panel is a `complementary` landmark; all actions are reachable by keyboard; `prefers-reduced-motion` disables the shimmer and pulse.
 
@@ -333,7 +332,7 @@ License: Apache-2.0 is the recommendation, for the explicit patent grant. MIT is
 
 **M1, Gmail end to end.** Passes A, B, C. Full overlay per the mock. Options page with key and model. Chrome only. Internal dogfood.
 
-**M2, three hosts.** X and LinkedIn adapters. Preview modal. Eval set and Playwright suite green. Chrome Web Store listing.
+**M2, three hosts.** X and LinkedIn adapters. Preview modal wired for X thread splitting. Eval set and Playwright suite green. Chrome Web Store listing.
 
 **M3, public.** Provider interface exercised by a second provider behind a flag. README with the privacy statement. Open-source release.
 

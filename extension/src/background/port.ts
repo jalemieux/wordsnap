@@ -84,6 +84,16 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             sessions.get(raw.sessionKey)?.handleAction(raw.findingId, raw.action);
             return;
           }
+          case 'session/analyze': {
+            const orch = sessions.get(raw.sessionKey);
+            if (!orch) {
+              send({ type: 'session/error', sessionKey: raw.sessionKey, message: 'Session not open' });
+              return;
+            }
+            log.info(`session ${raw.sessionKey}: re-analyze requested`);
+            orch.analyzeNow();
+            return;
+          }
           case 'session/close': {
             sessions.get(raw.sessionKey)?.close();
             sessions.delete(raw.sessionKey);

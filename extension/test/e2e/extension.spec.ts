@@ -22,7 +22,7 @@ async function openWordSnap(page: import('@playwright/test').Page) {
   return overlay;
 }
 
-test('analyzes the draft, shows highlights, panel and export bar', async ({ context }) => {
+test('analyzes the draft, shows highlights and the panel', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(FIXTURE);
   const overlay = await openWordSnap(page);
@@ -40,10 +40,8 @@ test('analyzes the draft, shows highlights, panel and export bar', async ({ cont
   await expect(highlights.first()).toBeVisible({ timeout: 15_000 });
   expect(await highlights.count()).toBeGreaterThanOrEqual(3);
 
-  // Export bar warns while the contradicted claim is open.
-  const bar = overlay.locator('.ws-export');
-  await expect(bar).toBeVisible();
-  await expect(bar).toContainText(/still/i);
+  // The summary row counts the contradicted claim while it is open.
+  await expect(panel.locator('.ws-summary')).toContainText(/1 contradicted/);
 });
 
 test('hover card shows the finding and Apply change edits the draft', async ({ context }) => {
@@ -63,8 +61,9 @@ test('hover card shows the finding and Apply change edits the draft', async ({ c
   await expect(card.locator('ins')).toContainText('56 of the 61 companies kept it');
 
   // Two claims are open before the fix (contradicted + needs precision).
-  const bar = overlay.locator('.ws-export');
-  await expect(bar).toContainText(/2 claims still open/i);
+  const summary = overlay.locator('.ws-panel .ws-summary');
+  await expect(summary).toContainText(/1 contradicted/);
+  await expect(summary).toContainText(/1 needs precision/);
 
   await card.getByRole('button', { name: /apply change/i }).click();
 
@@ -74,7 +73,8 @@ test('hover card shows the finding and Apply change edits the draft', async ({ c
   await expect(body).not.toContainText('not a single company went back to five days');
 
   // Re-analysis runs silently; only the needs-precision claim remains open, and the fixed span is no longer red.
-  await expect(bar).toContainText(/1 claim still/i, { timeout: 15_000 });
+  await expect(summary).toContainText(/0 contradicted/, { timeout: 15_000 });
+  await expect(summary).toContainText(/1 needs precision/);
   await expect(overlay.locator('.ws-hl-layer [role="button"][data-status="contradicted"]')).toHaveCount(0);
 });
 

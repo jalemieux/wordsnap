@@ -41,11 +41,11 @@ Dev builds add a mock provider (settings page) that returns canned findings for 
 ```
 extension/src
   background/   service worker: orchestrator, sessions, claim cache, settings, port and options handlers
-  content/      content script: text snapshots, offset maps, session client, share helpers
+  content/      content script: text snapshots, offset maps, session client
   adapters/     host adapters: gmail, x, linkedin, generic
   passes/       prompts, request builders, post-validation rules
   providers/    LLM providers: openrouter (default; web plugin, provider routing, JSON repair), claude, mock
-  ui/           overlay (highlights, hover card, challenges panel, export bar, preview modal)
+  ui/           overlay (highlights, hover card, challenges panel, status pill)
   options/      settings page with guided key onboarding
   shared/       schemas, types, message protocol, anchoring, cost, sample draft
 extension/test

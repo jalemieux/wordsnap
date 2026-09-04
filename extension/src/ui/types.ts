@@ -7,12 +7,10 @@ export interface OverlayCallbacks {
   onApply(findingId: string, span: { start: number; end: number }, replacement: string): void;
   /** User clicked Keep as-is. */
   onKeep(findingId: string): void;
-  /** Copy the current draft (plain text) to the clipboard. */
-  onCopy(): Promise<void>;
-  /** Open a platform share target with the current text. */
-  onShare(target: 'x' | 'linkedin'): void;
   /** The user opened (true) or collapsed (false) the panel from the launcher badge. */
   onOpenChange?(open: boolean): void;
+  /** The user pressed Re-analyze in the panel. */
+  onAnalyze?(): void;
 }
 
 export interface OverlayController {
@@ -20,7 +18,7 @@ export interface OverlayController {
   update(state: SessionState): void;
   /** Recompute highlight geometry (scroll, resize, editor mutation). */
   relayout(): void;
-  /** Show or collapse the panel, highlights and export bar. The launcher badge is always visible. */
+  /** Show or collapse the panel and highlights. The launcher badge is always visible. */
   setOpen(open: boolean): void;
   isOpen(): boolean;
   destroy(): void;

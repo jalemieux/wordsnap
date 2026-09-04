@@ -1,7 +1,7 @@
 import type { SessionState } from '../../shared/types';
-import { anyRunning, firstError, lastCheckedAt, relativeTime } from '../format';
+import { anyRunning, draftChanged, firstError, lastCheckedAt, relativeTime } from '../format';
 
-export function statusOf(state: SessionState, now = Date.now()): { mode: 'running' | 'error' | 'done' | 'idle'; text: string } {
+export function statusOf(state: SessionState, now = Date.now()): { mode: 'running' | 'error' | 'stale' | 'done' | 'idle'; text: string } {
   if (anyRunning(state)) {
     // Generic provider chatter ("Thinking…") stays in the progress block; the pill only carries specific detail.
     const detail = Object.values(state.passes).find((p) => p.state === 'running' && p.detail && !/^thinking/i.test(p.detail))?.detail;
@@ -11,6 +11,7 @@ export function statusOf(state: SessionState, now = Date.now()): { mode: 'runnin
   }
   const err = firstError(state);
   if (err) return { mode: 'error', text: err };
+  if (draftChanged(state)) return { mode: 'stale', text: 'Draft changed' };
   const at = lastCheckedAt(state);
   if (at) return { mode: 'done', text: `Checked ${relativeTime(at, now)}` };
   return { mode: 'idle', text: 'Waiting for text' };

@@ -20,7 +20,7 @@ Founder: a Director of Engineering with 20+ years full-stack. Speak as a peer. P
 - No local inference. The user configures a provider. **OpenRouter is the default** (model `z-ai/glm-5.2`, pinned to provider slug `z-ai`, research through OpenRouter's web plugin), connected with one click via OAuth PKCE. Anthropic with a user's own API key is the alternative. Claude Code / claude.ai OAuth tokens are prohibited for third-party apps: never build on them.
 - No separate search API (Brave was evaluated and dropped). Research is provider-native only.
 - No WordSnap server in v1. Text goes only to the configured provider from the user's own account. A hosted service is the commercial path later and is designed as "one more provider".
-- UX: inline highlights with hover cards (1A), docked Challenges panel (2B), Apply/Keep with diff preview (3A), silent re-analysis on edit (4A), direct share bar with optional Preview modal (5A + 5B).
+- UX: inline highlights with hover cards (1A), docked Challenges panel (2B), Apply/Keep with diff preview (3A), silent re-analysis on edit (4A). **No share or export bar** (5A was built and dropped in September 2026: the user sends from the composer they are already in, and the panel summary row plus the launcher badge already carry the open-claim count). The Preview modal (5B) and `src/content/share.ts` are kept but unwired; they come back on X only, for thread splitting, once that adapter is proven.
 - **Quiet by default.** Only a small launcher badge shows on a compose window. Nothing is sent anywhere until the user clicks it. A setting (off by default) restores auto-start at 40 words.
 - **Voice preservation is a hard constraint.** A suggestion may only replace the quoted span, must stay within 1.3x its length, and must keep the writer's register. Prefer "here is the gap" over "here is your new sentence." Enforced in code (`src/passes/validate.ts`), not just in prompts.
 
@@ -33,7 +33,7 @@ extension/               the extension (TypeScript strict, Preact, Zod 4, esbuil
   src/adapters/          HostAdapter + ComposerHandle per site: gmail, x, linkedin, generic. Select on ARIA/data-testid, never class names.
   src/content/           content script: text snapshots with offset maps, session client (port), entry that mounts the overlay
   src/ui/                overlay in a closed Shadow DOM (open in dev builds so tests can reach it): launcher, highlights, hover card,
-                         challenges panel, status pill, export bar, preview modal. System fonts only; nothing loads from the network.
+                         challenges panel, status pill, toast. PreviewModal.tsx is unwired (see decisions). System fonts only; nothing loads from the network.
   src/background/        service worker: orchestrator (debounce, incremental runs, claim cache, cancellation, backoff), session state,
                          settings store, port handler, options handler (validate key, OpenRouter connect, sample run)
   src/passes/            prompts, request builders, post-validation rules

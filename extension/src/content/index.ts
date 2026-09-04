@@ -6,7 +6,6 @@ import { mountOverlay } from '../ui/overlay';
 import type { OverlayController } from '../ui/types';
 import type { TextSnapshot } from '../shared/types';
 import { SessionClient } from './session-client';
-import { shareBody, shareUrl } from './share';
 import { log } from '../shared/log';
 
 const MIN_WORDS = 40; // auto mode
@@ -81,19 +80,26 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
       onKeep(findingId) {
         client.sendAction(findingId, 'kept');
       },
-      async onCopy() {
-        await navigator.clipboard.writeText(handle.getSnapshot().text);
-      },
-      onShare(target) {
-        const text = shareBody(handle.getSnapshot());
-        window.open(shareUrl(target, text), '_blank', 'noopener');
-      },
       onOpenChange(open) {
         if (!open) return;
         if (!armed) log.info(`composer ${handle.key}: analysis armed by the user`);
         armed = true;
         if (debounce) clearTimeout(debounce);
         send(handle.getSnapshot(), sentInitial ? 'edit' : 'initial');
+      },
+      onAnalyze() {
+        // Flush whatever is in the editor right now, then ask. Port messages are ordered.
+        if (debounce) clearTimeout(debounce);
+        debounce = null;
+        armed = true;
+        const snapshot = handle.getSnapshot();
+        if (!sentInitial) {
+          send(snapshot, 'initial');
+          return;
+        }
+        log.info(`composer ${handle.key}: re-analyze (snapshot v${snapshot.version})`);
+        client.sendSnapshot(snapshot, 'edit');
+        client.analyze();
       },
     },
     minWords: MIN_WORDS_MANUAL,

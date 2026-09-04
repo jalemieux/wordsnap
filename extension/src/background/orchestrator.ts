@@ -59,21 +59,23 @@ export class SessionOrchestrator {
     return this.session.state;
   }
 
-  /** New text from the content script. Debounced; an in-flight pass A is cancelled. */
-  /** `immediate` skips the edit debounce: used for the first snapshot after the user asks for an analysis. */
+  /**
+   * New text from the content script. Anchors shift and touched findings go stale right away. What runs depends on
+   * the mode: `immediate` (the user just asked) runs now; otherwise the autoAnalyze setting decides between a
+   * debounced run (auto) and waiting for `analyzeNow` (on demand, the default).
+   */
   handleSnapshot(snapshot: TextSnapshot, immediate = false): void {
     if (this.closed) return;
     this.session.applySnapshot(snapshot);
     this.pendingSnapshot = snapshot;
+    if (!immediate && !this.deps.settings().autoAnalyze) {
+      this.emit();
+      return;
+    }
     this.abort('A');
     this.emit();
-    if (this.debounceHandle) this.timers.clearTimeout(this.debounceHandle);
-    if (this.retryHandle) {
-      this.timers.clearTimeout(this.retryHandle);
-      this.retryHandle = null;
-    }
+    this.clearScheduled();
     if (immediate) {
-      this.debounceHandle = null;
       void this.run();
       return;
     }
@@ -81,6 +83,21 @@ export class SessionOrchestrator {
       this.debounceHandle = null;
       void this.run();
     }, DEBOUNCE_MS);
+  }
+
+  /** The user pressed Re-analyze: run on the latest text now, and refresh the counterargument regardless of the throttle. */
+  analyzeNow(): void {
+    if (this.closed) return;
+    this.clearScheduled();
+    this.abort('A');
+    void this.run({ force: true });
+  }
+
+  private clearScheduled(): void {
+    if (this.debounceHandle) this.timers.clearTimeout(this.debounceHandle);
+    this.debounceHandle = null;
+    if (this.retryHandle) this.timers.clearTimeout(this.retryHandle);
+    this.retryHandle = null;
   }
 
   handleAction(findingId: string, action: 'applied' | 'kept'): void {
@@ -95,19 +112,26 @@ export class SessionOrchestrator {
     for (const p of ['A', 'B', 'C'] as PassId[]) this.abort(p);
   }
 
-  /** Run the passes for the current snapshot. Public for tests and the sample runner. */
-  async run(): Promise<void> {
+  /**
+   * Run the passes for the current snapshot. Public for tests and the sample runner.
+   * `force` is an explicit request: unchanged text gets a full run instead of nothing, and C runs past its throttle.
+   */
+  async run(opts: { force?: boolean } = {}): Promise<void> {
     const snapshot = this.pendingSnapshot ?? this.session.snapshot;
     if (!snapshot || this.closed) return;
     this.pendingSnapshot = null;
+    this.session.state.analyzedVersion = snapshot.version;
     const changed = changedParagraphs(this.session.analyzedSnapshot, snapshot);
-    const isFull = !this.session.analyzedSnapshot || changed.length === snapshot.paragraphs.length;
-    if (!isFull && changed.length === 0) {
+    const unchanged = !!this.session.analyzedSnapshot && changed.length === 0;
+    const isFull = !this.session.analyzedSnapshot || changed.length === snapshot.paragraphs.length || (unchanged && !!opts.force);
+    if (unchanged && !opts.force) {
       // text is byte-identical to what was analyzed (e.g. undo): nothing to do
+      this.emit();
       return;
     }
 
-    const cWork = this.shouldRunC(changed, isFull) ? this.runC(snapshot) : Promise.resolve();
+    const runC = opts.force ? this.forceC() : this.shouldRunC(changed, isFull);
+    const cWork = runC ? this.runC(snapshot) : Promise.resolve();
     const aWork = this.runA(snapshot, isFull ? undefined : changed);
     await Promise.all([aWork, cWork]);
   }
@@ -190,6 +214,15 @@ export class SessionOrchestrator {
     const touches = changed.some((i) => anchors.has(i));
     if (!touches) return false;
     return this.throttleC();
+  }
+
+  /** An explicit request: drop any deferred run and go now. */
+  private forceC(): boolean {
+    if (this.cDeferred) {
+      this.timers.clearTimeout(this.cDeferred);
+      this.cDeferred = null;
+    }
+    return true;
   }
 
   /** True when C may run now; otherwise schedules a deferred run at the end of the window. */

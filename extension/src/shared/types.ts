@@ -64,6 +64,8 @@ export interface SessionState {
   sessionKey: string;
   host: HostId;
   snapshotVersion: number;
+  /** Version of the snapshot the last run started on; differs from snapshotVersion when the draft changed since. */
+  analyzedVersion?: number;
   clarity: Anchored<ClarityFinding>[];
   claims: Anchored<ClaimWithVerdict>[];
   argument?: { thesis: string; premises: string[] };

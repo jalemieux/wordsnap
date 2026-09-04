@@ -1,5 +1,4 @@
 import { useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
 import type { SessionState } from '../../shared/types';
 import { CHALLENGE_LABEL, sortChallenges, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
@@ -9,8 +8,6 @@ export interface ChallengesPanelProps {
   state: SessionState;
   style?: Record<string, string>;
   onHot: (ids: string[]) => void;
-  /** Rendered at the bottom of the panel (the export bar when it does not fit under the composer). */
-  footer?: ComponentChildren;
   onClose?: () => void;
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
@@ -18,7 +15,7 @@ export interface ChallengesPanelProps {
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, footer, now, onClose, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -119,7 +116,6 @@ export function ChallengesPanel({ state, style, onHot, footer, now, onClose, wor
           })}
         </section>
       </div>
-      {footer}
     </aside>
   );
 }

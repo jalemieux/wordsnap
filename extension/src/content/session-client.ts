@@ -115,6 +115,11 @@ export class SessionClient {
     this.post({ type: 'session/snapshot', sessionKey: this.sessionKey, snapshot, reason });
   }
 
+  /** Ask for a fresh run on the latest snapshot. Send the snapshot first so the background has the current text. */
+  analyze(): void {
+    this.post({ type: 'session/analyze', sessionKey: this.sessionKey });
+  }
+
   sendAction(findingId: string, action: 'applied' | 'kept'): void {
     this.post({ type: 'finding/action', sessionKey: this.sessionKey, findingId, action });
   }

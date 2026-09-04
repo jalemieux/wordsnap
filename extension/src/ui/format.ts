@@ -127,6 +127,11 @@ export function summaryCounts(state: SessionState): SummaryCounts {
   };
 }
 
+/** True once an analysis has started and the draft has changed since. */
+export function draftChanged(state: SessionState): boolean {
+  return state.analyzedVersion !== undefined && state.snapshotVersion !== state.analyzedVersion;
+}
+
 export function anyRunning(state: SessionState): boolean {
   return Object.values(state.passes).some((p) => p.state === 'running');
 }
