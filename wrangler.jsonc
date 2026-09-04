@@ -1,0 +1,12 @@
+// Cloudflare Worker that serves wordsnap.ai: static files from site/, no code.
+// The Workers & Pages project "wordsnap" is connected to this repo and redeploys on every push to main.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wordsnap",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./site",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}
