@@ -18,7 +18,7 @@ The user's words stay in the host editor. WordSnap draws over them and only writ
 
 These came out of the design sessions and are not open:
 
-- Browser extension first. Chrome (Manifest V3) only for v1. Safari is the next target and the design keeps that door open (section 2); Firefox later.
+- Browser extension first. Chrome (Manifest V3) and, from September 2026, a Safari build of the same code (section 2, `docs/SAFARI.md`); Firefox later.
 - No local inference. The user configures an LLM provider in settings. **OpenRouter is the default provider** (GLM 5.2 served by Z.AI), connected with one click through OpenRouter's OAuth PKCE flow so no key is copied. Anthropic with the user's own API key remains available. Claude Code and claude.ai logins are not usable by third-party apps and are not offered.
 - Research is provider-native: OpenRouter's web plugin (one grounded search per request, citations returned as annotations) or Claude's `web_search` server tool. No separate search API (Brave was considered and dropped: no free tier since February 2026, and a shared key would need a server).
 - Onboarding is one click: Connect OpenRouter (OAuth PKCE via `chrome.identity.launchWebAuthFlow`, code exchanged for a user-controlled key). Pasting an OpenRouter or Anthropic key is the fallback.
@@ -53,16 +53,17 @@ Why the split lands this way:
 - **In-page panel, not the Chrome Side Panel API.** The mock docks the panel beside the compose window, and Safari has no side panel API, so an in-page panel is the one implementation that carries forward.
 - **Long-lived port, not one-shot messages.** Passes stream. The port carries `pass_event` messages (started, partial finding, done, error) and survives the user typing.
 
-### Keeping Safari cheap later
+### Safari
 
-v1 ships for Chrome only. These are the known differences, recorded now so nothing in v1 makes them expensive. None of this is v1 work.
+The Safari build (`npm run build:safari`, `docs/SAFARI.md`) applies these differences at build time from the one Chrome manifest. Nothing in the source is Safari-specific except the tab-based sign-in and a little options-page copy.
 
 | Concern | Chrome | Safari |
 |---|---|---|
-| Background | `background.service_worker` | `background.scripts` (event page). Declare both keys; Safari uses `scripts` by default. This sidesteps a known Safari bug where `host_permissions` are ignored for service-worker backgrounds, and avoids cross-origin fetch problems reported from Safari service workers. |
-| Namespace | `chrome.*` | `browser.*` and `chrome.*` both work. Use `webextension-polyfill` or a thin `browser ?? chrome` shim. |
-| Packaging | Zip, Chrome Web Store | `xcrun safari-web-extension-packager` (or `-converter`) produces the macOS app wrapper. Mac App Store or notarized direct download. Safari 26 can load an unsigned build for development without Xcode. |
-| Permissions UX | Install-time prompt | Per-site prompts inside Safari ("allow for one day / always"). The onboarding must explain this. |
+| Background | `background.service_worker` | `background.scripts` (non-persistent event page), background bundle built as a classic script. Sidesteps a known Safari bug where `host_permissions` are ignored for service-worker backgrounds, and cross-origin fetch problems reported from Safari service workers. |
+| Namespace | `chrome.*` | `chrome.*` works as is; no polyfill. |
+| Sign-in | `chrome.identity.launchWebAuthFlow` | No `chrome.identity`. The OAuth flow opens in a tab; a top-level `tabs.onUpdated` listener catches the redirect (`src/background/auth-tab.ts`). Pending state lives in `storage.session` so the event page may unload meanwhile. |
+| Packaging | Zip, Chrome Web Store | `scripts/safari-xcode.sh` runs `xcrun safari-web-extension-converter` on `dist-safari/` to produce the macOS app wrapper. Mac App Store or notarized direct download. Recent Safari can load an unpacked folder for development from the Develop menu. |
+| Permissions UX | Install-time prompt | Per-site prompts inside Safari ("allow for one day / always"), shown only from a user gesture. The Connect and paste-key buttons request the provider host inside the click; settings has a Site access card; the setup-complete screen says where to click if the badge is missing. |
 | iOS | n/a | Out of scope for v1. Mobile web Gmail and X have different DOMs. |
 
 ## 3. Host adapters
@@ -338,4 +339,4 @@ License: Apache-2.0 is the recommendation, for the explicit patent grant. MIT is
 
 **M3, public.** Provider interface exercised by a second provider behind a flag. README with the privacy statement. Open-source release.
 
-**M4, Safari.** Event-page background, `xcrun safari-web-extension-packager`, per-site permission onboarding, Mac App Store.
+**M4, Safari.** Started September 2026: event-page background, tab-based sign-in, per-site permission onboarding and the converter script are in (`docs/SAFARI.md`). Left: first run on a real Safari, then Mac App Store.

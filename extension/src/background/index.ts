@@ -1,6 +1,6 @@
 // Service worker entry. Listeners are registered synchronously at top level so Chrome can wake the worker for them.
 import { ClaimCache } from './cache';
-import { registerOptionsHandler } from './options-handler';
+import { registerAuthTabHandlers, registerOptionsHandler } from './options-handler';
 import { registerPortHandler } from './port';
 import { SettingsStore, SETTINGS_KEY } from './settings';
 import { ChromeLocalStorage } from './storage';
@@ -11,6 +11,7 @@ const cache = new ClaimCache(storage);
 
 registerPortHandler(store, cache);
 registerOptionsHandler(store, cache);
+registerAuthTabHandlers(store);
 
 // Another context (the options page writing directly, a future sync) changed settings: drop the cached copy.
 chrome.storage.onChanged.addListener((changes, area) => {

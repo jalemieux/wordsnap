@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { sendToBackground, type OptionsResponse } from '../shared/messages';
+import { sendToBackground, type OptionsEvent, type OptionsResponse } from '../shared/messages';
 import { type Effort, type HostId, type PassId, type ProviderId, type Settings } from '../shared/types';
 
 const OPENROUTER_KEYS_URL = 'https://openrouter.ai/settings/keys';
@@ -7,6 +7,9 @@ const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/settings/credits';
 const CLAUDE_KEYS_URL = 'https://platform.claude.com/settings/keys';
 const CLAUDE_BILLING_URL = 'https://platform.claude.com/settings/billing';
 const GMAIL_COMPOSE_URL = 'https://mail.google.com/mail/?view=cm';
+const SAFARI = __WORDSNAP_BROWSER__ === 'safari';
+/** Sign-in in a tab (Safari) has no tab-closed signal for the page; give up after the code's own lifetime. */
+const TAB_SIGN_IN_TIMEOUT_MS = 10 * 60_000;
 const HOSTS: { id: HostId; label: string }[] = [
   { id: 'gmail', label: 'Gmail' },
   { id: 'x', label: 'X' },
@@ -144,9 +147,18 @@ function useConnect(onDone: () => Promise<void>) {
   const [c, setC] = useState<Connect>({ kind: 'idle' });
   const connect = async () => {
     setC({ kind: 'busy' });
+    // Must run inside the click, before any await: Safari only shows the site-access prompt on a user gesture.
+    if (SAFARI) void requestSiteAccess(['https://openrouter.ai/*']);
     try {
       const r = await sendToBackground({ type: 'openrouter/connect' });
-      if (r.type === 'connect' && r.ok) {
+      if (r.type === 'connect' && r.ok && r.pending) {
+        // The sign-in is running in a tab; the background reports back when the redirect lands.
+        const e = await waitForConnected();
+        if (e.ok) {
+          setC({ kind: 'ok', models: e.models });
+          await onDone();
+        } else setC({ kind: 'error', error: e.error });
+      } else if (r.type === 'connect' && r.ok) {
         setC({ kind: 'ok', models: r.models });
         await onDone();
       } else if (r.type === 'connect') setC({ kind: 'error', error: r.error });
@@ -156,6 +168,79 @@ function useConnect(onDone: () => Promise<void>) {
     }
   };
   return { c, connect };
+}
+
+function waitForConnected(): Promise<OptionsEvent> {
+  return new Promise((resolve) => {
+    const done = (e: OptionsEvent) => {
+      chrome.runtime.onMessage.removeListener(listener);
+      window.clearTimeout(timer);
+      resolve(e);
+    };
+    const listener = (msg: unknown) => {
+      if (msg && typeof msg === 'object' && (msg as OptionsEvent).type === 'openrouter/connected') done(msg as OptionsEvent);
+    };
+    const timer = window.setTimeout(() => done({ type: 'openrouter/connected', ok: false, error: 'Sign-in timed out. Try again.' }), TAB_SIGN_IN_TIMEOUT_MS);
+    chrome.runtime.onMessage.addListener(listener);
+  });
+}
+
+/* ---------------- site access (Safari asks per site) ---------------- */
+
+/**
+ * Chrome grants every host in the manifest at install. Safari grants them one site at a time, on a prompt it only
+ * shows from a user gesture, so the buttons that lead to a request ask for the host first.
+ */
+async function requestSiteAccess(origins: string[]): Promise<boolean> {
+  try {
+    return await chrome.permissions.request({ origins });
+  } catch {
+    return false;
+  }
+}
+
+async function hasSiteAccess(origins: string[]): Promise<boolean> {
+  try {
+    return await chrome.permissions.contains({ origins });
+  } catch {
+    return false;
+  }
+}
+
+const SITES: { label: string; origins: string[]; why: string }[] = [
+  { label: 'Gmail', origins: ['https://mail.google.com/*'], why: 'the compose window' },
+  { label: 'X', origins: ['https://x.com/*', 'https://twitter.com/*'], why: 'the post composer' },
+  { label: 'LinkedIn', origins: ['https://www.linkedin.com/*'], why: 'the post composer' },
+  { label: 'OpenRouter', origins: ['https://openrouter.ai/*'], why: 'the model requests' },
+  { label: 'Anthropic', origins: ['https://api.anthropic.com/*'], why: 'the model requests, with an Anthropic key' },
+];
+
+/** Safari only: which of the sites WordSnap works on it may read, with a button to allow each. */
+function SiteAccess() {
+  const [granted, setGranted] = useState<Record<string, boolean>>({});
+  const refresh = () => {
+    for (const site of SITES) void hasSiteAccess(site.origins).then((ok) => setGranted((g) => ({ ...g, [site.label]: ok })));
+  };
+  useEffect(refresh, []);
+  return (
+    <div class="card">
+      <h3>Site access</h3>
+      <p class="msg muted" style={{ marginTop: 0 }}>Safari lets an extension read a site only after you allow it. Choose Always Allow; a one-day grant asks again tomorrow.</p>
+      {SITES.map((site) => (
+        <div class="row" key={site.label} style={{ marginBottom: 6 }}>
+          <span style={{ minWidth: 90 }}>{site.label}</span>
+          {granted[site.label] ? (
+            <span class="msg ok" style={{ margin: 0 }}>✓ allowed</span>
+          ) : (
+            <button class="btn" onClick={() => void requestSiteAccess(site.origins).then(refresh)}>
+              Allow
+            </button>
+          )}
+          <span class="msg muted" style={{ margin: 0 }}>{site.why}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ConnectButton({ c, connect, label }: { c: Connect; connect: () => void; label: string }) {
@@ -263,6 +348,9 @@ function Onboarding({ settings, save, reload, finish }: { settings: Settings; sa
           </p>
           <BadgePreview />
           <p>Open Gmail and start a message. This badge sits at the top right of the compose window. Click it when you want the draft checked. Nothing runs, and nothing leaves your browser, until you do.</p>
+          {SAFARI ? (
+            <p>Safari asks before an extension can read a site. If the badge does not appear, click the WordSnap icon in Safari's toolbar on the Gmail tab and choose Always Allow.</p>
+          ) : null}
           <div class="row">
             <a class="btn primary" href={GMAIL_COMPOSE_URL} target="_blank" rel="noopener noreferrer">
               Open Gmail ↗
@@ -302,8 +390,24 @@ function Onboarding({ settings, save, reload, finish }: { settings: Settings; sa
               <details class="alt" open={manual !== null}>
                 <summary>Or paste a key instead</summary>
                 <div class="row" style={{ margin: '8px 0' }}>
-                  <button class={`btn${manual === 'openrouter' ? ' on' : ''}`} onClick={() => setManual('openrouter')}>OpenRouter key</button>
-                  <button class={`btn${manual === 'claude' ? ' on' : ''}`} onClick={() => setManual('claude')}>Anthropic key</button>
+                  <button
+                    class={`btn${manual === 'openrouter' ? ' on' : ''}`}
+                    onClick={() => {
+                      if (SAFARI) void requestSiteAccess(['https://openrouter.ai/*']);
+                      setManual('openrouter');
+                    }}
+                  >
+                    OpenRouter key
+                  </button>
+                  <button
+                    class={`btn${manual === 'claude' ? ' on' : ''}`}
+                    onClick={() => {
+                      if (SAFARI) void requestSiteAccess(['https://api.anthropic.com/*']);
+                      setManual('claude');
+                    }}
+                  >
+                    Anthropic key
+                  </button>
                 </div>
                 {manual === 'openrouter' ? (
                   <>
@@ -561,6 +665,7 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
           ))}
         </div>
       </div>
+      {SAFARI ? <SiteAccess /> : null}
 
       <div class="card">
         <h3>Effort per pass</h3>

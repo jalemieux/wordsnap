@@ -3,18 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "WordSnap Chrome extension: sharpen your own argument before you send it.",
+  "description": "WordSnap browser extension (Chrome, Safari): sharpen your own argument before you send it.",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:safari": "node scripts/build.mjs --safari",
     "build:dev": "node scripts/build.mjs --dev",
     "icons": "node scripts/icons.mjs",
     "package": "node scripts/package.mjs",
+    "package:safari": "node scripts/package.mjs --safari",
     "watch": "node scripts/build.mjs --dev --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build:dev && playwright test",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build && npm run build:safari"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

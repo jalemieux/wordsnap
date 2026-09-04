@@ -1,6 +1,8 @@
 // Produces the zip that goes into the Chrome Web Store dashboard.
-// Usage: node scripts/package.mjs   ->  extension/wordsnap-<version>.zip
-// Runs a clean production build, checks that nothing from a dev build leaked in, then zips dist/.
+// Usage: node scripts/package.mjs            ->  extension/wordsnap-<version>.zip
+//        node scripts/package.mjs --safari   ->  extension/wordsnap-safari-<version>.zip (the folder to hand to
+//                                                scripts/safari-xcode.sh on a Mac, or to Safari's Develop menu)
+// Runs a clean production build, checks that nothing from a dev build leaked in, then zips the output folder.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -9,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dist = path.join(root, 'dist');
+const safari = process.argv.includes('--safari');
+const dist = path.join(root, safari ? 'dist-safari' : 'dist');
 
 const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
@@ -21,11 +24,13 @@ for (const size of [16, 32, 48, 128]) {
 }
 
 await rm(dist, { recursive: true, force: true });
-execFileSync(process.execPath, [path.join(root, 'scripts', 'build.mjs')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(root, 'scripts', 'build.mjs'), ...(safari ? ['--safari'] : [])], { stdio: 'inherit' });
 
 const built = JSON.parse(await readFile(path.join(dist, 'manifest.json'), 'utf8'));
 if (/\(dev\)/.test(built.name)) fail('dist manifest carries the (dev) suffix; this is a dev build');
 if (built.key) fail('dist manifest carries a "key"; strip it before uploading to the store');
+if (safari && built.background.service_worker) fail('Safari build still declares a service worker background');
+if (safari && built.permissions.includes('identity')) fail('Safari build still asks for the identity permission');
 const bundles = await Promise.all(
   ['background.js', 'content.js', 'options.js'].map((f) => readFile(path.join(dist, f), 'utf8')),
 );
@@ -34,7 +39,7 @@ for (const marker of ['providers/mock', 'use the mock provider', '127.0.0.1:4173
 }
 
 const files = await walk(dist);
-const out = path.join(root, `wordsnap-${manifest.version}.zip`);
+const out = path.join(root, `wordsnap-${safari ? 'safari-' : ''}${manifest.version}.zip`);
 await writeFile(out, zip(files));
 const bytes = (await stat(out)).size;
 console.log(`${path.relative(root, out)}  ${files.length} files  ${(bytes / 1024).toFixed(0)} KB`);

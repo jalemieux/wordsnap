@@ -2,14 +2,19 @@
 //   node scripts/build.mjs            production build to dist/
 //   node scripts/build.mjs --dev      dev build: sourcemaps, mock provider allowed, local fixture hosts in manifest
 //   node scripts/build.mjs --watch    rebuild on change
+//   node scripts/build.mjs --safari   Safari build to dist-safari/ (event-page background, no chrome.identity);
+//                                     wrap it with scripts/safari-xcode.sh on a Mac
 import * as esbuild from 'esbuild';
+import { safariManifest } from './manifest.mjs';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const dist = path.join(root, 'dist');
+const safari = process.argv.includes('--safari');
+const browser = safari ? 'safari' : 'chrome';
+const dist = path.join(root, safari ? 'dist-safari' : 'dist');
 const dev = process.argv.includes('--dev');
 
 function gitSha() {
@@ -23,7 +28,8 @@ const watch = process.argv.includes('--watch');
 
 const common = {
   bundle: true,
-  target: ['chrome120'],
+  // Safari 16.4 is the first with MV3 service workers, storage.session and the scripting API.
+  target: safari ? ['safari16'] : ['chrome120'],
   sourcemap: dev ? 'inline' : false,
   minify: !dev,
   legalComments: 'none',
@@ -33,19 +39,23 @@ const common = {
   define: {
     'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production'),
     '__WORDSNAP_DEV__': JSON.stringify(dev),
+    '__WORDSNAP_BROWSER__': JSON.stringify(browser),
   },
   logLevel: 'info',
 };
 
+const out = (f) => path.join(dist, f);
 const bundles = [
-  { entryPoints: ['src/background/index.ts'], outfile: 'dist/background.js', format: 'esm', platform: 'browser' },
-  { entryPoints: ['src/content/index.ts'], outfile: 'dist/content.js', format: 'iife', platform: 'browser' },
-  { entryPoints: ['src/options/index.tsx'], outfile: 'dist/options.js', format: 'iife', platform: 'browser' },
+  // Safari's event page loads background.js as a classic script, so that target gets an IIFE.
+  { entryPoints: ['src/background/index.ts'], outfile: out('background.js'), format: safari ? 'iife' : 'esm', platform: 'browser' },
+  { entryPoints: ['src/content/index.ts'], outfile: out('content.js'), format: 'iife', platform: 'browser' },
+  { entryPoints: ['src/options/index.tsx'], outfile: out('options.js'), format: 'iife', platform: 'browser' },
 ];
 
 async function staticFiles() {
   await mkdir(dist, { recursive: true });
-  const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
+  let manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
+  if (safari) manifest = safariManifest(manifest);
   // chrome://extensions shows version_name, so a person can tell which build they loaded.
   manifest.version_name = `${manifest.version} (${gitSha()}${dev ? ', dev' : ''})`;
   if (dev) {

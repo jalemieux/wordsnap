@@ -4,7 +4,7 @@ Read this before touching code. `docs/SPEC.md` is the long form; this file is wh
 
 ## What this is
 
-A Chrome extension (Manifest V3) that sits on top of the composer a person is already typing in (Gmail first; X in daily use by the maintainer; the LinkedIn adapter is untested on the live site) and runs three analysis passes over the draft:
+A browser extension (Manifest V3; Chrome, plus a Safari build from the same source since September 2026) that sits on top of the composer a person is already typing in (Gmail first; X in daily use by the maintainer; the LinkedIn adapter is untested on the live site) and runs three analysis passes over the draft:
 
 - **A. Clarity and claims**: fuzzy thinking, hedges, weak structure, plus extraction of every checkable claim. No research.
 - **B. Fact check**: verifies each claim with web search, returns status, finding, confidence, sources, optional tighter wording.
@@ -16,7 +16,7 @@ The maintainer is a senior engineer. Speak as a peer. Prefer artifacts (a diff, 
 
 ## Decisions already made (do not reopen without asking)
 
-- Chrome only for v1. Safari is milestone M4; keep the door open, do no Safari work now.
+- Chrome first. Safari (milestone M4) started September 2026 at the founder's request: `npm run build:safari` derives a Safari manifest from the Chrome one, sign-in falls back to a tab when `chrome.identity` is missing, and the options page asks for site access per site. See `docs/SAFARI.md` for what is untested. Firefox stays out.
 - No local inference. The user configures a provider. **OpenRouter is the default** (model `z-ai/glm-5.2`, pinned to provider slug `z-ai`, research through OpenRouter's web plugin), connected with one click via OAuth PKCE. Anthropic with a user's own API key is the alternative. Claude Code / claude.ai OAuth tokens are prohibited for third-party apps: never build on them.
 - No separate search API (Brave was evaluated and dropped). Research is provider-native only.
 - No WordSnap server in v1. Text goes only to the configured provider from the user's own account. A hosted service is the commercial path later and is designed as "one more provider".
@@ -35,17 +35,21 @@ extension/               the extension (TypeScript strict, Preact, Zod 4, esbuil
   src/content/           content script: text snapshots with offset maps, session client (port), entry that mounts the overlay
   src/ui/                overlay in a closed Shadow DOM (open in dev builds so tests can reach it): launcher, highlights, hover card,
                          challenges panel, status pill, toast. PreviewModal.tsx is unwired (see decisions). System fonts only; nothing loads from the network.
-  src/background/        service worker: orchestrator (debounce, incremental runs, claim cache, cancellation, backoff), session state,
-                         settings store, port handler, options handler (validate key, OpenRouter connect, connection test, sample run)
+  src/background/        service worker (event page on Safari): orchestrator (debounce, incremental runs, claim cache, cancellation, backoff),
+                         session state, settings store, port handler, options handler (validate key, OpenRouter connect, connection test,
+                         sample run), auth-tab (sign-in in a tab for browsers without chrome.identity)
   src/passes/            prompts, request builders, post-validation rules
   src/providers/         LLMProvider implementations: openrouter (default), claude, mock (dev builds only)
   src/options/           settings page with one-click OpenRouter connect and guided key fallback
   test/unit/             vitest; files under test/unit/dom carry `// @vitest-environment happy-dom`
   test/fixtures/         saved composer DOMs (gmail-compose.html doubles as the e2e target)
   test/e2e/              Playwright loads the dev build into Chromium against the fixture with the mock provider
-  scripts/build.mjs      esbuild; --dev adds sourcemaps, the mock provider, local fixture hosts, and an open shadow root
+  scripts/build.mjs      esbuild; --dev adds sourcemaps, the mock provider, local fixture hosts, and an open shadow root;
+                         --safari writes dist-safari/ with the manifest from scripts/manifest.mjs (event page, no identity)
+  scripts/safari-xcode.sh macOS only: wraps dist-safari/ in the Xcode project Safari loads (docs/SAFARI.md)
   scripts/screenshots.mjs captures closed / loading / open overlay states (W= H= env for viewport)
 docs/SPEC.md             technical spec (docs/spec.html is the rendered page; regenerate both together)
+docs/SAFARI.md           the Safari build: how to load it, what differs, what is untested
 mocks/                   the interactive design mock the UI was built against; the visual contract
 ```
 
@@ -53,9 +57,10 @@ mocks/                   the interactive design mock the UI was built against; t
 
 ```
 cd extension
-npm run check        # typecheck + unit tests + production build   <- run before every commit
+npm run check        # typecheck + unit tests + production builds (Chrome and Safari)   <- run before every commit
 npm run test:e2e     # dev build + Playwright (needs the Playwright Chromium: npx playwright install chromium)
 npm run build        # production build to dist/; load dist/ unpacked at chrome://extensions
+npm run build:safari # Safari build to dist-safari/; scripts/safari-xcode.sh wraps it on a Mac
 npm run watch        # dev rebuild on change
 ```
 
@@ -90,5 +95,6 @@ npm run watch        # dev rebuild on change
 
 - X and LinkedIn adapters have never run against the live sites. Draft.js accepting `insertText` on X is unverified.
 - OpenRouter connect has not yet been exercised against the live OAuth endpoint by an automated test.
+- The Safari build has never run in Safari (no Mac on the build box). Open questions are listed in `docs/SAFARI.md`.
 - No license file yet (Apache-2.0 recommended). Trademark check on the name pending.
 - Inline Gmail replies get a floating panel that overlaps the right side of the draft; a narrower rail mode is a candidate improvement.

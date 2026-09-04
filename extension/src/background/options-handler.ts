@@ -5,13 +5,20 @@ import { OpenRouterProvider } from '../providers/openrouter';
 import { challengeFor, codeFromRedirect, exchangeCodeForKey, makeVerifier, openRouterAuthUrl } from '../shared/pkce';
 import { ProviderError } from '../providers/types';
 import { snapshotFromText } from '../shared/anchoring';
-import type { OptionsRequest, OptionsResponse } from '../shared/messages';
+import type { OptionsEvent, OptionsRequest, OptionsResponse } from '../shared/messages';
 import { SAMPLE_SUBJECT, SAMPLE_TEXT } from '../shared/sample';
 import type { SessionState, Settings } from '../shared/types';
 import type { LLMProvider } from '../providers/types';
+import { AUTH_TIMEOUT_MS, TAB_CALLBACK_URL, beginAuthTab, cancelAuthTab, catchAuthCallback, chromeAuthTabDeps, type AuthTabDeps } from './auth-tab';
 import type { ClaimCache } from './cache';
 import { SessionOrchestrator } from './orchestrator';
 import type { SettingsStore } from './settings';
+import { ChromeSessionStorage } from './storage';
+
+/** Chrome has chrome.identity (declared in the manifest); Safari has neither the API nor the permission. */
+function hasIdentity(): boolean {
+  return typeof chrome.identity?.launchWebAuthFlow === 'function';
+}
 
 export async function handleOptionsRequest(req: OptionsRequest, store: SettingsStore, cache: ClaimCache): Promise<OptionsResponse> {
   switch (req.type) {
@@ -33,7 +40,7 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
       }
     }
     case 'openrouter/connect':
-      return connectOpenRouter(store);
+      return hasIdentity() ? connectOpenRouter(store) : startOpenRouterTabConnect({ begin: (url, cb, v) => beginAuthTab(chromeAuthTabDeps(new ChromeSessionStorage()), url, cb, v) });
     case 'provider/test':
       return testProvider(store);
     case 'sample/run':
@@ -85,18 +92,75 @@ export async function connectOpenRouter(store: SettingsStore, deps: { launch?: (
     const verifier = makeVerifier();
     const challenge = await challengeFor(verifier);
     const returned = await launch(openRouterAuthUrl(redirectUrl, challenge));
-    const code = codeFromRedirect(returned);
+    return await finishOpenRouterConnect(store, returned, verifier, deps.fetchImpl);
+  } catch (err) {
+    return { type: 'connect', ok: false, error: connectErrorMessage(err) };
+  }
+}
+
+/**
+ * The same sign-in without chrome.identity (Safari): the sign-in page opens in a tab and this returns at once with
+ * `pending: true`. The redirect is caught by the top-level listeners in registerAuthTabHandlers, which finish the
+ * exchange and broadcast an `openrouter/connected` event to the options page.
+ */
+export async function startOpenRouterTabConnect(deps: { begin: (url: string, callback: string, verifier: string) => Promise<void>; callback?: string }): Promise<OptionsResponse> {
+  const callback = deps.callback ?? TAB_CALLBACK_URL;
+  try {
+    const verifier = makeVerifier();
+    const challenge = await challengeFor(verifier);
+    await deps.begin(openRouterAuthUrl(callback, challenge), callback, verifier);
+    return { type: 'connect', ok: true, models: [], pending: true };
+  } catch (err) {
+    return { type: 'connect', ok: false, error: connectErrorMessage(err) };
+  }
+}
+
+/** Second half of either sign-in: code out of the redirect, key out of the code, key into settings. */
+export async function finishOpenRouterConnect(store: SettingsStore, redirectUrl: string, verifier: string, fetchImpl?: typeof fetch): Promise<OptionsResponse> {
+  try {
+    const code = codeFromRedirect(redirectUrl);
     if (!code) return { type: 'connect', ok: false, error: 'OpenRouter did not return a sign-in code. Try again.' };
-    const key = await exchangeCodeForKey(code, verifier, deps.fetchImpl);
+    const key = await exchangeCodeForKey(code, verifier, fetchImpl);
     const current = await store.get();
     await store.set({ provider: 'openrouter', openrouter: { ...current.openrouter, apiKey: key }, onboarded: true });
-    const models = await new OpenRouterProvider({ apiKey: key, model: current.openrouter.model, fetchImpl: deps.fetchImpl }).listModels().catch(() => []);
+    const models = await new OpenRouterProvider({ apiKey: key, model: current.openrouter.model, fetchImpl }).listModels().catch(() => []);
     return { type: 'connect', ok: true, models };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const cancelled = /canceled|cancelled|closed by the user|did not approve/i.test(message);
-    return { type: 'connect', ok: false, error: cancelled ? 'Sign-in was cancelled.' : message };
+    return { type: 'connect', ok: false, error: connectErrorMessage(err) };
   }
+}
+
+function connectErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return /canceled|cancelled|closed by the user|did not approve/i.test(message) ? 'Sign-in was cancelled.' : message;
+}
+
+/**
+ * Top-level tab listeners for the sign-in-in-a-tab path. Registered in every build (they only act on a pending
+ * sign-in, and Chrome never starts one), synchronously at startup so an event page that unloaded while the user
+ * was signing in still catches the redirect.
+ */
+export function registerAuthTabHandlers(store: SettingsStore, deps: AuthTabDeps = chromeAuthTabDeps(new ChromeSessionStorage()), notify: (e: OptionsEvent) => void = broadcast): void {
+  chrome.tabs.onUpdated.addListener((tabId, info) => {
+    void handleAuthTabUpdate(store, deps, tabId, info.url).then((e) => e && notify(e));
+  });
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    void cancelAuthTab(deps, tabId).then((was) => was && notify({ type: 'openrouter/connected', ok: false, error: 'Sign-in was cancelled.' }));
+  });
+}
+
+export async function handleAuthTabUpdate(store: SettingsStore, deps: AuthTabDeps, tabId: number, url: string | undefined, fetchImpl?: typeof fetch): Promise<OptionsEvent | null> {
+  const caught = await catchAuthCallback(deps, tabId, url);
+  if (!caught) return null;
+  if ('expired' in caught) return { type: 'openrouter/connected', ok: false, error: `Sign-in took longer than ${AUTH_TIMEOUT_MS / 60_000} minutes. Try again.` };
+  const r = await finishOpenRouterConnect(store, caught.redirectUrl, caught.verifier, fetchImpl);
+  if (r.type !== 'connect') return null;
+  return r.ok ? { type: 'openrouter/connected', ok: true, models: r.models } : { type: 'openrouter/connected', ok: false, error: r.error };
+}
+
+function broadcast(e: OptionsEvent): void {
+  // Rejects when no extension page is listening (the options page was closed); the key is stored either way.
+  chrome.runtime.sendMessage(e).catch(() => {});
 }
 
 /** Runs all three passes on the sample draft with the configured provider. Resolves when every pass has settled. */
