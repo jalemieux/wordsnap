@@ -133,3 +133,33 @@ describe('ClaudeProvider', () => {
     expect(new ProviderError('x', 'auth').kind).toBe('auth');
   });
 });
+
+describe('ClaudeProvider.probe', () => {
+  it('sends one short request with low effort and no tools or output format', async () => {
+    const seen: Record<string, unknown>[] = [];
+    const client = fakeClient([{ content: [text('ready')], stop_reason: 'end_turn' }], seen);
+    const p = new ClaudeProvider({ apiKey: 'k', model: 'claude-opus-5', client });
+    await expect(p.probe(new AbortController().signal)).resolves.toBeUndefined();
+    expect(seen).toHaveLength(1);
+    const params = seen[0]!;
+    expect(params.model).toBe('claude-opus-5');
+    expect(params.tools).toBeUndefined();
+    expect(params.output_config).toEqual({ effort: 'low' });
+    expect(params.max_tokens).toBeLessThanOrEqual(1024);
+  });
+
+  it('maps client failures to provider errors', async () => {
+    const client: ClaudeClientLike = {
+      beta: {
+        messages: {
+          stream() {
+            throw new ProviderError('The API key was rejected', 'auth');
+          },
+        },
+      },
+      models: { async *list() {} },
+    };
+    const p = new ClaudeProvider({ apiKey: 'k', model: 'claude-opus-5', client });
+    await expect(p.probe(new AbortController().signal)).rejects.toMatchObject({ kind: 'auth' });
+  });
+});

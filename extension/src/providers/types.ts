@@ -58,6 +58,11 @@ export interface LLMProvider {
   runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>>;
   /** Used by settings to validate credentials and populate the model list. */
   listModels(): Promise<{ id: string; displayName: string }[]>;
+  /**
+   * The cheapest real completion against the configured model: proves the credential, the model and the routing
+   * actually answer (credits, pinned provider, workspace), which listing models does not. Rejects with a ProviderError.
+   */
+  probe(signal: AbortSignal): Promise<void>;
 }
 
 export class ProviderError extends Error {

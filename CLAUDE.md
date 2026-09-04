@@ -22,6 +22,7 @@ Founder: a Director of Engineering with 20+ years full-stack. Speak as a peer. P
 - No WordSnap server in v1. Text goes only to the configured provider from the user's own account. A hosted service is the commercial path later and is designed as "one more provider".
 - UX: inline highlights with hover cards (1A), docked Challenges panel (2B), Apply/Keep with diff preview (3A), **re-analysis on demand** (4A was silent re-analysis on edit; changed September 2026: edits shift anchors and mark touched findings stale immediately, but nothing runs until the user presses Re-analyze in the panel. The `autoAnalyze` setting, off by default, restores auto-start at 40 words and silent re-runs). The Re-analyze action never asks which pass: A runs on changed paragraphs, B on claims without a verdict, C always. **No share or export bar** (5A was built and dropped in September 2026: the user sends from the composer they are already in, and the panel summary row plus the launcher badge already carry the open-claim count). The Preview modal (5B) and `src/content/share.ts` are kept but unwired; they come back on X only, for thread splitting, once that adapter is proven.
 - **Quiet by default.** Only a small launcher badge shows on a compose window. Nothing is sent anywhere until the user clicks it. A setting (off by default) restores auto-start at 40 words.
+- **Setup is connect, check, done.** After a key lands (OAuth or paste) the options page runs one short completion through the configured route on its own, then shows "Setup complete" with a drawing of the badge to look for and an Open Gmail button. No model picker and no sample analysis in setup (both were removed September 2026; the model lives in settings, and `sample/run` stays in the background unused).
 - **Voice preservation is a hard constraint.** A suggestion may only replace the quoted span, must stay within 1.3x its length, and must keep the writer's register. Prefer "here is the gap" over "here is your new sentence." Enforced in code (`src/passes/validate.ts`), not just in prompts.
 
 ## Layout
@@ -35,7 +36,7 @@ extension/               the extension (TypeScript strict, Preact, Zod 4, esbuil
   src/ui/                overlay in a closed Shadow DOM (open in dev builds so tests can reach it): launcher, highlights, hover card,
                          challenges panel, status pill, toast. PreviewModal.tsx is unwired (see decisions). System fonts only; nothing loads from the network.
   src/background/        service worker: orchestrator (debounce, incremental runs, claim cache, cancellation, backoff), session state,
-                         settings store, port handler, options handler (validate key, OpenRouter connect, sample run)
+                         settings store, port handler, options handler (validate key, OpenRouter connect, connection test, sample run)
   src/passes/            prompts, request builders, post-validation rules
   src/providers/         LLMProvider implementations: openrouter (default), claude, mock (dev builds only)
   src/options/           settings page with one-click OpenRouter connect and guided key fallback

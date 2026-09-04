@@ -154,6 +154,7 @@ describe('SessionOrchestrator', () => {
       id: 'mock',
       capabilities: inner.capabilities,
       listModels: () => inner.listModels(),
+      probe: (signal: AbortSignal) => inner.probe(signal),
       runPass: <T>(req: PassRequest<T>, signal: AbortSignal, on: Parameters<LLMProvider['runPass']>[2]) => {
         if (req.pass === 'A' && failures < 1) {
           failures++;

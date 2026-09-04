@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { sendToBackground, type OptionsResponse } from '../shared/messages';
-import { SAMPLE_PARAGRAPHS, SAMPLE_SUBJECT } from '../shared/sample';
-import { DEFAULT_OPENROUTER, type Effort, type HostId, type PassId, type ProviderId, type SessionState, type Settings, type Span } from '../shared/types';
-import { CHALLENGE_LABEL, CLARITY_LABEL, VERDICT_LABEL, sortChallenges } from '../ui/format';
+import { type Effort, type HostId, type PassId, type ProviderId, type Settings } from '../shared/types';
 
 const OPENROUTER_KEYS_URL = 'https://openrouter.ai/settings/keys';
 const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/settings/credits';
 const CLAUDE_KEYS_URL = 'https://platform.claude.com/settings/keys';
 const CLAUDE_BILLING_URL = 'https://platform.claude.com/settings/billing';
+const GMAIL_COMPOSE_URL = 'https://mail.google.com/mail/?view=cm';
 const HOSTS: { id: HostId; label: string }[] = [
   { id: 'gmail', label: 'Gmail' },
   { id: 'x', label: 'X' },
@@ -35,11 +34,18 @@ function redact(key: string): string {
 
 export function Options() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  // Decided once at load: the setup flow stays on screen until the user leaves it, even though the background
+  // records `onboarded` the moment the connection test passes.
+  const [view, setView] = useState<'setup' | 'settings'>('setup');
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     sendToBackground({ type: 'settings/get' })
-      .then((r) => (r.type === 'settings' ? setSettings(r.settings) : setLoadError('message' in r ? r.message : 'Could not load settings')))
+      .then((r) => {
+        if (r.type !== 'settings') return setLoadError('message' in r ? r.message : 'Could not load settings');
+        setSettings(r.settings);
+        setView(r.settings.onboarded ? 'settings' : 'setup');
+      })
       .catch((e: Error) => setLoadError(e.message));
   }, []);
 
@@ -54,7 +60,7 @@ export function Options() {
 
   if (loadError) return <Shell><p class="msg err">{loadError}</p></Shell>;
   if (!settings) return <Shell><p class="msg muted">Loading…</p></Shell>;
-  return <Shell>{settings.onboarded ? <SettingsView settings={settings} save={save} reload={reload} /> : <Onboarding settings={settings} save={save} reload={reload} />}</Shell>;
+  return <Shell>{view === 'settings' ? <SettingsView settings={settings} save={save} reload={reload} /> : <Onboarding settings={settings} save={save} reload={reload} finish={() => setView('settings')} />}</Shell>;
 }
 
 function Shell({ children }: { children: preact.ComponentChildren }) {
@@ -165,46 +171,110 @@ function ConnectButton({ c, connect, label }: { c: Connect; connect: () => void;
   );
 }
 
+/* ---------------- connection test ---------------- */
+
+type TestState = { kind: 'idle' } | { kind: 'busy' } | { kind: 'ok'; model: string; ms: number } | { kind: 'error'; error: string; hint?: 'workspace' | 'billing' | 'auth' | 'network' };
+
+/** Runs the background's connection test: one short completion through the configured provider and model. */
+function useProviderTest() {
+  const [t, setT] = useState<TestState>({ kind: 'idle' });
+  const seq = useRef(0);
+  const run = async (): Promise<TestState> => {
+    const my = ++seq.current;
+    setT({ kind: 'busy' });
+    let next: TestState;
+    try {
+      const r = await sendToBackground({ type: 'provider/test' });
+      if (r.type === 'test' && r.ok) next = { kind: 'ok', model: r.model, ms: r.ms };
+      else if (r.type === 'test') next = { kind: 'error', error: r.error, hint: r.hint };
+      else next = { kind: 'error', error: 'message' in r ? r.message : 'Unexpected response' };
+    } catch (e) {
+      next = { kind: 'error', error: (e as Error).message, hint: 'network' };
+    }
+    if (my === seq.current) setT(next);
+    return next;
+  };
+  return { t, run, reset: () => setT({ kind: 'idle' }) };
+}
+
+function seconds(ms: number): string {
+  return ms < 1000 ? `${Math.max(1, Math.round(ms / 100)) / 10} s` : `${(ms / 1000).toFixed(1)} s`;
+}
+
+function hasKey(s: Settings): boolean {
+  return s.provider === 'mock' || (s.provider === 'openrouter' ? s.openrouter.apiKey : s.apiKey).trim().length > 0;
+}
+
+function modelOf(s: Settings): string {
+  return s.provider === 'openrouter' ? s.openrouter.model : s.provider === 'claude' ? s.model : 'mock';
+}
+
+function providerName(s: Settings): string {
+  return s.provider === 'openrouter' ? 'OpenRouter' : s.provider === 'claude' ? 'Anthropic' : 'the mock provider';
+}
+
+function TestError({ t, provider, onRetry }: { t: Extract<TestState, { kind: 'error' }>; provider: ProviderId; onRetry: () => void }) {
+  const billingUrl = provider === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_BILLING_URL;
+  return (
+    <p class="msg err">
+      {t.hint === 'auth' ? 'The key was not accepted.' : t.hint === 'network' ? `Could not reach the provider. ${t.error}` : t.error}
+      {t.hint === 'billing' ? <> <a href={billingUrl} target="_blank" rel="noopener noreferrer">{provider === 'openrouter' ? 'Add credits ↗' : 'Set up billing ↗'}</a></> : null}
+      {t.hint === 'network' || t.hint === 'billing' ? <> <button class="link" onClick={onRetry}>Try again</button></> : null}
+    </p>
+  );
+}
+
 /* ---------------- onboarding ---------------- */
 
-function Onboarding({ settings, save, reload }: { settings: Settings; save: (p: Partial<Settings>) => Promise<void>; reload: () => Promise<void> }) {
-  const [connected, setConnected] = useState(false);
-  const [models, setModels] = useState<Model[]>([]);
+/**
+ * Setup: connect, then a connection test runs on its own, then a screen that says setup is complete and shows the
+ * badge to look for. Reopening the page with a key already stored goes straight to the test.
+ */
+function Onboarding({ settings, save, reload, finish }: { settings: Settings; save: (p: Partial<Settings>) => Promise<void>; reload: () => Promise<void>; finish: () => void }) {
   const [manual, setManual] = useState<KeyProvider | null>(null);
-  const [sample, setSample] = useState<SessionState | null>(null);
-  const [sampleBusy, setSampleBusy] = useState(false);
-  const { c, connect } = useConnect(async () => {
-    setConnected(true);
+  const [changing, setChanging] = useState(false);
+  const { t, run, reset } = useProviderTest();
+
+  const testAfter = async (settle: () => Promise<void>) => {
+    setChanging(false);
+    await settle();
+    await run();
     await reload();
-  });
-  useEffect(() => {
-    if (c.kind === 'ok') setModels(c.models);
-  }, [c]);
-
-  const kvOpenRouter = useKeyValidation('openrouter', async (apiKey, _ws, ms) => {
-    setModels(ms);
-    setConnected(true);
-    await save({ provider: 'openrouter', openrouter: { ...settings.openrouter, apiKey }, onboarded: false });
-  });
-  const kvClaude = useKeyValidation('claude', async (apiKey, workspaceId, ms) => {
-    setModels(ms);
-    setConnected(true);
-    await save({ provider: 'claude', apiKey, workspaceId, onboarded: false });
-  });
-
-  const runSample = async () => {
-    setSampleBusy(true);
-    try {
-      const r = await sendToBackground({ type: 'sample/run' });
-      if (r.type === 'sample') setSample(r.state);
-    } finally {
-      setSampleBusy(false);
-    }
   };
+  const { c, connect } = useConnect(() => testAfter(reload));
+  const kvOpenRouter = useKeyValidation('openrouter', (apiKey) => testAfter(() => save({ provider: 'openrouter', openrouter: { ...settings.openrouter, apiKey } })));
+  const kvClaude = useKeyValidation('claude', (apiKey, workspaceId) => testAfter(() => save({ provider: 'claude', apiKey, workspaceId })));
 
-  const current = settings.provider;
-  const currentModel = current === 'openrouter' ? settings.openrouter.model : settings.model;
-  const setModel = (m: string) => (current === 'openrouter' ? save({ openrouter: { ...settings.openrouter, model: m } }) : save({ model: m }));
+  useEffect(() => {
+    if (hasKey(settings)) void testAfter(async () => undefined);
+  }, []);
+
+  const connected = hasKey(settings) && !changing;
+  const model = modelOf(settings);
+
+  if (t.kind === 'ok') {
+    return (
+      <div class="card step done">
+        <span class="n">✓</span>
+        <div>
+          <h2>Setup complete</h2>
+          <p class="msg ok" style={{ marginTop: 0 }}>
+            <code>{t.model}</code> answered in {seconds(t.ms)}.
+          </p>
+          <BadgePreview />
+          <p>Open Gmail and start a message. This badge sits at the top right of the compose window. Click it when you want the draft checked. Nothing runs, and nothing leaves your browser, until you do.</p>
+          <div class="row">
+            <a class="btn primary" href={GMAIL_COMPOSE_URL} target="_blank" rel="noopener noreferrer">
+              Open Gmail ↗
+            </a>
+            <button class="btn" onClick={finish}>
+              Settings
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -212,79 +282,118 @@ function Onboarding({ settings, save, reload }: { settings: Settings; save: (p: 
         <span class="n">{connected ? '✓' : '1'}</span>
         <div>
           <h2>Connect a model provider</h2>
-          <p>WordSnap runs on an account you control. The fastest way is OpenRouter: one sign-in, no keys to copy, pay only for what you use.</p>
-          {!connected ? <ConnectButton c={c} connect={connect} label="Connect OpenRouter" /> : <p class="msg ok">✓ {current === 'openrouter' ? 'OpenRouter connected.' : 'Anthropic key accepted.'}</p>}
-          {!connected ? (
-            <details class="alt" open={manual !== null}>
-              <summary>Or paste a key instead</summary>
-              <div class="row" style={{ margin: '8px 0' }}>
-                <button class={`btn${manual === 'openrouter' ? ' on' : ''}`} onClick={() => setManual('openrouter')}>OpenRouter key</button>
-                <button class={`btn${manual === 'claude' ? ' on' : ''}`} onClick={() => setManual('claude')}>Anthropic key</button>
-              </div>
-              {manual === 'openrouter' ? (
-                <>
-                  <p class="msg muted">Create one at <a href={OPENROUTER_KEYS_URL} target="_blank" rel="noopener noreferrer">openrouter.ai/settings/keys ↗</a></p>
-                  <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
-                  <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
-                </>
-              ) : null}
-              {manual === 'claude' ? (
-                <>
-                  <p class="msg muted">Create a personal key at <a href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">platform.claude.com ↗</a>. Claude Code and claude.ai logins do not work here.</p>
-                  <input type="password" placeholder="sk-ant-api03-…" aria-label="Anthropic API key" autocomplete="off" value={kvClaude.key} onInput={(e) => kvClaude.onKeyInput((e.target as HTMLInputElement).value)} />
-                  <ValidationMessage v={kvClaude.v} provider="claude" workspaceId={kvClaude.workspaceId} onWorkspaceInput={kvClaude.onWorkspaceInput} retry={kvClaude.retry} />
-                </>
-              ) : null}
-            </details>
-          ) : null}
+          {connected ? (
+            <p class="msg ok" style={{ marginTop: 0 }}>
+              {providerName(settings)} account on file.{' '}
+              <button
+                class="link"
+                onClick={() => {
+                  reset();
+                  setChanging(true);
+                }}
+              >
+                Use a different account
+              </button>
+            </p>
+          ) : (
+            <>
+              <p>WordSnap runs on an account you control. The fastest way is OpenRouter: one sign-in, no keys to copy, pay only for what you use.</p>
+              <ConnectButton c={c} connect={connect} label="Connect OpenRouter" />
+              <details class="alt" open={manual !== null}>
+                <summary>Or paste a key instead</summary>
+                <div class="row" style={{ margin: '8px 0' }}>
+                  <button class={`btn${manual === 'openrouter' ? ' on' : ''}`} onClick={() => setManual('openrouter')}>OpenRouter key</button>
+                  <button class={`btn${manual === 'claude' ? ' on' : ''}`} onClick={() => setManual('claude')}>Anthropic key</button>
+                </div>
+                {manual === 'openrouter' ? (
+                  <>
+                    <p class="msg muted">Create one at <a href={OPENROUTER_KEYS_URL} target="_blank" rel="noopener noreferrer">openrouter.ai/settings/keys ↗</a></p>
+                    <input type="password" placeholder="sk-or-v1-…" aria-label="OpenRouter API key" autocomplete="off" value={kvOpenRouter.key} onInput={(e) => kvOpenRouter.onKeyInput((e.target as HTMLInputElement).value)} />
+                    <ValidationMessage v={kvOpenRouter.v} provider="openrouter" workspaceId="" onWorkspaceInput={() => {}} retry={kvOpenRouter.retry} />
+                  </>
+                ) : null}
+                {manual === 'claude' ? (
+                  <>
+                    <p class="msg muted">Create a personal key at <a href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">platform.claude.com ↗</a>. Claude Code and claude.ai logins do not work here.</p>
+                    <input type="password" placeholder="sk-ant-api03-…" aria-label="Anthropic API key" autocomplete="off" value={kvClaude.key} onInput={(e) => kvClaude.onKeyInput((e.target as HTMLInputElement).value)} />
+                    <ValidationMessage v={kvClaude.v} provider="claude" workspaceId={kvClaude.workspaceId} onWorkspaceInput={kvClaude.onWorkspaceInput} retry={kvClaude.retry} />
+                  </>
+                ) : null}
+              </details>
+            </>
+          )}
         </div>
       </div>
 
       <div class={`card step${connected ? '' : ' pending'}`}>
         <span class="n">2</span>
         <div>
-          <h2>Pick a model</h2>
-          <p>{current === 'openrouter' ? 'GLM 5.2 served by Z.AI is the default: strong at long documents and a fraction of the price of frontier models.' : 'Claude Opus 5 is the default.'}</p>
-          <ModelSelect value={currentModel} models={models} disabled={!connected} onChange={(m) => void setModel(m)} />
-        </div>
-      </div>
-
-      <div class={`card step${connected ? '' : ' pending'}`}>
-        <span class="n">3</span>
-        <div>
-          <h2>Try it</h2>
-          <p>Run the three passes on this sample email before you open Gmail. It has a few things wrong with it on purpose.</p>
-          <SampleDraft state={sample} busy={sampleBusy} />
-          <div class="row">
-            <button class="btn primary" disabled={!connected || sampleBusy} onClick={runSample}>
-              {sampleBusy ? <span class="spin" /> : null}
-              Analyze the sample
-            </button>
-            <button class="btn" disabled={!connected} onClick={() => void save({ onboarded: true })}>
-              Skip to settings
-            </button>
-          </div>
-          {sample ? (
+          <h2>Check the connection</h2>
+          {t.kind === 'busy' ? (
+            <p class="msg muted" style={{ marginTop: 0 }}>
+              <span class="spin" /> Sending a short test to <code>{model}</code>…
+            </p>
+          ) : t.kind === 'error' ? (
             <>
-              <SampleFindings state={sample} />
-              <div class="row" style={{ marginTop: '12px' }}>
-                <button class="btn primary" onClick={() => void save({ onboarded: true })}>
-                  Done, take me to settings
+              <TestError t={t} provider={settings.provider} onRetry={() => void testAfter(async () => undefined)} />
+              <div class="row">
+                <button class="btn primary" onClick={() => void testAfter(async () => undefined)}>
+                  Try again
+                </button>
+                <button
+                  class="btn"
+                  onClick={() => {
+                    reset();
+                    setChanging(true);
+                  }}
+                >
+                  Use a different account
+                </button>
+                <button
+                  class="link"
+                  onClick={() => {
+                    void save({ onboarded: true });
+                    finish();
+                  }}
+                >
+                  Skip to settings
                 </button>
               </div>
             </>
-          ) : null}
+          ) : (
+            <p style={{ marginBottom: 0 }}>Runs on its own once you connect: one short request to the model, so you know it answers before you open Gmail.</p>
+          )}
         </div>
       </div>
       {__WORDSNAP_DEV__ ? (
         <p class="dev">
           dev build:{' '}
-          <button class="btn" onClick={() => void save({ provider: 'mock', onboarded: true })}>
+          <button class="btn" onClick={() => void testAfter(() => save({ provider: 'mock' }))}>
             use the mock provider
           </button>
         </p>
       ) : null}
     </>
+  );
+}
+
+/** The launcher badge as it appears on a Gmail compose window, drawn with the overlay's own dimensions. */
+function BadgePreview() {
+  return (
+    <div class="compose-demo" aria-label="A compose window with the WordSnap badge at its top right">
+      <div class="compose-bar">New Message</div>
+      <div class="compose-body">
+        <span class="compose-badge" aria-hidden="true">
+          W
+        </span>
+        <i style={{ width: '46%' }} />
+        <i style={{ width: '62%' }} />
+        <i style={{ width: '38%' }} />
+      </div>
+      <div class="compose-note">
+        <span class="compose-arrow">↑</span> the WordSnap badge
+      </div>
+    </div>
   );
 }
 
@@ -300,101 +409,6 @@ function ModelSelect({ value, models, disabled, onChange }: { value: string; mod
         </option>
       ))}
     </select>
-  );
-}
-
-/** The sample email, with the located findings underlined the way the Gmail overlay draws them. */
-function SampleDraft({ state, busy }: { state: SessionState | null; busy: boolean }) {
-  const marks = state ? sampleMarks(state) : [];
-  let offset = 0;
-  return (
-    <div class={`draft${busy ? ' busy' : ''}`} aria-label="Sample email">
-      <div class="draft-subject">{SAMPLE_SUBJECT}</div>
-      {SAMPLE_PARAGRAPHS.map((para, i) => {
-        const start = offset;
-        offset += para.length + 2; // paragraphs are joined with a blank line
-        return <p key={i}>{markUp(para, start, marks)}</p>;
-      })}
-    </div>
-  );
-}
-
-interface Mark {
-  span: Span;
-  status: string;
-}
-
-/** Located claims with a verdict, plus clarity findings; overlaps resolved first-come, earliest start wins. */
-function sampleMarks(state: SessionState): Mark[] {
-  const all: Mark[] = [];
-  for (const c of state.claims) if (c.span && c.data.verdict) all.push({ span: c.span, status: c.data.verdict.status });
-  for (const c of state.clarity) if (c.span) all.push({ span: c.span, status: 'clarity' });
-  all.sort((a, b) => a.span.start - b.span.start || b.span.end - a.span.end);
-  const out: Mark[] = [];
-  for (const m of all) if (!out.length || m.span.start >= out[out.length - 1]!.span.end) out.push(m);
-  return out;
-}
-
-function markUp(text: string, base: number, marks: Mark[]) {
-  const parts = [];
-  let cursor = 0;
-  for (const m of marks) {
-    const s = m.span.start - base;
-    const e = m.span.end - base;
-    if (e <= 0 || s >= text.length) continue;
-    const from = Math.max(s, cursor);
-    const to = Math.min(e, text.length);
-    if (from > cursor) parts.push(text.slice(cursor, from));
-    parts.push(
-      <mark key={m.span.start} data-status={m.status}>
-        {text.slice(from, to)}
-      </mark>,
-    );
-    cursor = to;
-  }
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return parts;
-}
-
-function SampleFindings({ state }: { state: SessionState }) {
-  const claims = state.claims.filter((c) => c.data.verdict);
-  const challenges = sortChallenges(state.challenges);
-  return (
-    <div class="sample">
-      {state.argument ? (
-        <p class="thesis">
-          <b>Your argument, as WordSnap reads it.</b> {state.argument.thesis}
-        </p>
-      ) : null}
-      {claims.length ? (
-        <ul>
-          {claims.map((c) => (
-            <li key={c.id}>
-              <span class={`chip ${c.data.verdict!.status}`}>{VERDICT_LABEL[c.data.verdict!.status]}</span> <q>{c.quote}</q> {c.data.verdict!.finding}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {state.clarity.length ? (
-        <ul>
-          {state.clarity.map((c) => (
-            <li key={c.id}>
-              <span class="chip clarity">{CLARITY_LABEL[c.data.kind]}</span> <q>{c.quote}</q> {c.data.note}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {challenges.length ? (
-        <ol>
-          {challenges.map((ch) => (
-            <li key={ch.id}>
-              <span class="chip challenge">{CHALLENGE_LABEL[ch.data.kind]}</span> <b>{ch.data.title}</b> {ch.data.howToAddress}
-            </li>
-          ))}
-        </ol>
-      ) : null}
-      {Object.values(state.passes).some((p) => p.state === 'error') ? <p class="msg err">{Object.values(state.passes).find((p) => p.error)?.error}</p> : null}
-    </div>
   );
 }
 
@@ -423,6 +437,7 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
     await save({ apiKey, workspaceId });
   });
 
+  const { t, run: runTest } = useProviderTest();
   const p = settings.provider;
   const key = p === 'openrouter' ? settings.openrouter.apiKey : p === 'claude' ? settings.apiKey : 'mock';
   const showReplace = replacing || (!key && p !== 'mock');
@@ -461,14 +476,27 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
                     </>
                   )
                 ) : (
-                  <div class="row">
-                    <code>{redact(key)}</code>
-                    <button class="btn" onClick={() => setReplacing(true)}>
-                      {p === 'openrouter' ? 'Reconnect' : 'Replace'}
-                    </button>
-                    <a href={p === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
-                      {p === 'openrouter' ? 'Credits ↗' : 'Console ↗'}
-                    </a>
+                  <div>
+                    <div class="row">
+                      <code>{redact(key)}</code>
+                      <button class="btn" onClick={() => setReplacing(true)}>
+                        {p === 'openrouter' ? 'Reconnect' : 'Replace'}
+                      </button>
+                      <button class="btn" disabled={t.kind === 'busy'} onClick={() => void runTest()}>
+                        {t.kind === 'busy' ? <span class="spin" /> : null}
+                        Test
+                      </button>
+                      <a href={p === 'openrouter' ? OPENROUTER_CREDITS_URL : CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
+                        {p === 'openrouter' ? 'Credits ↗' : 'Console ↗'}
+                      </a>
+                    </div>
+                    {t.kind === 'ok' ? (
+                      <p class="msg ok">
+                        ✓ <code>{t.model}</code> answered in {seconds(t.ms)}.
+                      </p>
+                    ) : t.kind === 'error' ? (
+                      <TestError t={t} provider={p} onRetry={() => void runTest()} />
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -569,4 +597,3 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
   );
 }
 
-void DEFAULT_OPENROUTER;

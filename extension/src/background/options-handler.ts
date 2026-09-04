@@ -1,13 +1,14 @@
 // chrome.runtime.onMessage handler for the options page.
 import { ClaudeProvider } from '../providers/claude';
-import { createProvider } from '../providers';
+import { createProvider, providerReady } from '../providers';
 import { OpenRouterProvider } from '../providers/openrouter';
 import { challengeFor, codeFromRedirect, exchangeCodeForKey, makeVerifier, openRouterAuthUrl } from '../shared/pkce';
 import { ProviderError } from '../providers/types';
 import { snapshotFromText } from '../shared/anchoring';
 import type { OptionsRequest, OptionsResponse } from '../shared/messages';
 import { SAMPLE_SUBJECT, SAMPLE_TEXT } from '../shared/sample';
-import type { SessionState } from '../shared/types';
+import type { SessionState, Settings } from '../shared/types';
+import type { LLMProvider } from '../providers/types';
 import type { ClaimCache } from './cache';
 import { SessionOrchestrator } from './orchestrator';
 import type { SettingsStore } from './settings';
@@ -27,16 +28,49 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
         const models = await provider.listModels();
         return { type: 'validateKey', ok: true, models };
       } catch (err) {
-        const pe = err instanceof ProviderError ? err : new ProviderError(err instanceof Error ? err.message : String(err), 'unknown');
-        const hint = pe.kind === 'auth' ? 'auth' : pe.kind === 'workspace' ? 'workspace' : pe.kind === 'billing' ? 'billing' : pe.kind === 'network' ? 'network' : undefined;
-        return { type: 'validateKey', ok: false, error: pe.message, hint };
+        const pe = asProviderError(err);
+        return { type: 'validateKey', ok: false, error: pe.message, hint: hintFor(pe) };
       }
     }
     case 'openrouter/connect':
       return connectOpenRouter(store);
+    case 'provider/test':
+      return testProvider(store);
     case 'sample/run':
       return { type: 'sample', state: await runSample(store, cache) };
   }
+}
+
+function asProviderError(err: unknown): ProviderError {
+  return err instanceof ProviderError ? err : new ProviderError(err instanceof Error ? err.message : String(err), 'unknown');
+}
+
+function hintFor(pe: ProviderError): 'workspace' | 'billing' | 'auth' | 'network' | undefined {
+  return pe.kind === 'auth' ? 'auth' : pe.kind === 'workspace' ? 'workspace' : pe.kind === 'billing' ? 'billing' : pe.kind === 'network' ? 'network' : undefined;
+}
+
+const PROBE_TIMEOUT_MS = 45_000;
+
+/**
+ * The setup check: one short completion through the configured provider and model. When it answers, setup is
+ * complete and `onboarded` is recorded so the options page opens on settings from then on.
+ */
+export async function testProvider(store: SettingsStore, deps: { provider?: (s: Settings) => LLMProvider; now?: () => number } = {}): Promise<OptionsResponse> {
+  const settings = await store.get();
+  const model = settings.provider === 'openrouter' ? settings.openrouter.model : settings.provider === 'claude' ? settings.model : 'mock';
+  if (!providerReady(settings)) return { type: 'test', ok: false, error: 'No key is configured.', hint: 'auth' };
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
+  try {
+    await (deps.provider ?? createProvider)(settings).probe(AbortSignal.timeout(PROBE_TIMEOUT_MS));
+  } catch (err) {
+    const pe = asProviderError(err);
+    const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    return { type: 'test', ok: false, error: timedOut ? `${model} did not answer within ${PROBE_TIMEOUT_MS / 1000} seconds.` : pe.message, hint: timedOut ? 'network' : hintFor(pe) };
+  }
+  const ms = now() - started;
+  await store.set({ onboarded: true });
+  return { type: 'test', ok: true, model, ms };
 }
 
 /**

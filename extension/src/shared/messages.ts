@@ -34,6 +34,8 @@ export type OptionsRequest =
   | { type: 'settings/validateKey'; provider: 'claude' | 'openrouter'; apiKey: string; workspaceId?: string }
   /** One-click OpenRouter sign-in (OAuth PKCE via chrome.identity). Stores the resulting key on success. */
   | { type: 'openrouter/connect' }
+  /** One short completion through the configured provider and model; marks onboarding done when it answers. */
+  | { type: 'provider/test' }
   | { type: 'sample/run' };
 
 export type OptionsResponse =
@@ -42,6 +44,8 @@ export type OptionsResponse =
   | { type: 'validateKey'; ok: false; error: string; hint?: 'workspace' | 'billing' | 'auth' | 'network' }
   | { type: 'connect'; ok: true; models: { id: string; displayName: string }[] }
   | { type: 'connect'; ok: false; error: string }
+  | { type: 'test'; ok: true; model: string; ms: number }
+  | { type: 'test'; ok: false; error: string; hint?: 'workspace' | 'billing' | 'auth' | 'network' }
   | { type: 'sample'; state: SessionState }
   | { type: 'error'; message: string };
 

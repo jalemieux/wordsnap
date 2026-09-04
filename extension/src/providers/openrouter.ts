@@ -39,6 +39,9 @@ interface Annotation {
 const EFFORT: Record<string, 'low' | 'medium' | 'high'> = { low: 'low', medium: 'medium', high: 'high' };
 /** Counts reasoning tokens too on most OpenRouter endpoints, so leave room for a high-effort pass to think. */
 const MAX_TOKENS = 16_384;
+/** Room for a reasoning model to think before its one-word answer; the answer itself is not checked. */
+const PROBE_MAX_TOKENS = 256;
+const PROBE_PROMPT = 'Reply with the single word: ready';
 
 export class OpenRouterProvider implements LLMProvider {
   readonly id = 'openrouter' as const;
@@ -68,6 +71,26 @@ export class OpenRouterProvider implements LLMProvider {
       .sort((a, b) => preferred(a.id) - preferred(b.id) || a.id.localeCompare(b.id))
       .slice(0, 400)
       .map((m) => ({ id: m.id, displayName: m.name ?? m.id }));
+  }
+
+  async probe(signal: AbortSignal): Promise<void> {
+    await this.stream(this.probeBody(), signal, () => undefined);
+  }
+
+  /** A one-word request through the same route the passes use (model, pinned provider), no research. */
+  probeBody(): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+      model: this.opts.model,
+      messages: [{ role: 'user', content: PROBE_PROMPT }],
+      stream: true,
+      usage: { include: true },
+      max_tokens: PROBE_MAX_TOKENS,
+      reasoning: { effort: 'low' },
+    };
+    if (this.opts.providerOrder?.length) {
+      body.provider = { order: this.opts.providerOrder, allow_fallbacks: this.opts.allowFallbacks ?? false };
+    }
+    return body;
   }
 
   async runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>> {

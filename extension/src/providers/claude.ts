@@ -36,6 +36,9 @@ export interface ClaudeClientLike {
 }
 
 const MAX_TOKENS = 16000;
+/** Room for adaptive thinking before the one-word answer; the answer itself is not checked. */
+const PROBE_MAX_TOKENS = 256;
+const PROBE_PROMPT = 'Reply with the single word: ready';
 
 export class ClaudeProvider implements LLMProvider {
   readonly id = 'claude' as const;
@@ -69,6 +72,26 @@ export class ClaudeProvider implements LLMProvider {
         if (out.length >= 50) break;
       }
       return out;
+    } catch (err) {
+      throw mapError(err);
+    }
+  }
+
+  async probe(signal: AbortSignal): Promise<void> {
+    try {
+      await this.client.beta.messages
+        .stream(
+          {
+            model: this.model,
+            max_tokens: PROBE_MAX_TOKENS,
+            messages: [{ role: 'user', content: PROBE_PROMPT }],
+            output_config: { effort: 'low' },
+            betas: ['server-side-fallback-2026-07-01'],
+            fallbacks: 'default',
+          },
+          { signal },
+        )
+        .finalMessage();
     } catch (err) {
       throw mapError(err);
     }

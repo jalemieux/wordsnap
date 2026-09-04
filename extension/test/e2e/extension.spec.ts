@@ -4,11 +4,14 @@ import { test, expect } from './fixtures';
 const FIXTURE = 'http://127.0.0.1:4173/gmail-compose.html';
 
 test.beforeEach(async ({ context, extensionId }) => {
-  // Switch to the mock provider through the options page (dev builds expose it), then mark onboarding done.
+  // Switch to the mock provider through the options page (dev builds expose it). Setup then tests the connection
+  // on its own and ends on the "setup complete" screen with the badge to look for; Settings leaves it.
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options.html`);
   await page.getByRole('button', { name: /use the mock provider/i }).click();
-  // The settings view renders once the save lands; its provider select reflects the mock choice.
+  await expect(page.getByRole('heading', { name: 'Setup complete' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.compose-badge')).toHaveText('W');
+  await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('select').first()).toHaveValue('mock', { timeout: 10_000 });
   await page.close();
 });

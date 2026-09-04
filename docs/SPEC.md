@@ -177,11 +177,13 @@ interface LLMProvider {
 
 ### Onboarding
 
-The options page opens on first install with three steps:
+The options page opens on first install. Two steps, one of which runs on its own, then a screen that says setup is complete:
 
 1. **Connect a provider.** One button, Connect OpenRouter, runs the OAuth PKCE flow in a popup; the user signs in or creates an OpenRouter account, approves, and the key lands in `chrome.storage.local` without being shown. Under the button, a collapsed "paste a key instead" section accepts an OpenRouter or Anthropic key, validated on paste with specific messages for a rejected key, a missing workspace ID, or missing credits.
-2. **Pick a model.** Dropdown populated from the provider, defaulting to GLM 5.2 on OpenRouter or Claude Opus 5 on Anthropic.
-3. **Try it.** The sample draft runs all three passes so the user sees findings before opening Gmail.
+2. **Check the connection.** Starts as soon as a key is stored: one short completion (`provider/test`) through the configured provider and default model, over the same route the passes use, so credits, the pinned Z.AI endpoint and the workspace are proven, not just the key. A failure shows the specific problem with Try again, Use a different account, and Skip to settings. A pass records `onboarded` in the background.
+3. **Setup complete.** A drawing of a compose window with the badge at its top right, the model and how fast it answered, and two actions: Open Gmail and Settings. No sample analysis: the first real draft is the demo.
+
+Reopening the options page with a key stored but onboarding unfinished goes straight to the check. Settings keeps a Test button beside the account for the same check later. Model choice, routing and effort live in settings, not in setup.
 
 Target: under a minute for someone with an OpenRouter account, under three for someone without one.
 

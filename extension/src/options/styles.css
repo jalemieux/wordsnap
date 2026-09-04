@@ -60,18 +60,17 @@ h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mute
 .dev{font-size:11px;color:var(--faint);font-family:var(--mono)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important}}
 
-/* sample email in the try-it step */
-.draft{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 12px;background:var(--bg);font-size:13.5px;line-height:1.5;color:var(--ink);transition:opacity .2s}
-.draft.busy{opacity:.7}
-.draft-subject{font-weight:600;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-.draft p{margin:0 0 8px;color:var(--ink)}
-.draft p:last-child{margin-bottom:0}
-.draft mark{background:transparent;color:inherit;border-radius:2px;border-bottom:2px solid transparent;padding-bottom:1px}
-.draft mark[data-status="contradicted"]{background:rgba(180,35,24,.14);border-bottom-color:var(--red)}
-.draft mark[data-status="needs_precision"]{background:rgba(168,105,15,.16);border-bottom-color:var(--amber)}
-.draft mark[data-status="supported"]{border-bottom:1px dotted var(--green)}
-.draft mark[data-status="unverifiable"]{border-bottom:1px dotted var(--faint)}
-.draft mark[data-status="clarity"]{border-bottom:2px dotted var(--accent)}
+/* the badge preview on the setup-complete screen: a compose window drawn to the overlay's proportions */
+.compose-demo{margin:4px 0 12px;max-width:360px}
+.compose-bar{background:#404040;color:#fff;font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px 8px 0 0}
+@media (prefers-color-scheme: dark){.compose-bar{background:#2C3434}}
+.compose-body{position:relative;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:var(--card);padding:18px 14px 14px;display:grid;gap:9px}
+.compose-body i{display:block;height:8px;border-radius:4px;background:var(--line)}
+.compose-badge{position:absolute;right:12px;top:12px;width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,.14);display:grid;place-items:center;color:var(--accent);font-weight:700;font-size:14px;letter-spacing:-.02em;line-height:1}
+.compose-note{text-align:right;padding:4px 14px 0;font-size:12.5px;color:var(--accent-ink)}
+.compose-arrow{display:inline-block;margin-right:4px}
+button.link{color:var(--accent-ink);text-decoration:underline;font-size:inherit}
+a.btn{text-decoration:none}
 
 /* provider connect */
 details.alt { margin-top: 10px; }

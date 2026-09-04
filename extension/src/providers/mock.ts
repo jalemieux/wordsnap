@@ -58,6 +58,10 @@ export class MockProvider implements LLMProvider {
     ];
   }
 
+  async probe(signal: AbortSignal): Promise<void> {
+    if (this.delayMs > 0) await this.sleep(this.delayMs, signal);
+  }
+
   async runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>> {
     this.calls.push(req as PassRequest<unknown>);
     onEvent({ type: 'status', text: req.research ? 'Researching…' : 'Reading…' });

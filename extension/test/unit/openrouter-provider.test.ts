@@ -159,3 +159,25 @@ describe('OpenRouterProvider', () => {
     await expect(new OpenRouterProvider({ apiKey: 'x', model: 'm', fetchImpl: bad.fetchImpl }).listModels()).rejects.toMatchObject({ kind: 'auth' });
   });
 });
+
+describe('OpenRouterProvider.probe', () => {
+  it('sends one short pinned request with no research and resolves when the stream completes', async () => {
+    const { fetchImpl, calls } = fakeFetch([sse(textChunks('ready'))]);
+    const p = new OpenRouterProvider({ apiKey: 'k', model: 'z-ai/glm-5.2', providerOrder: ['z-ai'], allowFallbacks: false, fetchImpl });
+    await expect(p.probe(new AbortController().signal)).resolves.toBeUndefined();
+    expect(calls).toHaveLength(1);
+    const body = calls[0]!.body;
+    expect(calls[0]!.url).toMatch(/\/chat\/completions$/);
+    expect(body.model).toBe('z-ai/glm-5.2');
+    expect(body.provider).toEqual({ order: ['z-ai'], allow_fallbacks: false });
+    expect(body.plugins).toBeUndefined();
+    expect(body.response_format).toBeUndefined();
+    expect(body.max_tokens).toBeLessThanOrEqual(1024);
+  });
+
+  it('surfaces a 402 as a billing error', async () => {
+    const { fetchImpl } = fakeFetch([new Response(JSON.stringify({ error: { message: 'Insufficient credits' } }), { status: 402 })]);
+    const p = new OpenRouterProvider({ apiKey: 'k', model: 'z-ai/glm-5.2', fetchImpl });
+    await expect(p.probe(new AbortController().signal)).rejects.toMatchObject({ kind: 'billing', message: 'Insufficient credits' });
+  });
+});
