@@ -1,7 +1,8 @@
 name: release
 
-# Tag a commit v<version> (matching extension/manifest.json) and this builds the store zip
-# and attaches it to a GitHub Release. The upload to the Chrome Web Store stays manual.
+# Tag a commit v<version> (matching extension/manifest.json) and this builds the Chrome store zip and the Safari
+# folder zip and attaches both to a GitHub Release. A v<version>-dev.<sha> tag does the same as a pre-release.
+# The upload to the Chrome Web Store, and the Xcode wrap for Safari, stay manual.
 on:
   push:
     tags: ['v*']
@@ -24,12 +25,19 @@ jobs:
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
       - run: npm run typecheck && npm test
-      - run: npm run package
       - name: Check the tag matches the manifest version
+        id: tag
         run: |
           v=$(node -p "require('./manifest.json').version")
-          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} but manifest is $v"; exit 1; }
+          case "${GITHUB_REF_NAME}" in
+            "v$v") echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+            "v$v-dev."*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "tag ${GITHUB_REF_NAME} but manifest is $v"; exit 1 ;;
+          esac
+      - run: npm run package
+      - run: npm run package:safari
       - uses: softprops/action-gh-release@v2
         with:
           files: extension/wordsnap-*.zip
+          prerelease: ${{ steps.tag.outputs.prerelease }}
           generate_release_notes: true
