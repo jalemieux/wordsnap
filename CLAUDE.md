@@ -12,7 +12,7 @@ A Chrome extension (Manifest V3) that sits on top of the composer a person is al
 
 The user's words stay in the host editor. WordSnap draws over them and only writes into the editor when the user clicks **Apply change**. It is a sparring partner, not a ghostwriter, and the output must never read as AI slop.
 
-Founder: a Director of Engineering with 20+ years full-stack. Speak as a peer. Prefers artifacts over narration.
+The maintainer is a senior engineer. Speak as a peer. Prefer artifacts (a diff, a build, a page) over narration.
 
 ## Decisions already made (do not reopen without asking)
 
