@@ -52,7 +52,7 @@ This writes `extension/wordsnap-0.1.0.zip` and prints its sha256. The script fai
 ## 7. After the first publish (15 minutes)
 
 1. Note the extension id from the item's store URL (`chromewebstore.google.com/detail/wordsnap/<id>`).
-2. Put the store URL into `site/index.html` (the Add to Chrome link, marked with a comment) and deploy the site.
+2. Restore the Add to Chrome button in `site/index.html` (the commented block above the GitHub link, with the store URL) and push; the site redeploys itself.
 3. Pin the id for dev builds: item, **Package** tab, **View public key**. Add it as `"key": "<public key>"` to `extension/manifest.json` and make `scripts/build.mjs` strip it for production builds (the package script already refuses a zip that carries it). Unpacked dev builds then get the same id as the store build, so the OpenRouter callback URL is identical in both.
 4. Install from the unlisted link on your devices. Use it for a week on real drafts in Gmail and X. Fix what you find, ship 0.1.1 the same way.
 
