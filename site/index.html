@@ -76,17 +76,139 @@
     footer.site nav{display:flex;flex-wrap:wrap;gap:18px}
     footer.site a{color:var(--muted)}
 
-    .hero{padding:64px 0 48px;border-bottom:1px solid var(--line)}
-    .hero .wrap{display:grid;gap:22px}
-    .hero .lede{font-size:1.2rem;max-width:62ch;display:grid;gap:.75em}
-    .hero .lede mark.voice{font-weight:700;color:var(--ink);background:var(--mark);padding:0 3px;border-radius:2px}
-    .hero .lede em.verb{font-style:normal;font-weight:650;color:var(--ink);background:var(--accent-bg);border-bottom:2px solid var(--accent);padding:0 3px;border-radius:2px}
-    .hero .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-    .hero .actions small{color:var(--muted);font-size:.9rem}
+    .hero{padding:44px 0 40px;border-bottom:1px solid var(--line)}
+    .hero .wrap{display:grid;gap:18px}
+    .hero .top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px 32px;align-items:end}
+    .hero .actions{display:grid;gap:10px;justify-items:start}
+    .hero .actions small{color:var(--muted);font-size:.9rem;max-width:34ch}
+    .narration{font-size:1.05rem;color:var(--muted);min-height:1.6em;border-left:3px solid var(--accent);padding-left:12px}
+    .narration:empty{border-color:transparent}
     figure.shot{margin:12px 0 0;display:grid;gap:10px}
     figure.shot .frame{aspect-ratio:1280/880;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
     figure.shot img,figure.shot video{display:block;width:100%;height:100%;object-fit:contain}
     figure.shot figcaption{font-size:.9rem;color:var(--muted)}
+    #how figure.shot{margin-top:8px;max-width:68ch}
+
+    /* hero stage: a simulated composer and panel running a scripted analysis on the hero copy */
+    .stage{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+    .composer{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+    .c-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:.9rem;color:var(--muted)}
+    .c-head .dotset{display:flex;gap:6px;margin-right:6px}
+    .c-head .dotset i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
+    .c-head .title{color:var(--ink);font-weight:600}
+    .c-field{display:flex;gap:10px;padding:8px 18px;border-bottom:1px solid var(--line);font-size:.92rem;color:var(--muted)}
+    .c-field b{font-weight:500;color:var(--ink)}
+    .draft{padding:18px 20px 22px;font:16px/1.7 Arial,Helvetica,sans-serif;min-height:290px;transition:opacity .35s}
+    .draft.fade{opacity:0}
+    .draft p{margin:0 0 .85em;min-height:1em}
+    .draft p:last-child{margin-bottom:0}
+    .draft p.in{opacity:0;transform:translateY(6px);transition:opacity .4s,transform .4s}
+    .draft p.in.show{opacity:1;transform:none}
+    .caret{display:inline-block;width:1.5px;height:1.05em;background:var(--ink);vertical-align:-.18em;margin-left:1px;animation:blink 1s steps(1) infinite}
+    @keyframes blink{50%{opacity:0}}
+    .fill{transition:color .3s}
+    .fill.strike{color:var(--red);text-decoration:line-through}
+
+    .a{border-bottom:2px solid transparent;transition:background .35s,border-color .35s;padding-bottom:1px}
+    .a.live{cursor:help}
+    .a.pinned{box-shadow:0 0 0 3px var(--accent-bg)}
+    .a.checking{border-bottom:2px dashed var(--line)}
+    .a.clarity{border-bottom:2px dotted var(--accent)}
+    .a.needs_precision{background:var(--amber-bg);border-bottom-color:var(--amber)}
+    .a.supported{border-bottom:1px dotted var(--green)}
+    .a.contradicted{background:var(--red-bg);border-bottom-color:var(--red)}
+    .a.applied{background:var(--green-bg);border-bottom:2px solid var(--green)}
+    .a.applied.settle{background:transparent;border-bottom-color:transparent;transition:background 1.2s,border-color 1.2s}
+
+    .launcher{position:absolute;top:10px;right:12px;display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px 0 5px;border-radius:13px;background:var(--card);border:1px solid var(--line);font-size:12px;color:var(--muted);opacity:0;transform:translateY(-4px);transition:opacity .3s,transform .3s,box-shadow .3s}
+    .launcher.show{opacity:1;transform:none}
+    .launcher .w{width:18px;height:18px;border-radius:5px;background:var(--accent);color:#fff;font-weight:700;font-size:11px;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+    .launcher .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+    .launcher.analyzing .dot{background:var(--accent);animation:pulse 1s infinite}
+    .launcher .count{display:none;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--red);color:#fff;font-size:10.5px;font-weight:600;place-items:center}
+    .launcher .count.ok{background:var(--green)}
+    .launcher.counted .count{display:grid}
+    .launcher.counted .dot{display:none}
+    .launcher.pressed{box-shadow:0 0 0 4px var(--accent-bg);border-color:var(--accent-line)}
+    @keyframes pulse{50%{opacity:.35}}
+    .pointer{position:absolute;width:16px;height:22px;pointer-events:none;opacity:0;transition:transform .55s cubic-bezier(.4,.1,.2,1),opacity .25s;z-index:30;left:0;top:0}
+    .pointer.show{opacity:1}
+
+    .card{position:absolute;z-index:20;width:330px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:11px 12px 12px;font-size:13px;line-height:1.45;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;pointer-events:none}
+    .card.show{opacity:1;transform:none;pointer-events:auto}
+    .card .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .card .k i{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .card .k i.contradicted{background:var(--red)} .card .k i.needs_precision{background:var(--amber)} .card .k i.supported{background:var(--green)} .card .k i.clarity{background:var(--accent)}
+    .card .k .conf{margin-left:auto;letter-spacing:0;text-transform:none;font-size:10.5px}
+    .card .src{display:block;margin-top:7px;font-size:12px;color:var(--muted)}
+    .card .src span{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+    .diff{margin-top:9px;padding:8px 10px;background:var(--code);border-radius:6px;font-size:12.5px;line-height:1.5}
+    .diff del{color:var(--red);text-decoration:line-through;text-decoration-thickness:1px}
+    .diff ins{color:var(--green);text-decoration:none;font-weight:600}
+    .rw{display:block;margin-top:9px;width:100%;font:inherit;font-size:12.5px;line-height:1.45;padding:7px 9px;border:1px solid var(--accent-line);border-radius:6px;background:var(--card);color:var(--ink);resize:vertical;min-height:54px}
+    .rw:focus{outline:2px solid var(--accent);outline-offset:1px}
+    .stage button,.demo-cap button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+    .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .b{font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;border:1px solid var(--line);color:var(--ink);background:var(--card)}
+    .b.p{background:var(--accent);border-color:var(--accent);color:var(--on-accent);transition:filter .2s}
+    .b:hover{filter:brightness(.92)}
+    .b.p.down{filter:brightness(.8)}
+
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:13px;line-height:1.45;opacity:0;transform:translateX(8px);transition:opacity .35s,transform .35s;overflow:hidden}
+    .panel.show{opacity:1;transform:none}
+    .p-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600}
+    .p-head .w{width:20px;height:20px;border-radius:6px;background:var(--accent);color:#fff;font-size:11.5px;display:grid;place-items:center}
+    .p-head .st{margin-left:auto;font-weight:400;font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;min-width:0}
+    .p-head .st span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+    .p-head .st i{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+    .p-head .st.busy i{background:var(--accent);animation:pulse 1s infinite}
+    .picks{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line)}
+    .pick{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 8px;border-radius:12px;border:1px solid var(--accent-line);background:var(--accent-bg);color:var(--accent-ink)}
+    .pick svg{width:11px;height:11px}
+    .sec{display:none;padding:10px 12px;border-bottom:1px solid var(--line)}
+    .sec.show{display:block;animation:secin .3s ease-out}
+    @keyframes secin{from{opacity:0;transform:translateY(4px)}}
+    .stage [hidden]{display:none!important}
+    .sec h3{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;gap:6px;align-items:center}
+    .sec h3 .n{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:400;margin-left:auto}
+    .sec .note{color:var(--ink)}
+    .proposal{margin-top:7px;padding:8px 10px;background:var(--code);border-radius:6px;font-size:12px;line-height:1.45;max-height:132px;overflow:auto;color:var(--muted)}
+    .proposal p+p{margin-top:.5em}
+    .sec .done{color:var(--muted);font-size:12.5px}
+    .sec .thesis{font-size:13px}
+    .claim{display:grid;grid-template-columns:10px 1fr;gap:8px;align-items:start;padding:4px 0;cursor:pointer}
+    .claim i{width:8px;height:8px;border-radius:50%;background:var(--line);margin-top:6px;transition:background .35s}
+    .claim.checking i{background:var(--accent);animation:pulse 1s infinite}
+    .claim.supported i{background:var(--green);animation:none}
+    .claim.needs_precision i{background:var(--amber);animation:none}
+    .claim.contradicted i{background:var(--red);animation:none}
+    .claim.resolved i{background:var(--green);animation:none}
+    .claim.kept i{background:var(--line);animation:none}
+    .claim .q{color:var(--ink)}
+    .claim.kept .q{color:var(--muted)}
+    .claim.resolved .q{text-decoration:line-through;color:var(--muted)}
+    .claim .v{color:var(--muted);font-size:12px;display:block;min-height:1.2em}
+    .ch .t{font-weight:600}
+    .ch .bd{color:var(--muted);font-size:12.5px;margin-top:3px}
+    .ch .fix{font-size:12.5px;margin-top:6px}
+    .ch .more{margin-top:6px;font-size:12px;color:var(--accent-ink)}
+    .p-foot{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12px;color:var(--muted);background:var(--bg)}
+    .p-foot .re{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-ink);border:1px solid var(--accent-line);border-radius:6px;padding:4px 9px;white-space:nowrap}
+    .demo-cap{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;font-size:.9rem;color:var(--muted)}
+    .demo-cap b{font-weight:600;color:var(--ink)}
+    .demo-cap button{color:var(--accent-ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+    @media (max-width:900px){
+      .hero .top{grid-template-columns:1fr;align-items:start}
+      .stage{grid-template-columns:1fr}
+      .panel{transform:translateY(8px)}
+      .card{width:min(330px,calc(100vw - 64px))}
+    }
+    .stage.still *{transition:none!important;animation:none!important}
+    @media (prefers-reduced-motion:reduce){
+      .caret,.launcher .dot,.claim i,.p-head .st i{animation:none}
+      .a,.launcher,.card,.panel,.pointer,.draft,.draft p.in{transition:none}
+      .sec.show{animation:none}
+    }
     .passes{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--ink)}
     .pass{padding:20px 20px 24px 0;display:grid;gap:8px;align-content:start;border-right:1px solid var(--line)}
     .pass+.pass{padding-left:20px}
@@ -120,7 +242,6 @@
       .pass:last-child{border-bottom:0}
       .two{grid-template-columns:1fr}
       section.block{padding:40px 0}
-      .hero{padding:44px 0 36px}
     }
     @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
   </style>
@@ -138,30 +259,457 @@
 
   <section class="hero">
     <div class="wrap">
-      <h1>Make your point. Keep your voice.</h1>
-      <div class="lede">
-        <p>WordSnap helps you <em class="verb">structure your thoughts</em>, <em class="verb">sharpen your wording</em>, <em class="verb">fact-check your claims</em> and <em class="verb">shows you the counterarguments</em>, while preserving <mark class="voice">your voice</mark>.</p>
-        <p>Like your very own ghostwriter and editor team. It turns your ideas into an authentic narrative, not AI slop.</p>
-        <p>It works inside the Gmail, X or LinkedIn window you already write in, on Chrome and Safari.</p>
-      </div>
-      <div class="actions">
-        <!-- Chrome Web Store listing pending review. When it is live, put back before the GitHub link:
-             <a class="btn" href="https://chromewebstore.google.com/detail/wordsnap/EXTENSION_ID">Add to Chrome</a>
-             and make the GitHub link class="btn secondary" again (store/SUBMIT.md, section 7). -->
-        <a class="btn" href="https://github.com/jalemieux/wordsnap">Source on GitHub</a>
-        <small>Free and open source. For Chrome and Safari. Works with your own OpenRouter account.</small>
-      </div>
-      <figure class="shot">
-        <div class="frame">
-          <!-- 25 second recording from extension/scripts/demo-video.mjs; the PNG is the poster and the fallback. -->
-          <video src="/demo.webm" poster="/screenshot-open.png" width="1280" height="880" autoplay muted loop playsinline aria-label="A Gmail draft. The WordSnap badge is clicked, findings appear as highlights with a docked Challenges panel, a hover card opens on one sentence, and Apply change edits that sentence in place.">
-            <img src="/screenshot-open.png" width="1280" height="880" alt="A Gmail compose window with WordSnap highlights over the draft, a hover card on one sentence, and the Challenges panel docked at the right listing the open claims.">
-          </video>
+      <div class="top">
+        <h1>Make your point. Keep your voice.</h1>
+        <div class="actions">
+          <!-- Chrome Web Store listing pending review. When it is live, put back before the GitHub link:
+               <a class="btn" href="https://chromewebstore.google.com/detail/wordsnap/EXTENSION_ID">Add to Chrome</a>
+               and make the GitHub link class="btn secondary" again (store/SUBMIT.md, section 7). -->
+          <a class="btn" href="https://github.com/jalemieux/wordsnap">Source on GitHub</a>
+          <small>Free and open source. For Chrome and Safari. Works with your own OpenRouter account.</small>
         </div>
-        <figcaption>Click the badge, read the findings, apply the one change you agree with. Twenty five seconds, no editing.</figcaption>
-      </figure>
+      </div>
+      <p class="narration" id="narration" aria-live="polite"></p>
+
+      <div class="stage" id="stage">
+        <div class="composer" id="composer" aria-label="A simulated compose window running WordSnap on this page's own pitch">
+          <div class="c-head"><span class="dotset"><i></i><i></i><i></i></span><span class="title">New message</span></div>
+          <div class="c-field"><span>To</span><b>someone who has not heard of WordSnap</b></div>
+          <div class="c-field"><span>Subject</span><b>what wordsnap is</b></div>
+          <div class="draft" id="draft"></div>
+          <div class="launcher" id="launcher" aria-hidden="true"><span class="w">W</span><span class="dot"></span><span class="count" id="count">1</span></div>
+          <svg class="pointer" id="pointer" viewBox="0 0 16 22" aria-hidden="true"><path d="M1 1 L1 17 L5 13 L8 20 L11 19 L8 12 L14 12 Z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <div class="card" id="card" role="dialog" aria-hidden="true"></div>
+        </div>
+
+        <aside class="panel" id="panel" aria-label="Simulated WordSnap panel">
+          <div class="p-head"><span class="w">W</span>WordSnap<span class="st busy" id="pstatus"><i></i><span id="pstatus-text">Analyzing</span></span></div>
+          <div class="picks" aria-label="Checks, all on">
+            <span class="pick"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg>Structure</span>
+            <span class="pick"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg>Polish</span>
+            <span class="pick"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg>Facts</span>
+            <span class="pick"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg>Challenge</span>
+          </div>
+          <div class="sec" id="sec-structure">
+            <h3>Structure <span class="n" id="structure-n">proposed</span></h3>
+            <p class="note">The point is in the last line and the tools comparison comes before the product. Same sentences, reader’s order: point, how, proof, privacy. The two lines about AI email are folded into one.</p>
+            <div class="proposal" id="proposal" aria-label="Proposed order"></div>
+            <div class="acts" id="structure-acts"><button type="button" class="b p" data-act="apply-structure">Apply structure</button><button type="button" class="b" data-act="keep-structure">Keep mine</button></div>
+            <p class="done" id="structure-done" hidden></p>
+          </div>
+          <div class="sec" id="sec-thesis"><h3>Your argument <span class="n">as WordSnap reads it</span></h3><p class="thesis">Rewriting tools flatten your voice; WordSnap keeps it and makes the draft sharper.</p></div>
+          <div class="sec" id="sec-claims"><h3>Claims <span class="n" id="claims-n">2 checking</span></h3>
+            <div class="claim" id="pc-f1"><i></i><div><span class="q">28% of the work week on email</span><span class="v"></span></div></div>
+            <div class="claim" id="pc-f2"><i></i><div><span class="q">People can tell.</span><span class="v"></span></div></div>
+          </div>
+          <div class="sec ch" id="sec-ch"><h3>Strongest rebuttal</h3><p class="t">‘Your own OpenRouter account’ is a setup step most readers won’t do.</p><p class="bd">The privacy line is also a friction line: the reader now needs an OpenRouter account before anything happens. Say how long setup takes, or the privacy point reads as a hurdle.</p><p class="fix"><b>How to address it.</b> One clause: connect once, about a minute.</p><p class="more">1 blind spot, 1 gap</p></div>
+          <div class="p-foot" id="pfoot"><span id="summary"></span><span class="re">Re-analyze</span></div>
+        </aside>
+      </div>
+      <p class="demo-cap"><span><b>Scripted demo.</b> Every card is what WordSnap says about this draft; the sources are real. Hover or click any highlight.</span><button type="button" id="btn-replay" hidden>Replay</button></p>
     </div>
   </section>
+
+  <script>
+    (() => {
+      // ---- content: the pitch as dictated, then as WordSnap proposes to order it, with the findings on it ----
+      const A = (id, text) => ({ id, text });
+      const F = (text) => ({ fill: text });
+      const BEFORE = [
+        [F('ok so '), 'the thing I keep running into is I write an email or a post and it’s basically fine but then I read it back and the point is in the wrong place, and I have no idea if the numbers I put in are even right, ', F('um '), 'and there’s a bunch of tools that will just rewrite the whole thing for you but then it sounds like every other AI email and ', A('f2', 'people can tell')],
+        [F('so '), 'wordsnap, it’s a chrome extension, it sits in gmail and x and linkedin, the window you already write in, and it reads the draft with you, it doesn’t rewrite it, it points at ', A('c1', 'the fuzzy bits and the hedges'), ' and you fix them, or you take its phrasing if you like it, your call'],
+        ['it also checks every claim against the web with sources, like people spend something like ', A('f1', '28% of the work week on email'), ' ', A('c2', 'which is a McKinsey number I think'), ', and it argues back, like the strongest thing a skeptic would say, before you hit send'],
+        [F('oh and '), 'the text only goes to your own openrouter account, there’s no wordsnap server, it’s open source. ', F('anyway '), 'I think the point is you keep your voice, it just makes you sharper'],
+      ];
+      const AFTER = [
+        ['Most writing tools will rewrite the whole thing for you. ', A('f2', 'People can tell.'), ' WordSnap doesn’t rewrite. You keep your voice; it makes you sharper.'],
+        ['It’s a Chrome extension that sits in Gmail, X and LinkedIn, the window you already write in. It reads the draft with you: it points at ', A('c1', 'the fuzzy bits and the hedges'), ', and you fix them, or take its phrasing if you like it. Your call.'],
+        ['It checks every claim against the web, with sources. People spend something like ', A('f1', '28% of the work week on email'), ', ', A('c2', 'which is a McKinsey number I think'), '. And it argues back: the strongest thing a skeptic would say, before you hit send.'],
+        ['The text only goes to your own OpenRouter account. There’s no WordSnap server, and it’s open source.'],
+      ];
+      const FINDINGS = {
+        c1: { kind: 'clarity', group: 'clarity', label: 'Polish · fuzzy',
+              note: '"Bits" is the fuzzy bit. Name what it flags.',
+              suggestion: 'the fuzzy sentences and hedges' },
+        c2: { kind: 'clarity', group: 'clarity', label: 'Polish · hedge',
+              note: 'Either it is McKinsey’s number or it is not. The fact check settles it in a moment; drop the hedge.',
+              suggestion: 'a McKinsey number' },
+        f1: { kind: 'supported', group: 'claim', label: 'Supported', conf: 'confidence 4/5',
+              note: 'McKinsey Global Institute’s 2012 report The social economy put reading and answering email at 28% of the work week for interaction workers. The number holds; it is from 2012.',
+              source: 'McKinsey Global Institute, July 2012 · The social economy: Unlocking value and productivity through social technologies',
+              row: 'Supported · McKinsey Global Institute, 2012' },
+        f2: { kind: 'contradicted', group: 'claim', label: 'Contradicted', conf: 'confidence 4/5',
+              note: 'Studies find the opposite: readers told GPT-3 text from human text at about chance (roughly 50%) in Clark et al., 2021. The honest claim is that it sounds like everyone else’s, not that readers spot it.',
+              source: 'Clark et al., ACL 2021 · All That’s “Human” Is Not Gold: Evaluating Human Evaluation of Generated Text',
+              row: 'Contradicted · readers spot AI text at about chance' },
+      };
+      const REWRITE = 'It reads like every other AI email.';
+      const NARRATION = {
+        typing: 'Dictate it. Type it rough. Start anywhere.',
+        analyzing: 'One click. The draft goes to your own model account, nowhere else.',
+        structure: 'Structure first: your sentences, in the order a reader needs them. Nothing added.',
+        polish: 'Then polish: the hedges and fuzzy bits, in your register.',
+        facts: 'Then every checkable claim, verified with sources.',
+        rewrite: 'Don’t like the suggestion? Rewrite it yourself. WordSnap re-checks what you wrote.',
+        challenge: 'Then the strongest case against you.',
+        done: 'Your words, your register. Hover any highlight.',
+      };
+
+      const $ = (s) => document.querySelector(s);
+      const draft = $('#draft'), launcher = $('#launcher'), panel = $('#panel'), card = $('#card'), pointer = $('#pointer');
+      const narration = $('#narration'), composer = $('#composer');
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || new URLSearchParams(location.search).has('skip');
+      const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      let run = 0, anchors = {}, fillers = [], state = {}, pinned = null, userTookOver = false, structureState = 'none', rebuttalShown = false;
+      const alive = (token) => token === run;
+      const auto = (token) => alive(token) && !userTookOver;
+
+      // ---- draft ----
+      function buildDraft(paras, filled) {
+        draft.innerHTML = ''; anchors = {}; fillers = []; state = {};
+        for (const segs of paras) {
+          const p = document.createElement('p');
+          for (const s of segs) {
+            const text = typeof s === 'string' ? s : s.text ?? s.fill;
+            if (typeof s === 'string') p.appendChild(document.createTextNode(filled ? text : ''));
+            else {
+              const el = document.createElement('span');
+              el.className = s.fill ? 'fill' : 'a';
+              if (s.id) { el.dataset.id = s.id; anchors[s.id] = el; } else fillers.push(el);
+              el.appendChild(document.createTextNode(filled ? text : ''));
+              p.appendChild(el);
+            }
+          }
+          draft.appendChild(p);
+        }
+      }
+      async function typeInto(token) {
+        const caret = document.createElement('span'); caret.className = 'caret';
+        let pi = 0;
+        for (const segs of BEFORE) {
+          const p = draft.children[pi++]; let ni = 0;
+          for (const s of segs) {
+            const node = p.childNodes[ni++];
+            const text = typeof s === 'string' ? s : s.text ?? s.fill;
+            const target = typeof s === 'string' ? node : node.firstChild;
+            (typeof s === 'string' ? p : node).appendChild(caret);
+            for (let i = 0; i < text.length; i += 3) {
+              if (!alive(token)) return;
+              const chunk = text.slice(i, i + 3);
+              target.data += chunk;
+              await sleep(/[.,]\s?$/.test(chunk) ? 40 : 6);
+            }
+          }
+          if (!alive(token)) return;
+          await sleep(90);
+        }
+        await sleep(350);
+        caret.remove();
+      }
+      const plainText = (segs) => segs.map((s) => (typeof s === 'string' ? s : s.text ?? s.fill)).join('');
+
+      // ---- structure: the proposal in the panel, then the draft reordered into it ----
+      function renderProposal() {
+        $('#proposal').innerHTML = AFTER.map((segs) => `<p>${esc(plainText(segs))}</p>`).join('');
+      }
+      async function applyStructure(animated) {
+        if (structureState !== 'proposed') return;
+        structureState = 'applied';
+        $('#structure-acts').hidden = true; $('#proposal').hidden = true; $('#structure-n').textContent = 'applied';
+        const done = $('#structure-done'); done.hidden = false; done.textContent = 'Applied. Your sentences, reordered; nothing added. Polish, Facts and Challenge now run on the new order.';
+        if (animated) {
+          for (const f of fillers) f.classList.add('strike');
+          await sleep(500);
+          draft.classList.add('fade');
+          await sleep(380);
+        }
+        buildDraft(AFTER, true);
+        draft.classList.remove('fade');
+        if (animated) {
+          const ps = Array.from(draft.children);
+          for (const p of ps) p.classList.add('in');
+          void draft.offsetHeight;
+          for (const p of ps) { p.classList.add('show'); await sleep(140); }
+          await sleep(300);
+        }
+      }
+      function keepStructure() {
+        if (structureState !== 'proposed') return;
+        structureState = 'kept';
+        $('#structure-acts').hidden = true; $('#proposal').hidden = true; $('#structure-n').textContent = 'kept';
+        const done = $('#structure-done'); done.hidden = false; done.textContent = 'Kept your order. Polish, Facts and Challenge run on it as written.';
+      }
+
+      // ---- findings: land, open, apply, keep, rewrite ----
+      function setRow(id, cls, text) {
+        const row = $('#pc-' + id); if (!row) return;
+        row.className = 'claim ' + cls; row.querySelector('.v').textContent = text;
+      }
+      function land(id, status) {
+        const el = anchors[id]; if (!el) return;
+        el.classList.remove('checking'); el.classList.add(status, 'live'); state[id] = 'open';
+        setRow(id, status, FINDINGS[id].row);
+        refreshCounts();
+      }
+      function refreshCounts() {
+        const open = (f) => Object.keys(FINDINGS).filter((id) => state[id] === 'open' && f(FINDINGS[id]));
+        const claims = open((f) => f.kind === 'contradicted' || f.kind === 'needs_precision').length;
+        const clarity = open((f) => f.group === 'clarity').length;
+        const parts = [];
+        if (state.f1 !== undefined) parts.push(`${claims} open claim${claims === 1 ? '' : 's'}`);
+        if (state.c1 !== undefined) parts.push(`${clarity} clarity`);
+        if (rebuttalShown) parts.push('1 rebuttal');
+        $('#summary').textContent = parts.join(' · ');
+        const count = $('#count'); count.textContent = claims ? String(claims) : '✓'; count.classList.toggle('ok', !claims);
+        if (state.f1 !== undefined) {
+          const n = [];
+          const nc = open((f) => f.kind === 'contradicted').length;
+          if (nc) n.push(`${nc} contradicted`);
+          $('#claims-n').textContent = n.length ? n.join(', ') : 'all settled';
+        }
+      }
+      function renderCard(id, mode) {
+        const f = FINDINGS[id], quote = anchors[id].firstChild.data;
+        const head = `<div class="k"><i class="${f.kind}"></i>${f.label}${f.conf ? `<span class="conf">${f.conf}</span>` : ''}</div>`;
+        if (mode === 'rewrite') {
+          card.innerHTML = `${head}<div>Your wording replaces the quoted span. WordSnap re-checks it.</div>
+            <textarea class="rw" id="rw" rows="2" aria-label="Your rewrite">${esc(f.suggestion ?? quote)}</textarea>
+            <div class="acts"><button type="button" class="b p" data-act="rw-apply">Apply</button><button type="button" class="b" data-act="rw-cancel">Cancel</button></div>`;
+        } else {
+          card.innerHTML = `${head}<div>${esc(f.note)}</div>
+            ${f.source ? `<span class="src"><span>${esc(f.source)}</span></span>` : ''}
+            ${f.suggestion ? `<div class="diff"><del>${esc(quote)}</del> <ins>${esc(f.suggestion)}</ins></div>` : ''}
+            <div class="acts">${f.suggestion ? '<button type="button" class="b p" data-act="apply">Apply change</button>' : ''}<button type="button" class="b" data-act="keep">Keep mine</button><button type="button" class="b" data-act="rewrite">Rewrite</button></div>`;
+        }
+        card.dataset.id = id; card.dataset.mode = mode || 'view';
+      }
+      function placeCard(anchor) {
+        const rects = anchor.getClientRects(), r = rects[rects.length - 1], c = composer.getBoundingClientRect();
+        let left = r.left - c.left; const maxLeft = c.width - card.offsetWidth - 12;
+        if (left > maxLeft) left = Math.max(12, maxLeft);
+        card.style.left = left + 'px'; card.style.top = (r.bottom - c.top + 8) + 'px';
+      }
+      function openCard(id, pin, mode) {
+        if (state[id] !== 'open') return;
+        if (pin) { if (pinned) anchors[pinned].classList.remove('pinned'); pinned = id; anchors[id].classList.add('pinned'); }
+        renderCard(id, mode); placeCard(anchors[id]); card.classList.add('show'); card.setAttribute('aria-hidden', 'false');
+      }
+      function closeCard(force) {
+        if (pinned && !force) return;
+        if (pinned) anchors[pinned].classList.remove('pinned');
+        pinned = null; card.classList.remove('show'); card.setAttribute('aria-hidden', 'true');
+      }
+      function replaceText(id, text) {
+        const el = anchors[id]; el.firstChild.data = text;
+        el.className = 'a applied'; closeCard(true);
+        setTimeout(() => el.classList.add('settle'), 900);
+      }
+      function apply(id) {
+        replaceText(id, FINDINGS[id].suggestion); state[id] = 'applied';
+        setRow(id, 'resolved', 'Applied');
+        refreshCounts();
+      }
+      function keep(id) {
+        anchors[id].className = 'a'; state[id] = 'kept'; closeCard(true);
+        setRow(id, 'kept', 'Kept your wording');
+        refreshCounts();
+      }
+      async function rewrite(id, text) {
+        const el = anchors[id];
+        el.firstChild.data = text; el.className = 'a checking'; state[id] = 'checking'; closeCard(true);
+        setRow(id, 'checking', 'Re-checking your wording');
+        refreshCounts();
+        await sleep(reduced ? 0 : 1100);
+        if (state[id] !== 'checking') return;
+        el.className = 'a applied'; state[id] = 'rewritten';
+        setRow(id, 'resolved', 'Rewritten · re-checked, nothing to flag');
+        refreshCounts();
+        setTimeout(() => el.classList.add('settle'), 900);
+      }
+
+      // ---- interaction, same as the extension: hover shows, click pins, actions from the card and the panel ----
+      draft.addEventListener('mouseover', (e) => { const a = e.target.closest('.a'); if (a && state[a.dataset.id] === 'open' && !pinned) openCard(a.dataset.id, false); });
+      draft.addEventListener('mouseout', (e) => { const a = e.target.closest('.a'); if (a && !pinned && !card.matches(':hover')) closeCard(false); });
+      card.addEventListener('mouseleave', () => { if (!pinned) closeCard(false); });
+      draft.addEventListener('click', (e) => {
+        const a = e.target.closest('.a'); if (!a || state[a.dataset.id] !== 'open') return;
+        userTookOver = true;
+        if (pinned === a.dataset.id && card.dataset.mode !== 'rewrite') closeCard(true); else openCard(a.dataset.id, true);
+      });
+      card.addEventListener('click', (e) => {
+        e.stopPropagation(); // the card may re-render below, which would make this look like an outside click
+        const b = e.target.closest('[data-act]'); if (!b) return;
+        userTookOver = true; const id = card.dataset.id;
+        switch (b.dataset.act) {
+          case 'apply': apply(id); break;
+          case 'keep': keep(id); break;
+          case 'rewrite': openCard(id, true, 'rewrite'); $('#rw').focus(); break;
+          case 'rw-cancel': openCard(id, true); break;
+          case 'rw-apply': {
+            const text = $('#rw').value.trim();
+            if (!text || text === anchors[id].firstChild.data) return;
+            void rewrite(id, text); break;
+          }
+        }
+      });
+      $('#structure-acts').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]'); if (!b) return;
+        userTookOver = true;
+        if (b.dataset.act === 'apply-structure') void applyStructure(!reduced); else keepStructure();
+      });
+      document.addEventListener('click', (e) => { if (pinned && !e.target.closest('.a') && !e.target.closest('.card') && !e.target.closest('.claim')) closeCard(true); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(true); });
+      for (const row of document.querySelectorAll('.claim')) row.addEventListener('click', () => {
+        const id = row.id.slice(3); if (state[id] !== 'open') return; userTookOver = true;
+        anchors[id].scrollIntoView({ block: 'nearest' }); openCard(id, true);
+      });
+      addEventListener('resize', () => { if (card.classList.contains('show')) placeCard(anchors[card.dataset.id]); });
+
+      // ---- the scripted run ----
+      function moveTo(el, dx = 0, dy = 0) {
+        const rects = el.getClientRects(), r = rects[rects.length - 1], c = composer.getBoundingClientRect();
+        pointer.style.transform = `translate(${r.left - c.left + r.width / 2 + dx}px, ${r.top - c.top + r.height / 2 + dy}px)`;
+      }
+      function showPointerAt(el, dx, dy) {
+        pointer.style.transition = 'none'; moveTo(el, dx, dy); pointer.classList.add('show');
+        return sleep(30).then(() => { pointer.style.transition = ''; });
+      }
+      function say(key) { narration.textContent = NARRATION[key]; }
+      function status(text, busy) { $('#pstatus').classList.toggle('busy', busy); $('#pstatus-text').textContent = text; }
+      function show(id) { $(id).classList.add('show'); }
+      function reset() {
+        closeCard(true); userTookOver = false; rebuttalShown = false; structureState = 'none';
+        for (const el of [launcher, panel, card, pointer]) el.classList.remove('show', 'pressed', 'analyzing', 'counted');
+        for (const s of document.querySelectorAll('.sec')) s.classList.remove('show');
+        for (const c of document.querySelectorAll('.claim')) { c.className = 'claim'; c.querySelector('.v').textContent = ''; }
+        $('#structure-acts').hidden = false; $('#proposal').hidden = false; $('#structure-n').textContent = 'proposed'; $('#structure-done').hidden = true;
+        $('#claims-n').textContent = '2 checking'; $('#summary').textContent = '';
+        $('#btn-replay').hidden = true; narration.textContent = '';
+        status('Analyzing', true); renderProposal();
+      }
+      async function clickWith(token, el, dx = 0, dy = 0) {
+        moveTo(el, dx, dy); await sleep(600); if (!auto(token)) return false;
+        el.classList.add('down'); await sleep(180); el.classList.remove('down');
+        return auto(token);
+      }
+
+      async function play() {
+        const token = ++run;
+        reset(); buildDraft(BEFORE, false);
+        if (reduced) { finalState(); return; }
+
+        say('typing'); launcher.classList.add('show');
+        await typeInto(token); if (!alive(token)) return;
+
+        // click the badge
+        await showPointerAt(draft, 120, 60); moveTo(launcher, 0, 4);
+        await sleep(600); if (!alive(token)) return;
+        launcher.classList.add('pressed', 'analyzing'); say('analyzing');
+        await sleep(200); launcher.classList.remove('pressed'); pointer.classList.remove('show');
+        await sleep(600); if (!alive(token)) return;
+
+        // structure: the proposal, then the pointer applies it
+        panel.classList.add('show'); status('Reading the order of your ideas', true);
+        await sleep(700); if (!alive(token)) return;
+        structureState = 'proposed'; show('#sec-structure'); say('structure');
+        await sleep(2400); if (!alive(token)) return;
+        if (auto(token)) {
+          const btn = $('[data-act="apply-structure"]');
+          await showPointerAt(launcher, 0, 4);
+          if (await clickWith(token, btn)) { pointer.classList.remove('show'); await applyStructure(true); }
+        }
+        if (!alive(token)) return;
+        while (structureState === 'proposed' && alive(token)) await sleep(200);
+        if (!alive(token)) return;
+        await sleep(600);
+
+        // polish
+        status('Reading for clarity', true); say('polish');
+        await sleep(500); land('c1', 'clarity'); await sleep(320); land('c2', 'clarity');
+        await sleep(800); if (!alive(token)) return;
+        for (const id of ['c1', 'c2']) {
+          if (!auto(token) || state[id] !== 'open') continue;
+          await showPointerAt(id === 'c1' ? launcher : anchors.c1, 0, 4); moveTo(anchors[id], 10, 6);
+          await sleep(600); if (!auto(token)) break;
+          openCard(id, true);
+          await sleep(2000); if (!auto(token)) break;
+          const b = card.querySelector('[data-act="apply"]');
+          if (await clickWith(token, b)) apply(id);
+          await sleep(900);
+        }
+        pointer.classList.remove('show');
+        if (!alive(token)) return;
+
+        // facts
+        status('Checking facts', true); say('facts'); show('#sec-claims');
+        for (const id of ['f1', 'f2']) { anchors[id].classList.add('checking'); $('#pc-' + id).classList.add('checking'); await sleep(200); }
+        await sleep(1000); if (!alive(token)) return; land('f1', 'supported');
+        await sleep(900); if (!alive(token)) return; land('f2', 'contradicted');
+        launcher.classList.add('counted');
+        await sleep(900); if (!alive(token)) return;
+
+        // rewrite the contradicted line by hand
+        say('rewrite');
+        if (auto(token) && state.f2 === 'open') {
+          await showPointerAt(anchors.f1, 0, 4); moveTo(anchors.f2, 10, 6);
+          await sleep(600);
+          if (auto(token)) {
+            openCard('f2', true);
+            await sleep(2600);
+            const rw = card.querySelector('[data-act="rewrite"]');
+            if (await clickWith(token, rw)) {
+              openCard('f2', true, 'rewrite');
+              const ta = $('#rw'); moveTo(ta, 0, 0);
+              await sleep(500);
+              ta.value = '';
+              for (let i = 1; i <= REWRITE.length; i++) {
+                if (!auto(token)) break;
+                ta.value = REWRITE.slice(0, i);
+                await sleep(28);
+              }
+              await sleep(400);
+              const ok = card.querySelector('[data-act="rw-apply"]');
+              if (ok && (await clickWith(token, ok))) { pointer.classList.remove('show'); await rewrite('f2', REWRITE); }
+            }
+          }
+        }
+        pointer.classList.remove('show');
+        if (!alive(token)) return;
+        await sleep(700);
+
+        // challenge
+        status('Building the counterargument', true); say('challenge');
+        await sleep(800); if (!alive(token)) return;
+        show('#sec-thesis'); await sleep(300); show('#sec-ch'); rebuttalShown = true; refreshCounts();
+        launcher.classList.remove('analyzing');
+        await sleep(600); status('Checked just now', false);
+        await sleep(1400); if (!alive(token)) return;
+        done();
+      }
+      function done() {
+        pointer.classList.remove('show');
+        say('done'); $('#btn-replay').hidden = false;
+      }
+
+      function finalState() {
+        $('#stage').classList.add('still');
+        structureState = 'proposed'; void applyStructure(false);
+        launcher.classList.add('show', 'counted');
+        panel.classList.add('show'); for (const s of document.querySelectorAll('.sec')) s.classList.add('show');
+        land('c1', 'clarity'); land('c2', 'clarity'); land('f1', 'supported'); land('f2', 'contradicted');
+        apply('c1'); apply('c2'); anchors.c1.classList.add('settle'); anchors.c2.classList.add('settle');
+        void rewrite('f2', REWRITE).then(() => anchors.f2.classList.add('settle'));
+        rebuttalShown = true; refreshCounts();
+        launcher.classList.remove('analyzing'); status('Checked just now', false);
+        done();
+      }
+
+      $('#btn-replay').onclick = () => play();
+      play();
+    })();
+  </script>
 
   <section class="block" id="passes">
     <div class="wrap">
@@ -212,6 +760,15 @@
         <li><div><h3>Apply or Keep</h3><p>A suggestion shows a diff of the quoted span only. Apply writes it into the editor through the host's own undo stack, so Ctrl+Z works. Keep leaves your wording and dismisses the finding.</p></div></li>
         <li><div><h3>Re-analyze when you want</h3><p>Editing shifts the highlights with your text and marks touched findings stale. Nothing runs again until you press Re-analyze. Only changed paragraphs and unverified claims are sent.</p></div></li>
       </ol>
+      <figure class="shot">
+        <div class="frame">
+          <!-- 25 second recording from extension/scripts/demo-video.mjs; the PNG is the poster and the fallback. -->
+          <video src="/demo.webm" poster="/screenshot-open.png" width="1280" height="880" autoplay muted loop playsinline aria-label="A Gmail draft. The WordSnap badge is clicked, findings appear as highlights with a docked Challenges panel, a hover card opens on one sentence, and Apply change edits that sentence in place.">
+            <img src="/screenshot-open.png" width="1280" height="880" alt="A Gmail compose window with WordSnap highlights over the draft, a hover card on one sentence, and the Challenges panel docked at the right listing the open claims.">
+          </video>
+        </div>
+        <figcaption>A real recording: click the badge, read the findings, apply the one change you agree with. Twenty five seconds, no editing.</figcaption>
+      </figure>
     </div>
   </section>
 
