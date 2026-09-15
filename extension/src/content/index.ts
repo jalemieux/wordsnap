@@ -5,6 +5,7 @@ import { countWords } from '../adapters/base';
 import { mountOverlay } from '../ui/overlay';
 import type { OverlayController } from '../ui/types';
 import type { TextSnapshot } from '../shared/types';
+import { minimalParagraphEdit } from '../shared/anchoring';
 import { SessionClient } from './session-client';
 import { log } from '../shared/log';
 
@@ -49,8 +50,11 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
   let armed = carry?.armed ?? false;
   let autoAnalyze = false;
 
+  let lastSentText: string | null = null;
   const send = (snapshot: TextSnapshot, reason: 'initial' | 'edit') => {
     if (!armed && !autoAnalyze) return;
+    // The host fires input after an applied edit; that echo carries the text already sent.
+    if (reason === 'edit' && snapshot.text === lastSentText) return;
     const words = countWords(snapshot.text);
     const min = armed ? MIN_WORDS_MANUAL : MIN_WORDS;
     if (words < min && !sentInitial) {
@@ -62,6 +66,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
       reason = 'initial';
     }
     log.info(`composer ${handle.key}: sending snapshot v${snapshot.version} (${words} words, ${reason})`);
+    lastSentText = snapshot.text;
     client.sendSnapshot(snapshot, reason);
   };
 
@@ -70,12 +75,39 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
     callbacks: {
       onApply(findingId, span, replacement) {
         if (debounce) clearTimeout(debounce);
+        debounce = null;
         const ok = handle.applyEdit(span, replacement);
         if (ok) {
+          // Snapshot first, then the re-check request: port messages are ordered, so the run sees the edit.
           client.sendAction(findingId, 'applied');
           send(handle.getSnapshot(), 'edit');
+          client.recheck(findingId);
+        } else {
+          log.warn(`composer ${handle.key}: the editor rejected the change to ${findingId}`);
         }
         overlay.relayout();
+        return ok;
+      },
+      onApplyStructure(paragraphs) {
+        if (debounce) clearTimeout(debounce);
+        debounce = null;
+        // Only the paragraphs that move are rewritten: a greeting or signature the proposal keeps is never touched,
+        // so images, links and formatting outside the moved block survive.
+        const edit = minimalParagraphEdit(handle.getSnapshot(), paragraphs);
+        const ok = edit ? handle.applyEdit(edit.span, edit.replacement) : true;
+        if (ok) {
+          log.info(`composer ${handle.key}: structure applied (${paragraphs.length} paragraphs${edit ? `, chars ${edit.span.start}-${edit.span.end} replaced` : ', already in that order'})`);
+          client.sendStructureAction('applied');
+          send(handle.getSnapshot(), 'edit');
+          client.analyze();
+        } else {
+          log.warn(`composer ${handle.key}: the editor rejected the whole-draft edit`);
+        }
+        overlay.relayout();
+        return ok;
+      },
+      onKeepStructure() {
+        client.sendStructureAction('kept');
       },
       onKeep(findingId) {
         client.sendAction(findingId, 'kept');

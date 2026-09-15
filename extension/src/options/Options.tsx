@@ -15,6 +15,7 @@ const HOSTS: { id: HostId; label: string }[] = [
   { id: 'generic', label: 'Other sites (on click)' },
 ];
 const PASSES: { id: PassId; label: string }[] = [
+  { id: 'S', label: 'Structure' },
   { id: 'A', label: 'Clarity and claims' },
   { id: 'B', label: 'Fact check' },
   { id: 'C', label: 'Counterargument' },

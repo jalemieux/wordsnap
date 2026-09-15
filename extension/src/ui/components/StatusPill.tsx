@@ -1,5 +1,5 @@
 import type { SessionState } from '../../shared/types';
-import { anyRunning, checksChanged, draftChanged, firstError, lastCheckedAt, relativeTime } from '../format';
+import { anyRunning, checksChanged, draftChanged, firstError, lastCheckedAt, relativeTime, structureOpen } from '../format';
 
 export function statusOf(state: SessionState, now = Date.now()): { mode: 'running' | 'error' | 'stale' | 'done' | 'idle'; text: string } {
   if (anyRunning(state)) {
@@ -11,6 +11,7 @@ export function statusOf(state: SessionState, now = Date.now()): { mode: 'runnin
   }
   const err = firstError(state);
   if (err) return { mode: 'error', text: err };
+  if (structureOpen(state)) return { mode: 'stale', text: 'Structure proposed' };
   if (draftChanged(state)) return { mode: 'stale', text: 'Draft changed' };
   if (checksChanged(state)) return { mode: 'stale', text: 'Checks changed' };
   const at = lastCheckedAt(state);

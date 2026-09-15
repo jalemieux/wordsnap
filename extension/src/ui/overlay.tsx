@@ -171,12 +171,13 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
           viewport={layout.viewport}
           onEnter={() => setCardHover(true)}
           onLeave={() => setCardHover(false)}
-          onApply={(id, span: Span, replacement) => {
+          onApply={(id, span: Span, replacement, source) => {
             setPinnedId(null);
             setHoverId(null);
-            callbacks.onApply(id, span, replacement);
-            setToast('Applied. Your words, one phrase tightened.');
+            const ok = callbacks.onApply(id, span, replacement) !== false;
+            setToast(!ok ? 'The editor did not accept the change.' : source === 'rewrite' ? 'Applied your wording. Re-checking this passage.' : 'Applied. Re-checking this passage.');
           }}
+          onRewriteStart={(id) => setPinnedId(id)}
           onKeep={(id) => {
             setPinnedId(null);
             setHoverId(null);
@@ -193,6 +194,17 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         onClose={() => setOpen(false)}
         onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
         onChecks={callbacks.onChecks ? (c) => callbacks.onChecks?.(c) : undefined}
+        onApplyStructure={
+          callbacks.onApplyStructure
+            ? (paragraphs) => {
+                setPinnedId(null);
+                setHoverId(null);
+                const ok = callbacks.onApplyStructure?.(paragraphs) !== false;
+                setToast(ok ? 'Structure applied. Undo in the editor puts it back.' : 'The editor did not accept the change.');
+              }
+            : undefined
+        }
+        onKeepStructure={callbacks.onKeepStructure ? () => callbacks.onKeepStructure?.() : undefined}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />

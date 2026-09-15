@@ -5,7 +5,7 @@ import { MockProvider } from '../../src/providers/mock';
 import type { LLMProvider, PassRequest } from '../../src/providers/types';
 import { ProviderError } from '../../src/providers/types';
 import { snapshotFromText } from '../../src/shared/anchoring';
-import { SAMPLE_TEXT } from '../../src/shared/sample';
+import { SAMPLE_DICTATED_TEXT, SAMPLE_PARAGRAPHS, SAMPLE_TEXT } from '../../src/shared/sample';
 import { DEFAULT_SETTINGS, type SessionState } from '../../src/shared/types';
 
 /** Deterministic fake clock + timers. */
@@ -37,7 +37,8 @@ class FakeClock implements Timers {
   }
 }
 const flush = async () => {
-  for (let i = 0; i < 20; i++) await Promise.resolve();
+  // S, then A, then B, each a few awaits deep: enough microtask turns for a whole run on the zero-delay mock.
+  for (let i = 0; i < 60; i++) await Promise.resolve();
 };
 
 function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof DEFAULT_SETTINGS> = {}) {
@@ -74,8 +75,11 @@ describe('SessionOrchestrator', () => {
     expect(provider.calls).toHaveLength(0);
     await clock.advance(DEBOUNCE_MS);
     const passes = provider.calls.map((c) => c.pass).sort();
-    expect(passes).toEqual(['A', 'B', 'C']);
+    expect(passes).toEqual(['A', 'B', 'C', 'S']);
+    expect(provider.calls[0]!.pass).toBe('S'); // structure first; the sample keeps its order so the rest go ahead
     const s = last(states);
+    expect(s.structure?.verdict).toBe('keeps');
+    expect(s.passes.S.state).toBe('done');
     expect(s.claims).toHaveLength(3);
     expect(s.claims.every((c) => c.data.verdict)).toBe(true);
     expect(s.challenges).toHaveLength(4);
@@ -83,7 +87,7 @@ describe('SessionOrchestrator', () => {
     expect(s.passes.B.state).toBe('done');
     expect(s.passes.C.state).toBe('done');
     expect(s.usage.searches).toBe(7);
-    expect(costs.length).toBe(3);
+    expect(costs.length).toBe(4);
     expect(s.usage.estCostUsd).toBeGreaterThan(0.1);
   });
 
@@ -112,7 +116,8 @@ describe('SessionOrchestrator', () => {
 
   it('cancels an in-flight pass A when a new snapshot arrives', async () => {
     const slow = new MockProvider({ delayMs: 500, sleep: (ms, signal) => new Promise((res, rej) => { const t = setTimeout(res, 0); signal.addEventListener('abort', () => { clearTimeout(t); const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); }) });
-    const { orch, clock, provider, states } = setup(slow);
+    // Structure off so A is the first pass in flight (the structure pass has its own abort case below).
+    const { orch, clock, provider, states } = setup(slow, { checks: { structure: false, polish: true, facts: true, challenge: true } });
     orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
     await clock.advance(DEBOUNCE_MS);
     // A is now "in flight" (its sleep resolves on a real macrotask we never let run before the next snapshot)
@@ -192,7 +197,7 @@ describe('on-demand mode (autoAnalyze off, the default)', () => {
     const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
     orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
     await clock.advance(0);
-    expect(provider.calls.map((c) => c.pass).sort()).toEqual(['A', 'B', 'C']);
+    expect(provider.calls.map((c) => c.pass).sort()).toEqual(['A', 'B', 'C', 'S']);
     expect(last(states).analyzedVersion).toBe(1);
     provider.calls.length = 0;
 
@@ -224,6 +229,219 @@ describe('on-demand mode (autoAnalyze off, the default)', () => {
     const a = provider.calls.find((c) => c.pass === 'A')!;
     expect(a.user).not.toMatch(/Only these paragraphs changed/);
     expect(provider.calls.map((c) => c.pass)).toContain('C');
+  });
+});
+
+describe('structure pass', () => {
+  const slowSleep = (ms: number, signal: AbortSignal) =>
+    new Promise<void>((res, rej) => {
+      const t = setTimeout(res, 0);
+      signal.addEventListener('abort', () => {
+        clearTimeout(t);
+        const e = new Error('aborted');
+        e.name = 'AbortError';
+        rej(e);
+      });
+    });
+
+  it('a dictated draft gets a reorder proposal and A, B and C wait for the user', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass)).toEqual(['S']);
+    const s = last(states);
+    expect(s.structure).toMatchObject({ verdict: 'reorder', status: 'open', forVersion: 1, paragraphs: SAMPLE_PARAGRAPHS });
+    expect(s.structure!.note).toMatch(/ask/);
+    expect(s.passes.S.state).toBe('done');
+    expect(s.passes.A.state).toBe('idle');
+    expect(s.passes.C.state).toBe('idle');
+    expect(s.analyzedVersion).toBe(1);
+  });
+
+  it('Keep mine runs the held passes on the draft as written, without asking about structure again', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    provider.calls.length = 0;
+    orch.handleStructureAction('kept');
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass).sort()).toEqual(['A', 'B', 'C']); // the dictated draft has the same sentences, so the claims anchor and B runs
+    expect(last(states).structure?.status).toBe('kept');
+    expect(last(states).passes.A.state).toBe('done');
+    // Re-analyze on the same text: still no second structure pass
+    provider.calls.length = 0;
+    orch.analyzeNow();
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass)).not.toContain('S');
+  });
+
+  it('Apply structure: the reordered draft is analyzed once, without a second structure pass', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    provider.calls.length = 0;
+    // The content script applies the proposal, reports it, sends the new snapshot and asks for a run.
+    orch.handleStructureAction('applied');
+    orch.handleSnapshot(snapshotFromText(SAMPLE_PARAGRAPHS.join('\n\n'), 2));
+    orch.analyzeNow();
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass).sort()).toEqual(['A', 'B', 'C']);
+    const s = last(states);
+    expect(s.structure?.status).toBe('applied');
+    expect(s.claims).toHaveLength(3);
+    expect(s.claims.every((c) => c.data.verdict)).toBe(true);
+    expect(s.analyzedVersion).toBe(2);
+  });
+
+  it('turning Structure off while S is in flight aborts it and nothing is held', async () => {
+    const slow = new MockProvider({ delayMs: 500, sleep: slowSleep });
+    const { orch, clock, provider, states } = setup(slow, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    expect(last(states).passes.S.state).toBe('running');
+    orch.setChecks({ structure: false, polish: true, facts: true, challenge: true });
+    await flush();
+    expect(last(states).structure).toBeUndefined();
+    expect(last(states).passes.S.state).not.toBe('running');
+    expect(provider.calls.map((c) => c.pass)).toEqual(['S']);
+  });
+
+  it('in auto mode, edits on a stale proposal do not ask about structure again; the other passes run', async () => {
+    const { orch, clock, provider, states } = setup(); // auto mode
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1));
+    await clock.advance(DEBOUNCE_MS);
+    expect(last(states).structure?.status).toBe('open');
+    provider.calls.length = 0;
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT.replace('I guess', 'I think'), 2));
+    await clock.advance(DEBOUNCE_MS);
+    expect(last(states).structure?.status).toBe('stale');
+    const passes = provider.calls.map((c) => c.pass);
+    expect(passes).not.toContain('S');
+    expect(passes).toContain('A');
+  });
+
+  it('an edit while a proposal is open makes it stale; the next Re-analyze asks again', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT + '\n\nPS: numbers attached.', 2));
+    await clock.advance(0);
+    expect(last(states).structure?.status).toBe('stale');
+    provider.calls.length = 0;
+    orch.analyzeNow();
+    await clock.advance(0);
+    expect(provider.calls[0]!.pass).toBe('S');
+    expect(last(states).structure?.status).toBe('open');
+    expect(last(states).structure?.forVersion).toBe(2);
+  });
+
+  it('with Structure off, no structure pass runs and the passes go straight on', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false, checks: { structure: false, polish: true, facts: true, challenge: true } });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass)).not.toContain('S');
+    expect(last(states).structure).toBeUndefined();
+  });
+
+  it('turning Structure off drops the open proposal', async () => {
+    const { orch, clock, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
+    await clock.advance(0);
+    orch.setChecks({ structure: false, polish: true, facts: true, challenge: true });
+    expect(last(states).structure).toBeUndefined();
+  });
+
+  it('in auto mode a new edit aborts an in-flight structure pass and the debounced run asks again', async () => {
+    const slow = new MockProvider({ delayMs: 500, sleep: slowSleep });
+    const { orch, clock, provider, states } = setup(slow);
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1));
+    await clock.advance(DEBOUNCE_MS);
+    expect(last(states).passes.S.state).toBe('running');
+    orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT + '\n\nPS', 2));
+    await flush();
+    expect(provider.calls.filter((c) => c.pass === 'S')).toHaveLength(1);
+    expect(provider.calls.filter((c) => c.pass === 'A')).toHaveLength(0); // the aborted run did not fall through to A
+    await clock.advance(DEBOUNCE_MS);
+    expect(provider.calls.filter((c) => c.pass === 'S')).toHaveLength(2);
+  });
+
+  it('a structure pass failure does not block the other passes', async () => {
+    const provider = new MockProvider({ delayMs: 0 });
+    const failing: LLMProvider = {
+      id: 'mock',
+      capabilities: provider.capabilities,
+      listModels: () => provider.listModels(),
+      probe: (signal) => provider.probe(signal),
+      runPass: (req, signal, onEvent) => {
+        if (req.pass === 'S') return Promise.reject(new ProviderError('boom', 'invalid'));
+        return provider.runPass(req, signal, onEvent);
+      },
+    };
+    const { orch, clock, states } = setup(failing, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    const s = last(states);
+    expect(s.passes.S.state).toBe('error');
+    expect(s.passes.A.state).toBe('done');
+    expect(s.claims).toHaveLength(3);
+  });
+});
+
+describe('re-check after an applied change', () => {
+  it('drops the finding and re-runs A on the changed paragraph only, without C, even on demand', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    const claim = last(states).claims.find((c) => c.quote === 'not a single company went back to five days')!;
+    expect(claim.data.verdict?.status).toBe('contradicted');
+    provider.calls.length = 0;
+
+    // The content script applied the suggestion, sent the snapshot, then asked for the re-check.
+    orch.handleAction(claim.id, 'applied');
+    const edited = SAMPLE_TEXT.replace('not a single company went back to five days', '56 of the 61 companies kept it');
+    orch.handleSnapshot(snapshotFromText(edited, 2));
+    orch.recheck(claim.id);
+    await clock.advance(0);
+
+    const passes = provider.calls.map((c) => c.pass);
+    expect(passes).toEqual(['A']); // scoped A; the other claims keep their verdicts, so no B; never S or C
+    expect(provider.calls[0]!.user).toMatch(/Only these paragraphs changed since your last analysis: P3\./);
+    const s = last(states);
+    expect(s.claims.find((c) => c.id === claim.id)).toBeUndefined();
+    expect(s.claims.filter((c) => c.status === 'open' && c.data.verdict?.status === 'contradicted')).toHaveLength(0);
+    expect(s.analyzedVersion).toBe(2);
+    expect(s.passes.A.state).toBe('done');
+    expect(s.passes.C.at).toBeDefined();
+    expect(s.structure?.status).not.toBe('open');
+  });
+
+  it('a recheck leaves the analyzed checks alone, so a chip flipped before it still asks for a full run', async () => {
+    const { orch, clock, states } = setup(undefined, { autoAnalyze: false, checks: { structure: true, polish: true, facts: true, challenge: false } });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    orch.setChecks({ structure: true, polish: true, facts: true, challenge: true });
+    const note = last(states).clarity[0]!;
+    orch.handleAction(note.id, 'applied');
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT.replace(note.quote, 'x'), 2));
+    orch.recheck(note.id);
+    await clock.advance(0);
+    expect(last(states).analyzedChecks?.challenge).toBe(false);
+  });
+
+  it('a rewritten clarity span that still reads the same way is flagged again by the fresh run', async () => {
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    const note = last(states).clarity.find((c) => c.data.kind === 'hedge')!;
+    provider.calls.length = 0;
+    // The user's rewrite removes the flagged phrase; the mock's canned A result no longer locates it, so it is gone.
+    orch.handleAction(note.id, 'applied');
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT.replace(note.quote, 'so retention risk looks low'), 2));
+    orch.recheck(note.id);
+    await clock.advance(0);
+    expect(provider.calls.map((c) => c.pass)).toEqual(['A']);
+    expect(last(states).clarity.find((c) => c.id === note.id)).toBeUndefined();
+    expect(last(states).clarity.some((c) => c.status === 'applied')).toBe(false);
   });
 });
 

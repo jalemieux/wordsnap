@@ -84,7 +84,7 @@ describe('StatusPill', () => {
     err.passes.C = { state: 'error', error: 'Rate limited, retrying' };
     expect(statusOf(err).mode).toBe('error');
     expect(statusOf(err).text).toBe('Rate limited, retrying');
-    const idle = sampleState({ passes: { A: { state: 'idle' }, B: { state: 'idle' }, C: { state: 'idle' } } });
+    const idle = sampleState({ passes: { S: { state: 'idle' }, A: { state: 'idle' }, B: { state: 'idle' }, C: { state: 'idle' } } });
     expect(statusOf(idle).text).toBe('Waiting for text');
   });
 });
@@ -125,6 +125,59 @@ describe('check picker chips', () => {
     s.analyzedChecks = { structure: true, polish: true, facts: true, challenge: false };
     s.checks = { structure: true, polish: true, facts: true, challenge: true };
     expect(statusOf(s).text).toBe('Checks changed');
+    const c = document.createElement('div');
+    render(<ChallengesPanel state={s} onHot={() => {}} onAnalyze={() => {}} />, c);
+    expect((c.querySelector('.ws-reanalyze') as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe('structure section', () => {
+  it('shows an open proposal with its note, paragraphs and Apply / Keep, and the pill says so', () => {
+    const s = sampleState();
+    s.analyzedVersion = s.snapshotVersion;
+    s.structure = { verdict: 'reorder', status: 'open', note: 'The ask was last.', paragraphs: ['Can we talk Thursday?', 'Here is why.'], forVersion: s.snapshotVersion };
+    expect(statusOf(s)).toEqual({ mode: 'stale', text: 'Structure proposed' });
+    const onApply = vi.fn();
+    const onKeep = vi.fn();
+    const c = document.createElement('div');
+    render(<ChallengesPanel state={s} onHot={() => {}} onAnalyze={() => {}} onApplyStructure={onApply} onKeepStructure={onKeep} />, c);
+    const sec = c.querySelector('.ws-structure')!;
+    expect(sec.getAttribute('data-status')).toBe('open');
+    expect(sec.querySelector('.ws-struct-note')?.textContent).toBe('The ask was last.');
+    expect([...sec.querySelectorAll('.ws-proposal p')].map((p) => p.textContent)).toEqual(['Can we talk Thursday?', 'Here is why.']);
+    expect((c.querySelector('.ws-reanalyze') as HTMLButtonElement).disabled).toBe(true);
+    click(sec.querySelector('[data-act="apply-structure"]'));
+    expect(onApply).toHaveBeenCalledWith(['Can we talk Thursday?', 'Here is why.']);
+    click(sec.querySelector('[data-act="keep-structure"]'));
+    expect(onKeep).toHaveBeenCalledTimes(1);
+  });
+
+  it('a keeps verdict, an applied proposal and a stale one each get one line and no buttons', () => {
+    const base = sampleState();
+    const c = document.createElement('div');
+    const s1 = { ...base, structure: { verdict: 'keeps' as const, status: 'kept' as const, note: 'The ask opens.', paragraphs: [], forVersion: 1 } };
+    render(<ChallengesPanel state={s1} onHot={() => {}} onApplyStructure={() => {}} />, c);
+    expect(c.querySelector('.ws-structure')?.textContent).toContain('Your order holds. The ask opens.');
+    expect(c.querySelector('[data-act="apply-structure"]')).toBeNull();
+    const s2 = { ...base, structure: { verdict: 'reorder' as const, status: 'applied' as const, note: 'Moved the ask.', paragraphs: ['x'], forVersion: 1 } };
+    render(<ChallengesPanel state={s2} onHot={() => {}} onApplyStructure={() => {}} />, c);
+    expect(c.querySelector('.ws-structure')?.textContent).toContain('Structure applied.');
+    const s3 = { ...base, structure: { verdict: 'reorder' as const, status: 'stale' as const, note: 'Moved the ask.', paragraphs: ['x'], forVersion: 1 } };
+    render(<ChallengesPanel state={s3} onHot={() => {}} onApplyStructure={() => {}} />, c);
+    expect(c.querySelector('.ws-structure')?.textContent).toMatch(/draft changed/i);
+    expect(c.querySelector('[data-act="apply-structure"]')).toBeNull();
+    // Structure off: no section at all.
+    const s4 = { ...s1, checks: { structure: false, polish: true, facts: true, challenge: true } };
+    render(<ChallengesPanel state={s4} onHot={() => {}} />, c);
+    expect(c.querySelector('.ws-structure')).toBeNull();
+  });
+});
+
+describe('Re-analyze with stale findings', () => {
+  it('is enabled when a finding went stale even though the draft version was analyzed', () => {
+    const s = sampleState();
+    s.analyzedVersion = s.snapshotVersion;
+    s.challenges[0]!.status = 'stale';
     const c = document.createElement('div');
     render(<ChallengesPanel state={s} onHot={() => {}} onAnalyze={() => {}} />, c);
     expect((c.querySelector('.ws-reanalyze') as HTMLButtonElement).disabled).toBe(false);

@@ -1,12 +1,12 @@
 // Per-session pass orchestration. No chrome.* here: provider, settings, cache, clock and timers are injected.
 import { log } from '../shared/log';
-import { buildPassA, buildPassB, buildPassC, type DraftContext } from '../passes/build';
-import { validatePassA, validatePassB, validatePassC } from '../passes/validate';
+import { buildPassA, buildPassB, buildPassC, buildPassS, type DraftContext } from '../passes/build';
+import { validatePassA, validatePassB, validatePassC, validatePassS } from '../passes/validate';
 import type { LLMProvider, PassRequest, PassResult } from '../providers/types';
 import { ProviderError } from '../providers/types';
-import { changedParagraphs } from '../shared/anchoring';
+import { changedParagraphs, normalizeText } from '../shared/anchoring';
 import { estimateCostUsd } from '../shared/cost';
-import type { Claim, PassA, PassB, PassC, Verdict } from '../shared/schemas';
+import type { Claim, PassA, PassB, PassC, PassS, Verdict } from '../shared/schemas';
 import { activeModel, clarityKindFilter, sameChecks, type Checks, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
 import type { ClaimCache } from './cache';
 import { Session, type SavedSession } from './session';
@@ -38,6 +38,8 @@ export class SessionOrchestrator {
   private readonly timers: Timers;
   private debounceHandle: unknown = null;
   private controllers: Partial<Record<PassId, AbortController>> = {};
+  /** How the last execution of each pass ended; lets a caller tell an abort (stop) from an error (carry on). */
+  private outcome: Partial<Record<PassId, 'ok' | 'aborted' | 'error' | 'refused'>> = {};
   private lastCRun = -Infinity;
   private cDeferred: unknown = null;
   private backoffMs = BACKOFF_MIN_MS;
@@ -84,6 +86,7 @@ export class SessionOrchestrator {
       this.emit();
       return;
     }
+    this.abort('S');
     this.abort('A');
     this.emit();
     this.clearScheduled();
@@ -105,6 +108,8 @@ export class SessionOrchestrator {
   /** The user flipped a chip: prune what a check turned off produced. A check turned on waits for Re-analyze. */
   setChecks(checks: Checks): void {
     if (this.closed) return;
+    // A structure result landing after the chip went off would hold the other passes with no way to answer it.
+    if (!checks.structure) this.abort('S');
     this.session.applyChecks(checks, clarityKindFilter(checks));
     this.emit();
   }
@@ -128,27 +133,53 @@ export class SessionOrchestrator {
     if (this.session.applyAction(findingId, action)) this.emit();
   }
 
+  /**
+   * The user changed a finding's text (Apply change, or their own rewrite) and the snapshot with the edit has
+   * arrived. The finding is dropped and the passes that produced it run again on the changed paragraphs now,
+   * whatever the mode: A for a clarity note, A then B for a claim. C is left alone.
+   */
+  recheck(findingId: string): void {
+    if (this.closed) return;
+    this.session.removeFinding(findingId);
+    this.clearScheduled();
+    this.abort('A');
+    void this.run({ recheck: true });
+  }
+
+  /** Apply structure / Keep mine from the panel. Kept: the held passes run on the draft as written. Applied: the edit's snapshot and analyze request follow from the content script. */
+  handleStructureAction(action: 'applied' | 'kept'): void {
+    if (this.closed) return;
+    if (!this.session.applyStructureAction(action)) return;
+    this.emit();
+    if (action === 'kept') {
+      this.clearScheduled();
+      void this.run({ force: true });
+    }
+  }
+
   close(): void {
     this.closed = true;
     if (this.debounceHandle) this.timers.clearTimeout(this.debounceHandle);
     if (this.cDeferred) this.timers.clearTimeout(this.cDeferred);
     if (this.retryHandle) this.timers.clearTimeout(this.retryHandle);
-    for (const p of ['A', 'B', 'C'] as PassId[]) this.abort(p);
+    for (const p of ['S', 'A', 'B', 'C'] as PassId[]) this.abort(p);
   }
 
   /**
    * Run the passes for the current snapshot. Public for tests and the sample runner.
    * `force` is an explicit request: unchanged text gets a full run instead of nothing, and C runs past its throttle.
+   * `recheck` follows an applied change: A (and B for new claims) on the changed paragraphs only, no S, no C.
    */
-  async run(opts: { force?: boolean } = {}): Promise<void> {
+  async run(opts: { force?: boolean; recheck?: boolean } = {}): Promise<void> {
     const snapshot = this.pendingSnapshot ?? this.session.snapshot;
     if (!snapshot || this.closed) return;
     this.pendingSnapshot = null;
     this.session.state.analyzedVersion = snapshot.version;
     const checks = this.checks();
-    // A flipped chip makes the next run a full one: the set of passes and what A is asked for both change.
-    const checksChanged = this.session.state.analyzedChecks !== undefined && !sameChecks(this.session.state.analyzedChecks, checks);
-    this.session.state.analyzedChecks = { ...checks };
+    // A flipped chip makes the next run a full one: the set of passes and what A is asked for both change. A recheck
+    // is scoped by design and leaves that for the next real run.
+    const checksChanged = !opts.recheck && this.session.state.analyzedChecks !== undefined && !sameChecks(this.session.state.analyzedChecks, checks);
+    if (!opts.recheck) this.session.state.analyzedChecks = { ...checks };
     const changed = changedParagraphs(this.session.analyzedSnapshot, snapshot);
     const unchanged = !!this.session.analyzedSnapshot && changed.length === 0;
     const isFull = !this.session.analyzedSnapshot || changed.length === snapshot.paragraphs.length || checksChanged || (unchanged && !!opts.force);
@@ -158,13 +189,57 @@ export class SessionOrchestrator {
       return;
     }
 
-    const wantC = checks.challenge || checks.structure;
+    // Structure first, on the whole draft. A proposed reorder holds the other passes until the user applies or keeps it.
+    // A stale proposal waits for Re-analyze or a full run: in auto mode a paragraph edit must not ask again.
+    if (checks.structure && !opts.recheck && (isFull || opts.force) && this.structureDue(snapshot, !!opts.force)) {
+      const verdict = await this.runS(snapshot);
+      if (this.closed || verdict === 'aborted') return; // a newer snapshot took over
+      if (verdict === 'reorder') {
+        this.emit();
+        return;
+      }
+    }
+
+    const wantC = (checks.challenge || checks.structure) && !opts.recheck;
     const wantA = checks.polish || checks.structure || checks.facts;
     const runC = wantC && (opts.force || checksChanged ? this.forceC() : this.shouldRunC(changed, isFull));
     const cWork = runC ? this.runC(snapshot) : Promise.resolve();
     const aWork = wantA ? this.runA(snapshot, isFull ? undefined : changed) : Promise.resolve();
     if (!wantA && !runC) this.emit();
     await Promise.all([aWork, cWork]);
+  }
+
+  /* ---------------- pass S ---------------- */
+
+  /**
+   * S has an answer for this exact text already (a proposal open, kept or applied for it, or a `keeps`) unless the
+   * text moved on. A stale proposal is asked again only on an explicit Re-analyze: in auto mode the other passes
+   * must not wait behind a proposal the writer is ignoring.
+   */
+  private structureDue(snapshot: TextSnapshot, force: boolean): boolean {
+    const st = this.session.state.structure;
+    if (!st) return true;
+    if (st.status === 'stale') return force;
+    if (st.forVersion === snapshot.version) return false;
+    if (st.status === 'applied' && st.verdict === 'reorder' && sameText(snapshot.text, st.paragraphs.join('\n\n'))) return false;
+    if (st.status === 'kept' && st.verdict === 'reorder' && this.session.analyzedSnapshot && sameText(snapshot.text, this.session.analyzedSnapshot.text)) return false;
+    return true;
+  }
+
+  /** Returns the verdict recorded; 'aborted' when a newer snapshot cancelled it; null when it failed (the other passes go ahead). */
+  private async runS(snapshot: TextSnapshot): Promise<'keeps' | 'reorder' | 'aborted' | null> {
+    const settings = this.deps.settings();
+    const req = buildPassS(snapshot, { effort: settings.effort.S, context: this.deps.context });
+    const res = await this.execute('S', req);
+    if (!res) return this.outcome.S === 'aborted' ? 'aborted' : null;
+    if (!this.checks().structure) return null; // the chip went off while S was out: nothing to show
+    // The proposal is for the text S read. If the draft moved on meanwhile it is stale on arrival.
+    const { proposal, reason } = validatePassS(res.data, snapshot.text);
+    if (reason) log.info(`${this.session.state.sessionKey}: structure proposal dropped (${reason})`);
+    this.session.setStructure(proposal, snapshot.version);
+    if (proposal.verdict === 'reorder' && this.session.snapshot && this.session.snapshot.text !== snapshot.text) this.session.state.structure!.status = 'stale';
+    this.emit();
+    return proposal.verdict;
   }
 
   /* ---------------- pass A ---------------- */
@@ -303,10 +378,12 @@ export class SessionOrchestrator {
     if (c) {
       c.abort();
       delete this.controllers[pass];
+      // Nothing will finish this run; do not leave the panel showing it as in flight.
+      if (this.session.state.passes[pass].state === 'running') this.session.setPass(pass, { state: this.session.state.passes[pass].at ? 'done' : 'idle', detail: undefined });
     }
   }
 
-  private async execute<T extends PassA | PassB | PassC>(pass: PassId, req: PassRequest<T>, opts: { keepRunning?: boolean } = {}): Promise<PassResult<T> | null> {
+  private async execute<T extends PassA | PassB | PassC | PassS>(pass: PassId, req: PassRequest<T>, opts: { keepRunning?: boolean } = {}): Promise<PassResult<T> | null> {
     this.abort(pass);
     const controller = new AbortController();
     this.controllers[pass] = controller;
@@ -321,7 +398,11 @@ export class SessionOrchestrator {
         else return;
         this.emit();
       });
-      if (controller.signal.aborted) return null;
+      if (controller.signal.aborted) {
+        this.outcome[pass] = 'aborted';
+        return null;
+      }
+      this.outcome[pass] = res.refused ? 'refused' : 'ok';
       log.info(`${this.session.state.sessionKey}: pass ${pass} done (${res.usage.inputTokens} in, ${res.usage.outputTokens} out, ${res.usage.searches} search results${res.refused ? ', refused' : ''})`);
       this.accountUsage(res);
       this.backoffMs = BACKOFF_MIN_MS;
@@ -333,7 +414,11 @@ export class SessionOrchestrator {
       if (!opts.keepRunning) this.session.setPass(pass, { state: 'done', at: this.now(), detail: undefined });
       return res;
     } catch (err) {
-      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return null;
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+        this.outcome[pass] = 'aborted';
+        return null;
+      }
+      this.outcome[pass] = 'error';
       this.handleError(pass, err);
       return null;
     } finally {
@@ -387,6 +472,10 @@ export class SessionOrchestrator {
     if (this.closed) return;
     this.deps.emit(structuredClone(this.session.state));
   }
+}
+
+function sameText(a: string, b: string): boolean {
+  return normalizeText(a, true).text === normalizeText(b, true).text;
 }
 
 function paraOf(snapshot: TextSnapshot, pos: number): number {

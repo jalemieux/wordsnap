@@ -311,3 +311,28 @@ export function stableId(prefix: string, input: string): string {
   }
   return `${prefix}_${h.toString(36)}`;
 }
+
+/* ---------- whole-draft proposals ---------- */
+
+/**
+ * The smallest edit that turns the snapshot's paragraphs into `paragraphs`: the paragraphs the two share at the start
+ * and at the end are left alone (a greeting, a signature block with its formatting), only the middle is replaced.
+ * Null when nothing differs. Paragraphs compare after whitespace, quote and dash normalization.
+ */
+export function minimalParagraphEdit(snapshot: TextSnapshot, paragraphs: string[]): { span: Span; replacement: string } | null {
+  const cur = snapshot.paragraphs.map((p) => normalizeText(snapshot.text.slice(p.start, p.end)).text);
+  const next = paragraphs.map((p) => normalizeText(p).text);
+  let pre = 0;
+  while (pre < cur.length && pre < next.length && cur[pre] === next[pre]) pre++;
+  let suf = 0;
+  while (suf < cur.length - pre && suf < next.length - pre && cur[cur.length - 1 - suf] === next[next.length - 1 - suf]) suf++;
+  const replacement = paragraphs.slice(pre, paragraphs.length - suf).join('\n\n');
+  if (pre + suf === cur.length && !replacement) return null;
+  if (pre + suf === cur.length) {
+    // Pure insertion between kept paragraphs: replace the whole draft rather than guess a boundary.
+    return { span: { start: 0, end: snapshot.text.length }, replacement: paragraphs.join('\n\n') };
+  }
+  const start = snapshot.paragraphs[pre]!.start;
+  const end = snapshot.paragraphs[cur.length - 1 - suf]!.end;
+  return { span: { start, end }, replacement };
+}

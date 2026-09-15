@@ -135,6 +135,15 @@ export class SessionClient {
     this.post({ type: 'finding/action', sessionKey: this.sessionKey, findingId, action });
   }
 
+  /** After a change was applied to a finding's span (and its snapshot sent): re-run what produced it, now. */
+  recheck(findingId: string): void {
+    this.post({ type: 'session/recheck', sessionKey: this.sessionKey, findingId });
+  }
+
+  sendStructureAction(action: 'applied' | 'kept'): void {
+    this.post({ type: 'structure/action', sessionKey: this.sessionKey, action });
+  }
+
   close(): void {
     if (this.closed) return;
     this.post({ type: 'session/close', sessionKey: this.sessionKey });

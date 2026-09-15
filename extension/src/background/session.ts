@@ -3,8 +3,9 @@
 import { paragraphIndexAt, shiftSpans, stableId } from '../shared/anchoring';
 import type { Located, LocatedChallenge } from '../passes/validate';
 import type { Claim, ClarityFinding, Verdict } from '../shared/schemas';
-import type { Anchored, AnchoredChallenge, ClaimWithVerdict, HostId, SessionState, Span, TextSnapshot } from '../shared/types';
-import { emptySession, type Checks, type ClarityKindFilter } from '../shared/types';
+import type { Anchored, AnchoredChallenge, ClaimWithVerdict, HostId, PassId, SessionState, Span, StructureResult, TextSnapshot } from '../shared/types';
+import { EMPTY_PASSES, emptySession, type Checks, type ClarityKindFilter } from '../shared/types';
+import type { StructureProposal } from '../passes/validate';
 
 /** Everything needed to pick a session up after the service worker restarts. */
 export interface SavedSession {
@@ -31,6 +32,8 @@ export class Session {
     this.state = structuredClone(saved.state);
     this.snapshot = saved.snapshot ? structuredClone(saved.snapshot) : null;
     this.analyzedSnapshot = saved.analyzedSnapshot ? structuredClone(saved.analyzedSnapshot) : null;
+    // A state saved by a worker that predates the structure pass has no S entry.
+    if (!this.state.passes.S) this.state.passes.S = { ...EMPTY_PASSES.S };
     // A run that was in flight when the worker stopped never finished; do not show it as running.
     for (const p of Object.values(this.state.passes)) if (p.state === 'running') p.state = p.at ? 'done' : 'idle';
   }
@@ -39,6 +42,9 @@ export class Session {
   applySnapshot(next: TextSnapshot): void {
     const prev = this.snapshot;
     this.snapshot = next;
+    // Same text under a new version (the host echoing an applied edit, an undo that lands on analyzed text): the
+    // analysis still stands for it, so the panel must not report the draft as changed.
+    if (prev && prev.text === next.text && this.state.analyzedVersion === prev.version) this.state.analyzedVersion = next.version;
     this.state.snapshotVersion = next.version;
     if (!prev || prev.text === next.text) return;
 
@@ -58,6 +64,8 @@ export class Session {
 
     this.state.clarity = shiftOne(this.state.clarity);
     this.state.claims = shiftOne(this.state.claims);
+    // A proposal is for one text; once the text moves on, the user needs a fresh one.
+    if (this.state.structure?.status === 'open') this.state.structure.status = 'stale';
 
     const challenges: AnchoredChallenge[] = [];
     for (const ch of this.state.challenges) {
@@ -146,6 +154,7 @@ export class Session {
     if (!checks.facts) this.state.claims = [];
     if (!checks.challenge) this.state.challenges = [];
     if (!checks.challenge && !checks.structure) this.state.argument = undefined;
+    if (!checks.structure) this.state.structure = undefined;
   }
 
   mergePassC(result: { thesis: string; premises: string[]; challenges: LocatedChallenge[] }): void {
@@ -164,6 +173,29 @@ export class Session {
     this.state.challenges = out;
   }
 
+  /** Record what the structure pass said about the current snapshot. A reorder waits on the user; a keeps needs nothing. */
+  setStructure(proposal: StructureProposal, forVersion: number): void {
+    const status: StructureResult['status'] = proposal.verdict === 'reorder' ? 'open' : 'kept';
+    this.state.structure = { ...proposal, status, forVersion };
+  }
+
+  /** The user applied or kept the open proposal. False when there was nothing to act on. */
+  applyStructureAction(action: 'applied' | 'kept'): boolean {
+    const st = this.state.structure;
+    if (!st || st.verdict !== 'reorder' || st.status === action) return false;
+    st.status = action;
+    return true;
+  }
+
+  /** Drop a finding entirely (after the user changed its text and asked for a re-check). */
+  removeFinding(findingId: string): boolean {
+    const n = this.state.clarity.length + this.state.claims.length + this.state.challenges.length;
+    this.state.clarity = this.state.clarity.filter((f) => f.id !== findingId);
+    this.state.claims = this.state.claims.filter((f) => f.id !== findingId);
+    this.state.challenges = this.state.challenges.filter((f) => f.id !== findingId);
+    return this.state.clarity.length + this.state.claims.length + this.state.challenges.length < n;
+  }
+
   applyAction(findingId: string, action: 'applied' | 'kept'): boolean {
     const all: Anchored<unknown>[] = [...this.state.clarity, ...this.state.claims, ...this.state.challenges];
     const f = all.find((x) => x.id === findingId);
@@ -172,7 +204,7 @@ export class Session {
     return true;
   }
 
-  setPass(pass: 'A' | 'B' | 'C', patch: Partial<SessionState['passes']['A']>): void {
+  setPass(pass: PassId, patch: Partial<SessionState['passes']['A']>): void {
     this.state.passes[pass] = { ...this.state.passes[pass], ...patch };
   }
 }

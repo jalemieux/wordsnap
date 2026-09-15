@@ -27,7 +27,7 @@ export function sampleState(overrides: Partial<SessionState> = {}): SessionState
     return { id: ch.id, quote: ch.anchors[0]!, span: spans[0]!, spans, status: 'open', data: ch };
   });
   const now = Date.now();
-  s.passes = { A: { state: 'done', at: now }, B: { state: 'done', at: now }, C: { state: 'done', at: now } };
+  s.passes = { S: { state: 'done', at: now }, A: { state: 'done', at: now }, B: { state: 'done', at: now }, C: { state: 'done', at: now } };
   return { ...s, ...overrides };
 }
 

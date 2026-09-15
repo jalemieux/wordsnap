@@ -2,7 +2,8 @@
 import type { Challenge, Claim, ClarityFinding, Verdict } from './schemas';
 
 export type HostId = 'gmail' | 'x' | 'linkedin' | 'generic';
-export type PassId = 'A' | 'B' | 'C';
+/** S runs first and proposes an order; A reads clarity and claims; B checks facts; C argues back. */
+export type PassId = 'S' | 'A' | 'B' | 'C';
 export type Effort = 'low' | 'medium' | 'high';
 
 /** Half-open character range [start, end) into TextSnapshot.text. */
@@ -43,6 +44,21 @@ export interface AnchoredChallenge extends Anchored<Challenge> {
 
 export type PassRunState = 'idle' | 'running' | 'done' | 'error';
 
+/**
+ * What the structure pass said about the draft. `reorder` is a proposal the user applies or keeps from the panel;
+ * while it is `open`, A, B and C wait. `keeps` records that the order already serves the reader (note says why).
+ */
+export interface StructureResult {
+  verdict: 'keeps' | 'reorder';
+  note: string;
+  /** The proposed draft, one entry per paragraph. Empty when the verdict is `keeps`. */
+  paragraphs: string[];
+  /** open: waiting on the user. stale: the draft changed since it was proposed. */
+  status: 'open' | 'applied' | 'kept' | 'stale';
+  /** Snapshot version the proposal was made for. */
+  forVersion: number;
+}
+
 export interface PassStatus {
   state: PassRunState;
   error?: string;
@@ -60,8 +76,9 @@ export interface Usage {
 }
 
 /**
- * The four checks a person can pick in the panel. Structure and Polish are the two halves of pass A's clarity notes,
- * Facts is pass B, Challenge is pass C. With Structure on and Challenge off, C runs thesis-only without research.
+ * The four checks a person can pick in the panel. Structure is pass S (a proposed order for the draft) plus the
+ * structure half of pass A's clarity notes and the thesis; Polish is the other half of A's notes; Facts is pass B;
+ * Challenge is pass C. With Structure on and Challenge off, C runs thesis-only without research.
  */
 export type CheckId = 'structure' | 'polish' | 'facts' | 'challenge';
 export type Checks = Record<CheckId, boolean>;
@@ -92,6 +109,8 @@ export interface SessionState {
   clarity: Anchored<ClarityFinding>[];
   claims: Anchored<ClaimWithVerdict>[];
   argument?: { thesis: string; premises: string[] };
+  /** Result of the structure pass for this draft; absent until it has run. */
+  structure?: StructureResult;
   challenges: AnchoredChallenge[];
   passes: Record<PassId, PassStatus>;
   usage: Usage;
@@ -153,7 +172,7 @@ export const DEFAULT_SETTINGS: Settings = {
   openrouter: { ...DEFAULT_OPENROUTER },
   blockedDomains: [],
   enabledHosts: { gmail: true, x: true, linkedin: true, generic: false },
-  effort: { A: 'low', B: 'high', C: 'high' },
+  effort: { S: 'medium', A: 'low', B: 'high', C: 'high' },
   lifetimeCostUsd: 0,
   onboarded: false,
   autoAnalyze: false,
@@ -161,6 +180,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const EMPTY_PASSES: Record<PassId, PassStatus> = {
+  S: { state: 'idle' },
   A: { state: 'idle' },
   B: { state: 'idle' },
   C: { state: 'idle' },
@@ -174,7 +194,7 @@ export function emptySession(sessionKey: string, host: HostId): SessionState {
     clarity: [],
     claims: [],
     challenges: [],
-    passes: { A: { ...EMPTY_PASSES.A }, B: { ...EMPTY_PASSES.B }, C: { ...EMPTY_PASSES.C } },
+    passes: { S: { ...EMPTY_PASSES.S }, A: { ...EMPTY_PASSES.A }, B: { ...EMPTY_PASSES.B }, C: { ...EMPTY_PASSES.C } },
     usage: { inputTokens: 0, outputTokens: 0, searches: 0, estCostUsd: 0 },
   };
 }

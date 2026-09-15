@@ -15,6 +15,14 @@ export type ContentToBackground =
   | { type: 'session/open'; sessionKey: string; host: HostId; platform: PlatformInfo }
   | { type: 'session/snapshot'; sessionKey: string; snapshot: TextSnapshot; reason: 'initial' | 'edit' }
   | { type: 'finding/action'; sessionKey: string; findingId: string; action: 'applied' | 'kept' }
+  /**
+   * The user applied a change (WordSnap's suggestion or their own rewrite) to a finding's span. Sent after the
+   * snapshot that carries the edit: the pass that produced the finding re-runs on the changed paragraphs right away,
+   * whatever the mode, and the finding itself is dropped so the fresh result decides.
+   */
+  | { type: 'session/recheck'; sessionKey: string; findingId: string }
+  /** The user applied or kept the structure proposal. Kept: A, B and C run on the draft as written. */
+  | { type: 'structure/action'; sessionKey: string; action: 'applied' | 'kept' }
   /** The user asked for a fresh analysis of the latest snapshot: no debounce, no C throttle. */
   | { type: 'session/analyze'; sessionKey: string }
   /** The user flipped a check chip in the panel: remember it and drop findings the new set no longer covers. */

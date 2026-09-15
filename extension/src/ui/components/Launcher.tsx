@@ -29,7 +29,7 @@ function intersects(a: RectLike, b: RectLike): boolean {
 export function Launcher({ state, anchor, avoid, open, onToggle }: LauncherProps) {
   const running = anyRunning(state);
   const issues = openIssueCount(state);
-  const analyzed = !!state.argument || state.claims.some((c) => c.data.verdict) || state.clarity.length > 0;
+  const analyzed = !!state.argument || !!state.structure || state.claims.some((c) => c.data.verdict) || state.clarity.length > 0;
   const changed = analyzed && draftChanged(state);
   const title = open ? 'Hide WordSnap' : running ? 'WordSnap is analyzing your draft' : changed ? 'Draft changed since WordSnap last checked it' : analyzed ? `WordSnap: ${issues} ${issues === 1 ? 'thing' : 'things'} to look at` : 'Check this draft with WordSnap';
   return (

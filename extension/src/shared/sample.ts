@@ -1,6 +1,6 @@
 // The one sample draft used by the mock provider, the options-page "try it" step, UI tests and the e2e suite.
 // Same message as the design mock, so the extension can be compared against it.
-import type { PassA, PassB, PassC } from './schemas';
+import type { PassA, PassB, PassC, PassS } from './schemas';
 
 export const SAMPLE_SUBJECT = 'Proposal: a four-day week pilot for Q4';
 
@@ -15,6 +15,35 @@ export const SAMPLE_PARAGRAPHS = [
 ];
 
 export const SAMPLE_TEXT = SAMPLE_PARAGRAPHS.join('\n\n');
+
+/**
+ * The same message as Jordan first dictated it: ask at the end, the hallway evidence before the trials, filler
+ * throughout. The structure pass turns it into SAMPLE_PARAGRAPHS, so the whole chain (S, then A, B, C on the
+ * reordered text) runs on canned data. Every word of four letters or more in SAMPLE_TEXT appears here, which is
+ * what the voice gate in validatePassS checks.
+ */
+export const SAMPLE_DICTATED_PARAGRAPHS = [
+  'Hi all,',
+  "ok so I've been going back and forth on this, um, everyone I've talked to on the team wants this, so I don't think we have a retention risk to worry about, if anything this becomes our best recruiting story, closer to home I mean.",
+  "When Microsoft Japan tried it in 2019, productivity jumped 40%. Iceland ran trials covering more than 1% of its entire workforce, and the results were good enough that most unions negotiated shorter hours afterward. In the UK's 2022 pilot, not a single company went back to five days. So yeah the evidence is stronger than people assume.",
+  "Anyway what I want is to put a four-day work week pilot on the table for Q4. I'd suggest a three-month pilot for engineering and design, with a checkpoint at six weeks, and support and sales can follow once we've worked out coverage I guess. Can we get 20 minutes on Thursday's agenda?",
+  '— Jordan',
+];
+export const SAMPLE_DICTATED_TEXT = SAMPLE_DICTATED_PARAGRAPHS.join('\n\n');
+/** A phrase only the dictated draft contains; the mock provider keys its structure answer on it. */
+export const SAMPLE_DICTATED_MARKER = "ok so I've been going back and forth";
+
+export const SAMPLE_PASS_S: PassS = {
+  verdict: 'reorder',
+  note: 'The ask was in the last paragraph and the hallway evidence came before the trials. Same sentences: the ask first, the evidence in one block, then the plan.',
+  paragraphs: SAMPLE_PARAGRAPHS,
+};
+
+export const SAMPLE_PASS_S_KEEPS: PassS = {
+  verdict: 'keeps',
+  note: 'The ask opens, the evidence follows it, and the plan closes. The order holds.',
+  paragraphs: [],
+};
 
 export const SAMPLE_PASS_A: PassA = {
   clarity: [

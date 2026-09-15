@@ -3,8 +3,15 @@ import type { ComposerHandle } from '../adapters/types';
 import type { Checks, SessionState } from '../shared/types';
 
 export interface OverlayCallbacks {
-  /** User clicked Apply change on a finding. The content script performs the edit and reports it. */
-  onApply(findingId: string, span: { start: number; end: number }, replacement: string): void;
+  /**
+   * User clicked Apply change on a finding, or applied their own rewrite of its span. The content script performs
+   * the edit, reports it, and asks for a re-check of the changed paragraph. Returns false when the editor refused.
+   */
+  onApply(findingId: string, span: { start: number; end: number }, replacement: string): boolean | void;
+  /** User clicked Apply structure: replace the whole draft with the proposal's paragraphs, then analyze it. */
+  onApplyStructure?(paragraphs: string[]): boolean | void;
+  /** User clicked Keep mine on a structure proposal: analyze the draft as written. */
+  onKeepStructure?(): void;
   /** User clicked Keep as-is. */
   onKeep(findingId: string): void;
   /** The user opened (true) or collapsed (false) the panel from the launcher badge. */

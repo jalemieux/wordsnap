@@ -3,8 +3,10 @@
 //  - cited URLs must have appeared in this request's search results; a verdict with no surviving sources is unverifiable
 //  - suggestions longer than 1.3x the quote are dropped (the finding stays as advice)
 //  - overlapping spans are deduplicated, higher severity wins
-import { locateQuote } from '../shared/anchoring';
-import type { Challenge, Claim, ClarityFinding, PassA, PassB, PassC, Source, Verdict } from '../shared/schemas';
+//  - a structure proposal must be the writer's words: nearly every word of four letters or more in the proposal must
+//    already be in the draft, and its length must stay between half and 1.2x the draft's, or it is dropped
+import { locateQuote, normalizeText } from '../shared/anchoring';
+import type { Challenge, Claim, ClarityFinding, PassA, PassB, PassC, PassS, Source, Verdict } from '../shared/schemas';
 import type { Span } from '../shared/types';
 
 export const MAX_SUGGESTION_RATIO = 1.3;
@@ -126,4 +128,60 @@ export function validatePassC(result: PassC, text: string, sourcesSeen: string[]
     challenges.push({ spans, data: { ...ch, anchors, sources: filterSources(ch.sources, sourcesSeen) } });
   }
   return { thesis: result.thesis, premises: result.premises, challenges: challenges.slice(0, 5) };
+}
+
+/** Share of the proposal's words (four letters or more) that must already appear in the draft. */
+export const STRUCTURE_MIN_WORD_REUSE = 0.9;
+export const STRUCTURE_MIN_RATIO = 0.5;
+export const STRUCTURE_MAX_RATIO = 1.2;
+
+function words(text: string): string[] {
+  return normalizeText(text, true).text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
+}
+
+/** How much of `proposal`'s vocabulary (words of four letters or more, with multiplicity) the draft already has. 1 when the proposal has no such words. */
+export function wordReuse(draft: string, proposal: string): number {
+  const have = new Map<string, number>();
+  for (const w of words(draft)) if (w.length >= 4) have.set(w, (have.get(w) ?? 0) + 1);
+  let total = 0;
+  let reused = 0;
+  for (const w of words(proposal)) {
+    if (w.length < 4) continue;
+    total += 1;
+    const n = have.get(w) ?? 0;
+    if (n > 0) {
+      reused += 1;
+      have.set(w, n - 1);
+    }
+  }
+  return total === 0 ? 1 : reused / total;
+}
+
+export interface StructureProposal {
+  verdict: 'keeps' | 'reorder';
+  note: string;
+  paragraphs: string[];
+}
+
+/**
+ * Turn a structure result into something safe to show. A `reorder` becomes `keeps` when the proposal is the draft
+ * itself, when it brings in vocabulary the writer did not use, or when its length is out of bounds: the model may not
+ * rewrite under the name of reordering. `reason` says why a proposal was demoted, for the log.
+ */
+export function validatePassS(result: PassS, text: string): { proposal: StructureProposal; reason?: string } {
+  const note = result.note.trim();
+  if (result.verdict === 'keeps') return { proposal: { verdict: 'keeps', note, paragraphs: [] } };
+  // Single line breaks inside a paragraph (an address block, a multi-line sign-off) are kept; runs of spaces collapse.
+  const paragraphs = result.paragraphs
+    .map((p) => p.replace(/[ \t\r]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{2,}/g, '\n').trim())
+    .filter(Boolean);
+  const keeps = (reason: string) => ({ proposal: { verdict: 'keeps' as const, note, paragraphs: [] }, reason });
+  if (!paragraphs.length) return keeps('empty proposal');
+  const proposal = paragraphs.join('\n\n');
+  if (normalizeText(proposal, true).text === normalizeText(text, true).text) return keeps('proposal equals the draft');
+  const ratio = proposal.length / Math.max(1, text.length);
+  if (ratio < STRUCTURE_MIN_RATIO || ratio > STRUCTURE_MAX_RATIO) return keeps(`length ratio ${ratio.toFixed(2)} out of bounds`);
+  const reuse = wordReuse(text, proposal);
+  if (reuse < STRUCTURE_MIN_WORD_REUSE) return keeps(`word reuse ${reuse.toFixed(2)} below ${STRUCTURE_MIN_WORD_REUSE}`);
+  return { proposal: { verdict: 'reorder', note, paragraphs } };
 }

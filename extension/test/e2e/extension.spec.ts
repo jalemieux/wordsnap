@@ -81,10 +81,12 @@ test('hover card shows the finding and Apply change edits the draft', async ({ c
   await expect(body).toContainText('56 of the 61 companies kept it');
   await expect(body).not.toContainText('not a single company went back to five days');
 
-  // Re-analysis runs silently; only the needs-precision claim remains open, and the fixed span is no longer red.
+  // The paragraph is re-checked at once: only the needs-precision claim remains open, the fixed span is no longer red,
+  // and the host's echo of the edit does not leave the draft marked as changed.
   await expect(summary).toContainText(/0 contradicted/, { timeout: 15_000 });
   await expect(summary).toContainText(/1 needs precision/);
   await expect(overlay.locator('.ws-hl-layer [role="button"][data-status="contradicted"]')).toHaveCount(0);
+  await expect(overlay.locator('.ws-panel .ws-status')).toContainText(/checked/i, { timeout: 15_000 });
 });
 
 test('editing a flagged sentence marks its finding stale and re-runs', async ({ context }) => {
@@ -205,4 +207,101 @@ test('the check chips gate what runs: Challenge off drops the rows, on again nee
   await panel.locator('.ws-reanalyze').click();
   await expect(panel.locator('.ws-ch-row')).toHaveCount(4, { timeout: 15_000 });
   await expect(panel.locator('.ws-status')).toContainText(/checked/i);
+});
+
+/** Replace the fixture body with the dictated version of the same email (Gmail markup: one div per line, <div><br></div> between). */
+async function setDictatedDraft(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const paras = [
+      'Hi all,',
+      "ok so I've been going back and forth on this, um, everyone I've talked to on the team wants this, so I don't think we have a retention risk to worry about, if anything this becomes our best recruiting story, closer to home I mean.",
+      "When Microsoft Japan tried it in 2019, productivity jumped 40%. Iceland ran trials covering more than 1% of its entire workforce, and the results were good enough that most unions negotiated shorter hours afterward. In the UK's 2022 pilot, not a single company went back to five days. So yeah the evidence is stronger than people assume.",
+      "Anyway what I want is to put a four-day work week pilot on the table for Q4. I'd suggest a three-month pilot for engineering and design, with a checkpoint at six weeks, and support and sales can follow once we've worked out coverage I guess. Can we get 20 minutes on Thursday's agenda?",
+      '— Jordan',
+    ];
+    const body = document.getElementById('message-body')!;
+    body.innerHTML = paras.map((p) => `<div>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).join('<div><br></div>');
+  });
+}
+
+test('a dictated draft gets a structure proposal; Apply structure reorders the editor and the passes run on the result', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  await setDictatedDraft(page);
+  const overlay = await openWordSnap(page);
+  const panel = overlay.locator('.ws-panel');
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+
+  // The proposal shows first and the other passes wait.
+  const section = panel.locator('.ws-structure');
+  await expect(section).toHaveAttribute('data-status', 'open', { timeout: 15_000 });
+  await expect(section.locator('.ws-proposal p').first()).toHaveText('Hi all,');
+  await expect(section.locator('.ws-proposal p').nth(1)).toContainText('I want to put a four-day work week pilot');
+  await expect(panel.locator('.ws-status')).toContainText(/structure proposed/i);
+  await expect(panel.locator('.ws-reanalyze')).toBeDisabled();
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(0);
+
+  await section.locator('[data-act="apply-structure"]').click();
+
+  // The host editor now reads in the proposed order, paragraph breaks intact, and the old filler is gone.
+  const body = page.locator('#message-body');
+  await expect(body).not.toContainText("ok so I've been going back and forth");
+  const text = await body.evaluate((el) => (el as HTMLElement).innerText.replace(/\n{2,}/g, '\n\n').trim());
+  expect(text.startsWith('Hi all,\n\nI want to put a four-day work week pilot on the table for Q4.\n\nThe evidence is stronger')).toBe(true);
+  expect(text.endsWith('— Jordan')).toBe(true);
+  // The host's own undo stack has the edit.
+  await body.click();
+  await expect(section).toHaveAttribute('data-status', 'applied');
+
+  // Then the passes run on the reordered text: findings anchor, challenges list.
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(4, { timeout: 20_000 });
+  await expect(overlay.locator('.ws-hl-layer [role="button"][data-status="contradicted"]')).toHaveCount(1, { timeout: 20_000 });
+  await expect(panel.locator('.ws-summary')).toContainText(/1 contradicted/);
+});
+
+test('Keep mine dismisses the proposal and analyzes the draft as written', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  await setDictatedDraft(page);
+  const overlay = await openWordSnap(page);
+  const panel = overlay.locator('.ws-panel');
+  const section = panel.locator('.ws-structure');
+  await expect(section).toHaveAttribute('data-status', 'open', { timeout: 15_000 });
+  await section.locator('[data-act="keep-structure"]').click();
+  await expect(section).toHaveAttribute('data-status', 'kept');
+  await expect(section).toContainText(/kept your order/i);
+  await expect(page.locator('#message-body')).toContainText("ok so I've been going back and forth");
+  // Three of the four canned challenges anchor in the dictated wording (the coverage sentence reads differently there).
+  await expect(panel.locator('.ws-ch-row')).toHaveCount(3, { timeout: 20_000 });
+});
+
+test('Rewrite lets the user type their own wording; Apply edits the draft and the span is re-checked', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openWordSnap(page);
+  const contradicted = overlay.locator('.ws-hl-layer [role="button"][data-status="contradicted"]').first();
+  await expect(contradicted).toBeVisible({ timeout: 15_000 });
+  await contradicted.click();
+  const card = overlay.locator('[aria-label="Fact check"]');
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: 'Rewrite' }).click();
+
+  const box = card.locator('.ws-rewrite-t');
+  await expect(box).toBeVisible();
+  await expect(box).toHaveValue('56 of the 61 companies kept it'); // prefilled with the suggestion
+  await box.fill('most of the companies stayed on four days');
+  // Typing in the box must not reach the host page (its shortcuts see the shadow host as the target).
+  await expect(page.locator('#message-body')).not.toContainText('most of the companies');
+  await card.locator('[data-act="apply-rewrite"]').click();
+
+  const body = page.locator('#message-body');
+  await expect(body).toContainText('most of the companies stayed on four days');
+  await expect(body).not.toContainText('not a single company went back to five days');
+  await expect(overlay.locator('.ws-toast')).toContainText(/applied your wording/i);
+
+  // The re-check ran on that paragraph: the contradicted highlight is gone and the summary reflects it.
+  const summary = overlay.locator('.ws-panel .ws-summary');
+  await expect(summary).toContainText(/0 contradicted/, { timeout: 15_000 });
+  await expect(overlay.locator('.ws-hl-layer [role="button"][data-status="contradicted"]')).toHaveCount(0);
+  await expect(overlay.locator('.ws-panel .ws-status')).toContainText(/checked/i, { timeout: 15_000 });
 });

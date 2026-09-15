@@ -67,3 +67,15 @@ export const PassC = z.object({
 export type PassC = z.infer<typeof PassC>;
 /** Pass C in thesis-only mode (Structure on, Challenge off): the challenges array is expected empty. */
 export const PassCThesis = PassC.extend({ challenges: z.array(Challenge).max(5) });
+
+/**
+ * Structure pass: does the order of ideas serve the reader? `keeps` means yes and `paragraphs` is empty. `reorder`
+ * carries the proposal: the writer's own sentences regrouped, paragraph by paragraph. Code checks the proposal reuses
+ * the draft's words (src/passes/validate.ts) before it is shown.
+ */
+export const PassS = z.object({
+  verdict: z.enum(['keeps', 'reorder']),
+  note: z.string().max(280),
+  paragraphs: z.array(z.string().max(2000)).max(20),
+});
+export type PassS = z.infer<typeof PassS>;

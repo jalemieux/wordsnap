@@ -1,9 +1,9 @@
 // Builders that turn a snapshot into PassRequest objects. Pure; no I/O.
 import type { PassRequest } from '../providers/types';
 import type { Claim, ClarityFinding } from '../shared/schemas';
-import { PassA, PassB, PassC, PassCThesis } from '../shared/schemas';
+import { PassA, PassB, PassC, PassCThesis, PassS } from '../shared/schemas';
 import type { Effort, TextSnapshot } from '../shared/types';
-import { PASS_A_SYSTEM, PASS_B_SYSTEM, PASS_C_SYSTEM } from './prompts';
+import { PASS_A_SYSTEM, PASS_B_SYSTEM, PASS_C_SYSTEM, PASS_S_SYSTEM } from './prompts';
 
 export const RESEARCH_BUDGET = { B: 6, C: 4 } as const;
 
@@ -101,5 +101,21 @@ export function buildPassC(snapshot: TextSnapshot, opts: PassCOptions): PassRequ
     schema: PassC,
     effort: opts.effort,
     research: { maxSearches: RESEARCH_BUDGET.C, blockedDomains: opts.blockedDomains },
+  };
+}
+
+export interface PassSOptions {
+  effort: Effort;
+  context?: DraftContext;
+}
+
+/** Structure: the whole draft, no research. Runs before A when the Structure check is on. */
+export function buildPassS(snapshot: TextSnapshot, opts: PassSOptions): PassRequest<PassS> {
+  return {
+    pass: 'S',
+    system: PASS_S_SYSTEM,
+    user: `${contextLine(opts.context)}<draft>\n${numberedDraft(snapshot)}\n</draft>`,
+    schema: PassS,
+    effort: opts.effort,
   };
 }

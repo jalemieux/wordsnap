@@ -47,6 +47,17 @@ describe('Session', () => {
     expect(edited.slice(c2.span!.start, c2.span!.end)).toBe(c2.quote);
   });
 
+  it('a new version of identical text keeps the analyzed mark, a changed one does not', () => {
+    const s = new Session('k', 'gmail');
+    s.applySnapshot(snapshotFromText(SAMPLE_TEXT, 1));
+    s.state.analyzedVersion = 1;
+    s.applySnapshot(snapshotFromText(SAMPLE_TEXT, 2));
+    expect(s.state.snapshotVersion).toBe(2);
+    expect(s.state.analyzedVersion).toBe(2);
+    s.applySnapshot(snapshotFromText(SAMPLE_TEXT + ' PS', 3));
+    expect(s.state.analyzedVersion).toBe(2);
+  });
+
   it('drops a finding whose text was deleted', () => {
     const { s } = seeded();
     const edited = SAMPLE_TEXT.replace("In the UK's 2022 pilot, not a single company went back to five days.", '');

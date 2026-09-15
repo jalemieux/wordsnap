@@ -1,6 +1,6 @@
 // Mock provider: canned results from the shared sample. Used for development without a key, the options "try it" step
 // when provider=mock, unit tests and the e2e suite. Matches request claims to sample verdicts by quote.
-import { SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_SOURCES_SEEN } from '../shared/sample';
+import { SAMPLE_DICTATED_MARKER, SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_PASS_S, SAMPLE_PASS_S_KEEPS, SAMPLE_SOURCES_SEEN } from '../shared/sample';
 import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from './types';
 
 export interface MockProviderOptions {
@@ -31,7 +31,8 @@ function abortError(): Error {
   return e;
 }
 
-const MOCK_USAGE: Record<'A' | 'B' | 'C', PassUsage> = {
+const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C', PassUsage> = {
+  S: { inputTokens: 2400, outputTokens: 700, cacheReadTokens: 1800, searches: 0 },
   A: { inputTokens: 2600, outputTokens: 900, cacheReadTokens: 1800, searches: 0 },
   B: { inputTokens: 18000, outputTokens: 1600, cacheReadTokens: 1800, searches: 4 },
   C: { inputTokens: 14000, outputTokens: 1800, cacheReadTokens: 1800, searches: 3 },
@@ -69,6 +70,11 @@ export class MockProvider implements LLMProvider {
     if (signal.aborted) throw abortError();
     const usage = MOCK_USAGE[req.pass];
 
+    if (req.pass === 'S') {
+      // The dictated sample gets the reorder that turns it into SAMPLE_TEXT; anything else already holds.
+      const data = req.user.includes(SAMPLE_DICTATED_MARKER) ? SAMPLE_PASS_S : SAMPLE_PASS_S_KEEPS;
+      return { data: req.schema.parse(data), sourcesSeen: [], usage };
+    }
     if (req.pass === 'A') {
       return { data: req.schema.parse(SAMPLE_PASS_A), sourcesSeen: [], usage };
     }

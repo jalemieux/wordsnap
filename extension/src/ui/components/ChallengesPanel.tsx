@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { CHECK_IDS, type Checks, type SessionState } from '../../shared/types';
-import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, firstError, sortChallenges, summaryCounts } from '../format';
+import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, firstError, sortChallenges, staleFindings, structureOpen, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
@@ -13,13 +13,17 @@ export interface ChallengesPanelProps {
   onAnalyze?: () => void;
   /** The user flipped a check chip. Absent: chips render but are inert. */
   onChecks?: (checks: Checks) => void;
+  /** Apply structure: replace the draft with the proposal's paragraphs. Absent: the proposal shows without buttons. */
+  onApplyStructure?: (paragraphs: string[]) => void;
+  /** Keep mine: dismiss the proposal and analyze the draft as written. */
+  onKeepStructure?: () => void;
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
   minWords?: number;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -27,7 +31,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
   const analyzed = state.analyzedVersion !== undefined;
   const checks = checksOf(state);
   const noneOn = CHECK_IDS.every((k) => !checks[k]);
-  const canAnalyze = !running && !noneOn && (draftChanged(state) || checksChanged(state) || !!firstError(state));
+  const canAnalyze = !running && !noneOn && !structureOpen(state) && (draftChanged(state) || checksChanged(state) || staleFindings(state) || !!firstError(state));
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
@@ -40,7 +44,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
             class="ws-btn ws-reanalyze"
             disabled={!canAnalyze}
             onClick={onAnalyze}
-            title={canAnalyze ? 'Re-run clarity on the changed paragraphs, check new claims, and refresh the counterargument' : running ? 'Analyzing…' : 'Nothing changed since the last analysis'}
+            title={canAnalyze ? 'Re-run clarity on the changed paragraphs, check new claims, and refresh the counterargument' : running ? 'Analyzing…' : structureOpen(state) ? 'Apply or keep the proposed structure first' : 'Nothing changed since the last analysis'}
           >
             Re-analyze
           </button>
@@ -79,8 +83,8 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
       </div>
       <div class={`ws-progress${running ? ' running' : ''}`} />
       {noneOn ? <div class="ws-idle">Pick at least one check.</div> : null}
-      {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} /> : null}
-      {!running && !state.argument && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error') ? (
+      {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} checks={checks} /> : null}
+      {!running && !state.argument && !state.structure && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error') ? (
         <IdleHint wordCount={wordCount ?? 0} minWords={minWords ?? 8} />
       ) : null}
       <div class="ws-summary">
@@ -109,6 +113,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
         ) : null}
       </div>
       <div class="ws-scroll">
+        {checks.structure ? <StructureSection state={state} onApply={onApplyStructure} onKeep={onKeepStructure} /> : null}
         {checks.structure || checks.challenge ? (
         <section class="ws-sec">
           <h3>
@@ -185,16 +190,70 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
 }
 
 
-const PASS_LABEL: Record<'A' | 'B' | 'C', string> = { A: 'Reading for clarity and claims', B: 'Checking facts', C: 'Building the counterargument' };
+const PASS_LABEL: Record<'S' | 'A' | 'B' | 'C', string> = { S: 'Reading the order of your ideas', A: 'Reading for clarity and claims', B: 'Checking facts', C: 'Building the counterargument' };
+
+/**
+ * The structure pass's answer: a proposed order with Apply / Keep while it is open, otherwise one line on what it
+ * found. Nothing until the pass has run.
+ */
+function StructureSection({ state, onApply, onKeep }: { state: SessionState; onApply?: (paragraphs: string[]) => void; onKeep?: () => void }) {
+  const st = state.structure;
+  const running = state.passes.S?.state === 'running';
+  if (!st && !running) return null;
+  const open = !!st && st.verdict === 'reorder' && st.status === 'open';
+  return (
+    <section class="ws-sec ws-structure" data-status={st ? (st.verdict === 'reorder' ? st.status : 'keeps') : 'running'}>
+      <h3>
+        Structure<span class="pass">{open ? 'waiting on you' : 'structure pass'}</span>
+      </h3>
+      {running ? (
+        <p class="ws-empty">Reading the order of your ideas…</p>
+      ) : !st ? null : st.verdict === 'keeps' ? (
+        <p class="ws-struct-ok">Your order holds. {st.note}</p>
+      ) : st.status === 'open' ? (
+        <>
+          <p class="ws-struct-note">{st.note}</p>
+          <div class="ws-proposal" aria-label="Proposed order">
+            {st.paragraphs.map((para, i) => (
+              <p key={i}>{para}</p>
+            ))}
+          </div>
+          {onApply || onKeep ? (
+            <div class="ws-btns">
+              {onApply ? (
+                <button class="ws-btn primary" data-act="apply-structure" onClick={() => onApply(st.paragraphs)} title="Replace the draft with your sentences in this order">
+                  Apply structure
+                </button>
+              ) : null}
+              {onKeep ? (
+                <button class="ws-btn" data-act="keep-structure" onClick={onKeep} title="Keep your order and check the draft as written">
+                  Keep mine
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <p class="ws-struct-hint">Your sentences, reordered; nothing added. Undo in the editor puts the draft back.</p>
+        </>
+      ) : st.status === 'applied' ? (
+        <p class="ws-struct-ok">Structure applied. {st.note}</p>
+      ) : st.status === 'kept' ? (
+        <p class="ws-empty">Kept your order.</p>
+      ) : (
+        <p class="ws-empty">The draft changed since this order was proposed. Re-analyze for a fresh one.</p>
+      )}
+    </section>
+  );
+}
 
 /** Shown only during the first analysis, when there is nothing else to look at yet. */
-function PassProgress({ state }: { state: SessionState }) {
+function PassProgress({ state, checks }: { state: SessionState; checks: Checks }) {
+  const ids = (checks.structure ? (['S', 'A', 'B', 'C'] as const) : (['A', 'B', 'C'] as const)).filter((id) => id !== 'B' || checks.facts).filter((id) => id !== 'C' || checks.challenge || checks.structure);
   return (
     <div class="ws-firstrun" role="status" aria-live="polite">
       <div class="ws-firstrun-title">Analyzing your draft</div>
       <ul>
-        {(['A', 'B', 'C'] as const).map((id) => {
-          const p = state.passes[id];
+        {ids.map((id) => {
+          const p = state.passes[id] ?? { state: 'idle' as const };
           const mark = p.state === 'done' ? '✓' : p.state === 'running' ? <span class="ws-spin" /> : p.state === 'error' ? '!' : '·';
           return (
             <li key={id} class={p.state}>

@@ -144,11 +144,26 @@ export function checksOf(state: SessionState): Checks {
 
 export const CHECK_LABEL: Record<CheckId, string> = { structure: 'Structure', polish: 'Polish', facts: 'Facts', challenge: 'Challenge' };
 export const CHECK_HINT: Record<CheckId, string> = {
-  structure: 'Your thesis as a reader will hear it, and where the narrative loses them.',
+  structure: 'A proposed order for your own sentences when the point is buried, your thesis as a reader will hear it, and where the narrative loses them.',
   polish: 'Fuzzy sentences, hedges, filler. A tighter phrasing in your register.',
   facts: 'Every factual claim verified with sources.',
   challenge: 'The strongest counterargument, the blind spots, the gaps.',
 };
+
+/** Something on screen is waiting for a fresh run: a finding whose text changed, or a proposal the draft moved past. */
+export function staleFindings(state: SessionState): boolean {
+  return (
+    state.clarity.some((f) => f.status === 'stale') ||
+    state.claims.some((f) => f.status === 'stale') ||
+    state.challenges.some((f) => f.status === 'stale') ||
+    state.structure?.status === 'stale'
+  );
+}
+
+/** A structure proposal is on screen and the other passes are waiting for Apply or Keep. */
+export function structureOpen(state: SessionState): boolean {
+  return state.structure?.verdict === 'reorder' && state.structure.status === 'open';
+}
 
 export function anyRunning(state: SessionState): boolean {
   return Object.values(state.passes).some((p) => p.state === 'running');

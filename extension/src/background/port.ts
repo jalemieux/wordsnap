@@ -134,6 +134,16 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
             sessions.get(raw.sessionKey)?.handleAction(raw.findingId, raw.action);
             return;
           }
+          case 'session/recheck': {
+            log.info(`session ${raw.sessionKey}: re-check after a change to ${raw.findingId}`);
+            sessions.get(raw.sessionKey)?.recheck(raw.findingId);
+            return;
+          }
+          case 'structure/action': {
+            log.info(`session ${raw.sessionKey}: structure ${raw.action}`);
+            sessions.get(raw.sessionKey)?.handleStructureAction(raw.action);
+            return;
+          }
           case 'session/checks': {
             settings = await store.set({ checks: raw.checks });
             sessions.get(raw.sessionKey)?.setChecks(raw.checks);

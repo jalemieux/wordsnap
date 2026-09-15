@@ -1,4 +1,4 @@
-import { changedParagraphs, diffText, locateQuote, normalizeClaim, shiftSpans, snapshotFromText, stableId } from '../../src/shared/anchoring';
+import { changedParagraphs, diffText, locateQuote, normalizeClaim, shiftSpans, snapshotFromText, stableId , minimalParagraphEdit } from '../../src/shared/anchoring';
 
 describe('locateQuote', () => {
   const text = 'The evidence is stronger than people assume. In the UK’s 2022 pilot, not a single company went back.';
@@ -129,5 +129,32 @@ describe('keys', () => {
   it('makes stable ids', () => {
     expect(stableId('cl', 'x')).toBe(stableId('cl', 'x'));
     expect(stableId('cl', 'x')).not.toBe(stableId('cl', 'y'));
+  });
+});
+
+describe('minimalParagraphEdit', () => {
+  const snap = (t: string) => snapshotFromText(t, 1);
+  it('replaces only the paragraphs between a kept greeting and a kept sign-off', () => {
+    const text = 'Hi all,\n\nB\n\nA\n\nC\n\n-- \nJane\nCTO';
+    const e = minimalParagraphEdit(snap(text), ['Hi all,', 'A', 'B', 'C', '-- \nJane\nCTO'])!;
+    expect(text.slice(e.span.start, e.span.end)).toBe('B\n\nA'); // C and the sign-off are a kept suffix
+    expect(e.replacement).toBe('A\n\nB');
+  });
+  it('compares paragraphs after whitespace and quote normalization', () => {
+    const text = 'Hi  all,\n\nB\n\nA';
+    const e = minimalParagraphEdit(snap(text), ['Hi all,', 'A', 'B'])!;
+    expect(text.slice(e.span.start, e.span.end)).toBe('B\n\nA');
+  });
+  it('returns null when nothing differs and falls back to the whole draft for a pure insertion', () => {
+    expect(minimalParagraphEdit(snap('A\n\nB'), ['A', 'B'])).toBeNull();
+    const e = minimalParagraphEdit(snap('A\n\nB'), ['A', 'X', 'B'])!;
+    expect(e.span).toEqual({ start: 0, end: 4 });
+    expect(e.replacement).toBe('A\n\nX\n\nB');
+  });
+  it('a dropped paragraph and a changed order still bound the edit to the moved block', () => {
+    const text = 'Hi,\n\num ok\n\nB\n\nA\n\nBye';
+    const e = minimalParagraphEdit(snap(text), ['Hi,', 'A', 'B', 'Bye'])!;
+    expect(text.slice(e.span.start, e.span.end)).toBe('um ok\n\nB\n\nA');
+    expect(e.replacement).toBe('A\n\nB');
   });
 });
