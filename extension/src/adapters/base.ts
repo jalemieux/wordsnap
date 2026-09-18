@@ -140,10 +140,12 @@ export class ContenteditableComposer implements ComposerHandle {
   onChange(cb: (snapshot: TextSnapshot) => void): () => void {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const fire = () => {
+      // The cached snapshot is stale the moment the DOM changes; only the callback is debounced. A read that lands
+      // between the change and the timer (the launcher clicked right after a paste) then sees the new text.
+      this.invalidate();
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;
-        this.invalidate();
         cb(this.getSnapshot());
       }, 50);
     };

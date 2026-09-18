@@ -5,10 +5,10 @@ import type { ComposerHandle } from '../adapters/types';
 import type { SessionState, Span } from '../shared/types';
 import { emptySession } from '../shared/types';
 import css from './styles.css';
-import { bodyText, structureOpen } from './format';
-import { mapStructure, type StructureMap } from '../shared/structure-map';
+import { bodyText, structureGuiding, structureOpen } from './format';
+import { mapStructure, outlineFill, type SlotFill, type StructureMap } from '../shared/structure-map';
 import { ChallengesPanel } from './components/ChallengesPanel';
-import { CompareView, type CompareGeometry } from './components/CompareView';
+import { CompareView, outlineParagraphs, type CompareGeometry } from './components/CompareView';
 import { HighlightLayer, type HighlightItem, type HighlightStatus, type RectLike } from './components/HighlightLayer';
 import { HoverCard, type CardFinding } from './components/HoverCard';
 import { Launcher } from './components/Launcher';
@@ -108,14 +108,16 @@ function structureMap(handle: ComposerHandle, text: string, paragraphs: string[]
  * its right half (a padding on the host element, restored when the proposal closes) and the pane is drawn there,
  * clipped to the editor's scroll frame. Otherwise over the draft, full width.
  */
-function computeCompare(handle: ComposerHandle, map: StructureMap, viewport: { width: number; height: number }): CompareGeometry {
+function computeCompare(handle: ComposerHandle, map: StructureMap, viewport: { width: number; height: number }, guiding: boolean): CompareGeometry {
   const el = handle.element;
   const er = el.getBoundingClientRect();
   const sp = handle.scrollParent();
   const doc = el.ownerDocument;
   const frame = sp === doc.body || sp === doc.documentElement ? handle.anchorRect() : sp.getBoundingClientRect();
   const wide = er.width >= COMPARE_MIN_WIDE;
-  const width = wide ? Math.min(COMPARE_MAX_W, Math.max(COMPARE_MIN_W, Math.round(er.width * 0.5))) : Math.round(er.width);
+  // A guide must leave the editor free to type into: beside the draft it takes a narrower column, over it, nothing.
+  const share = guiding ? 0.4 : 0.5;
+  const width = wide ? Math.min(COMPARE_MAX_W, Math.max(COMPARE_MIN_W, Math.round(er.width * share))) : Math.round(er.width);
   applyInset(handle, wide ? width + COMPARE_GAP : 0);
   const top = Math.max(er.top, frame.top, 0);
   const bottom = Math.min(frame.bottom, viewport.height);
@@ -137,9 +139,11 @@ function computeLayout(handle: ComposerHandle, state: SessionState, open: boolea
   // The compare pane first: it changes the editor's width, and every other rect is measured after that.
   let compare: CompareGeometry | undefined;
   let map: StructureMap | undefined;
-  if (open && structureOpen(state) && state.structure) {
-    map = structureMap(handle, safeText(handle), state.structure.paragraphs);
-    compare = computeCompare(handle, map, viewport);
+  const st = state.structure;
+  if (open && st && (structureOpen(state) || structureGuiding(state))) {
+    // An outline maps each slot's fragments as one paragraph; the tags then say which slot a fragment feeds.
+    map = structureMap(handle, safeText(handle), st.verdict === 'outline' ? (st.slots ?? []).map((s) => s.from.join(' ')) : st.paragraphs);
+    compare = computeCompare(handle, map, viewport, structureGuiding(state));
   } else {
     applyInset(handle, 0);
   }
@@ -191,6 +195,11 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
   const [hotStructure, setHotStructure] = useState<{ group: number | null; sentence: number | null }>({ group: null, sentence: null });
   const compare = open ? layout.compare : undefined;
   const map = open ? layout.map : undefined;
+  const guiding = structureGuiding(state);
+  const slots = state.structure?.slots ?? [];
+  const fills: SlotFill[] | undefined = useMemo(() => (guiding && map ? outlineFill(text, map, slots.length) : undefined), [guiding, map, text, slots.length]);
+  // The guide over a narrow draft would cover what the user is writing: the panel carries the checklist instead.
+  const showPane = !!compare && !!map && !!state.structure && (compare.wide || !guiding);
 
   // Pointing at a sentence in the editor lights its paragraph in the pane. The editor keeps every event: this only
   // watches the pointer from the window and hit-tests the rects already measured for the tags.
@@ -274,21 +283,38 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         callbacks.onKeepStructure?.();
       }
     : undefined;
+  const applyOutline = callbacks.onApplyOutline
+    ? (paragraphs: string[]) => {
+        setHotStructure({ group: null, sentence: null });
+        const ok = callbacks.onApplyOutline?.(paragraphs) !== false;
+        setToast(ok ? 'Your fragments are in place. Write into the outline; press Done when the message is written.' : 'The editor did not accept the change.');
+      }
+    : undefined;
+  const outlineDone = callbacks.onOutlineDone
+    ? () => {
+        setHotStructure({ group: null, sentence: null });
+        callbacks.onOutlineDone?.();
+        setToast('Checking what you wrote.');
+      }
+    : undefined;
 
   return (
     <div class="ws-root">
       {launcher}
-      {compare && map && state.structure ? (
+      {showPane && compare && map && state.structure ? (
         <CompareView
           structure={state.structure}
           fromParagraphs={Math.max(1, text.split(/\n{2,}/).filter((p) => p.trim()).length)}
           map={map}
           geo={compare}
+          fills={fills}
           hotGroup={hotStructure.group}
           hotSentence={hotStructure.sentence}
           onHot={(group, sentence) => setHotStructure({ group, sentence })}
           onApply={applyStructure}
           onKeep={keepStructure}
+          onApplyOutline={applyOutline}
+          onDone={outlineDone}
         />
       ) : null}
       <HighlightLayer
@@ -332,6 +358,7 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         onApplyStructure={applyStructure}
         onKeepStructure={keepStructure}
         compare={!!compare}
+        outlineGuide={guiding && !showPane && fills ? { slots, fills, onDone: outlineDone } : undefined}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />

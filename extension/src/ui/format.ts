@@ -162,7 +162,12 @@ export function staleFindings(state: SessionState): boolean {
 
 /** A structure proposal is on screen and the other passes are waiting for Apply or Keep. */
 export function structureOpen(state: SessionState): boolean {
-  return state.structure?.verdict === 'reorder' && state.structure.status === 'open';
+  return (state.structure?.verdict === 'reorder' || state.structure?.verdict === 'outline') && state.structure.status === 'open';
+}
+
+/** An applied outline is beside the draft while the user writes into it; nothing waits on it. */
+export function structureGuiding(state: SessionState): boolean {
+  return state.structure?.verdict === 'outline' && state.structure.status === 'guiding';
 }
 
 export function anyRunning(state: SessionState): boolean {

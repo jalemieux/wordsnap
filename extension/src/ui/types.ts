@@ -12,6 +12,10 @@ export interface OverlayCallbacks {
   onApplyStructure?(paragraphs: string[]): boolean | void;
   /** User clicked Keep mine on a structure proposal: analyze the draft as written. */
   onKeepStructure?(): void;
+  /** User clicked Apply outline: write their own fragments into the draft in the outline's order, then keep the outline up as a guide. Nothing runs. */
+  onApplyOutline?(paragraphs: string[]): boolean | void;
+  /** User clicked Done on the outline guide: analyze what they wrote. */
+  onOutlineDone?(): void;
   /** User clicked Keep as-is. */
   onKeep(findingId: string): void;
   /** The user opened (true) or collapsed (false) the panel from the launcher badge. */

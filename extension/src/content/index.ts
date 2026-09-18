@@ -109,6 +109,29 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
       onKeepStructure() {
         client.sendStructureAction('kept');
       },
+      onApplyOutline(paragraphs) {
+        if (debounce) clearTimeout(debounce);
+        debounce = null;
+        const edit = minimalParagraphEdit(handle.getSnapshot(), paragraphs);
+        const ok = edit ? handle.applyEdit(edit.span, edit.replacement) : true;
+        if (ok) {
+          log.info(`composer ${handle.key}: outline applied (${paragraphs.length} paragraphs seeded)`);
+          // The snapshot first, so the guide is measured against the seeded text; then the action. No analysis yet.
+          send(handle.getSnapshot(), 'edit');
+          client.sendStructureAction('applied');
+        } else {
+          log.warn(`composer ${handle.key}: the editor rejected the outline edit`);
+        }
+        overlay.relayout();
+        return ok;
+      },
+      onOutlineDone() {
+        if (debounce) clearTimeout(debounce);
+        debounce = null;
+        log.info(`composer ${handle.key}: outline done, analyzing`);
+        client.sendSnapshot(handle.getSnapshot(), 'edit');
+        client.sendStructureAction('done');
+      },
       onKeep(findingId) {
         client.sendAction(findingId, 'kept');
       },

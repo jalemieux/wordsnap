@@ -73,11 +73,26 @@ export const PassCThesis = PassC.extend({ challenges: z.array(Challenge).max(5) 
  * carries the proposal: the writer's own sentences regrouped, paragraph by paragraph. Code checks the proposal reuses
  * the draft's words (src/passes/validate.ts) before it is shown.
  */
+/**
+ * One paragraph of an outline built from notes: its job for the reader, the writer's own fragments that belong in
+ * it, and what the notes leave out. Nothing here is prose for the message.
+ */
+export const StructureSlot = z.object({
+  role: z.string().max(24),
+  job: z.string().max(160),
+  from: z.array(z.string().max(400)).max(6),
+  gap: z.string().max(200).optional(),
+});
+export type StructureSlot = z.infer<typeof StructureSlot>;
+
 export const PassS = z.object({
-  verdict: z.enum(['keeps', 'reorder']),
+  /** keeps: the order serves the reader. reorder: the same sentences regrouped. outline: the text is notes, not a draft; slots say what to write. */
+  verdict: z.enum(['keeps', 'reorder', 'outline']),
   note: z.string().max(280),
   paragraphs: z.array(z.string().max(2000)).max(20),
   /** One short label per paragraph naming its job for the reader ("Ask", "Evidence"). Optional: older answers lack it. */
   roles: z.array(z.string().max(24)).max(20).optional(),
+  /** Outline only: one entry per paragraph the message needs, in order. */
+  slots: z.array(StructureSlot).max(12).optional(),
 });
 export type PassS = z.infer<typeof PassS>;

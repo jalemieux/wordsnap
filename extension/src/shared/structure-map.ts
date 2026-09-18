@@ -215,3 +215,70 @@ export function longestIncreasing(seq: number[]): number[] {
   for (let i = best; i >= 0; i = prev[i]!) out.push(seq[i]!);
   return out.reverse();
 }
+
+/* ---------------- outline guide ---------------- */
+
+/** How far a slot of an applied outline has been written: nothing there, only the seeded fragment, or more. */
+export type SlotFill = 'empty' | 'seeded' | 'written';
+
+/** Paragraph spans of a plain-text draft (blank line separated), for the fill check. */
+export function paragraphSpans(text: string): Span[] {
+  const out: Span[] = [];
+  const re = /[^\n]+(?:\n(?!\n)[^\n]*)*/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) if (m[0].trim()) out.push({ start: m.index, end: m.index + m[0].length });
+  return out;
+}
+
+function wordCount(s: string): number {
+  return s.split(/\s+/).filter(Boolean).length;
+}
+
+/** A paragraph counts as written once it carries this many words beyond the fragment it started from. */
+const WRITTEN_MARGIN = 3;
+
+/**
+ * Per slot, whether the writer has written into it. A slot whose fragment is in the draft is `seeded` until its
+ * paragraph grows past the fragment. A slot with no fragment is `written` once a paragraph exists between the
+ * paragraphs of its placed neighbours, `empty` otherwise. No model call: this reads the draft only.
+ */
+export function outlineFill(text: string, map: StructureMap, slotCount: number): SlotFill[] {
+  const paras = paragraphSpans(text);
+  const paraOf = (pos: number) => paras.findIndex((p) => pos >= p.start && pos < p.end);
+  const slotPara: (number | null)[] = [];
+  const fills: SlotFill[] = [];
+  for (let k = 0; k < slotCount; k++) {
+    const seeds = map.draft.filter((d) => d.dest?.para === k);
+    if (!seeds.length) {
+      slotPara.push(null);
+      fills.push('empty');
+      continue;
+    }
+    const p = paraOf(seeds[0]!.span.start);
+    slotPara.push(p >= 0 ? p : null);
+    if (p < 0) {
+      fills.push('empty');
+      continue;
+    }
+    const seeded = seeds.reduce((n, d) => n + wordCount(d.text), 0);
+    const have = wordCount(text.slice(paras[p]!.start, paras[p]!.end));
+    fills.push(have >= seeded + WRITTEN_MARGIN ? 'written' : 'seeded');
+  }
+  for (let k = 0; k < slotCount; k++) {
+    if (slotPara[k] !== null) continue;
+    let before = -1;
+    for (let i = k - 1; i >= 0; i--)
+      if (slotPara[i] !== null) {
+        before = slotPara[i]!;
+        break;
+      }
+    let after = paras.length;
+    for (let i = k + 1; i < slotCount; i++)
+      if (slotPara[i] !== null) {
+        after = slotPara[i]!;
+        break;
+      }
+    if (after - before > 1) fills[k] = 'written';
+  }
+  return fills;
+}

@@ -175,15 +175,21 @@ export class Session {
 
   /** Record what the structure pass said about the current snapshot. A reorder waits on the user; a keeps needs nothing. */
   setStructure(proposal: StructureProposal, forVersion: number): void {
-    const status: StructureResult['status'] = proposal.verdict === 'reorder' ? 'open' : 'kept';
+    const status: StructureResult['status'] = proposal.verdict === 'keeps' ? 'kept' : 'open';
     this.state.structure = { ...proposal, status, forVersion };
   }
 
-  /** The user applied or kept the open proposal. False when there was nothing to act on. */
-  applyStructureAction(action: 'applied' | 'kept'): boolean {
+  /**
+   * The user acted on the proposal. Applying a reorder finishes it; applying an outline moves it to `guiding`, where
+   * it stays beside the draft until `done`. False when there was nothing to act on.
+   */
+  applyStructureAction(action: 'applied' | 'kept' | 'done'): boolean {
     const st = this.state.structure;
-    if (!st || st.verdict !== 'reorder' || st.status === action) return false;
-    st.status = action;
+    if (!st || st.verdict === 'keeps') return false;
+    const next: StructureResult['status'] = action === 'applied' && st.verdict === 'outline' ? 'guiding' : action === 'done' ? 'applied' : action;
+    if (action === 'done' && st.status !== 'guiding') return false;
+    if (st.status === next) return false;
+    st.status = next;
     return true;
   }
 

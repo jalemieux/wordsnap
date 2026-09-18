@@ -40,6 +40,34 @@ export const SAMPLE_PASS_S: PassS = {
   roles: ['Greeting', 'Ask', 'Evidence', 'The team', 'Plan', 'Next step', 'Sign-off'],
 };
 
+/**
+ * The same email before it was a draft: notes. The structure pass answers with an outline whose slots quote these
+ * fragments; the first line says who it is for and lands in no slot, so Apply outline drops it (and the mock, which
+ * keys on it, then answers `keeps` for the written message).
+ */
+export const SAMPLE_IDEA_PARAGRAPHS = [
+  'Email to leadership about a four-day week pilot.',
+  "Ask: 20 minutes on Thursday's agenda.",
+  'The evidence: Microsoft Japan 2019, 40% productivity; Iceland trials; the UK 2022 pilot, nobody went back to five days.',
+  'Everyone on the team wants it, recruiting story.',
+  'Plan: three months, engineering and design first, checkpoint at six weeks.',
+];
+export const SAMPLE_IDEA_TEXT = SAMPLE_IDEA_PARAGRAPHS.join('\n');
+export const SAMPLE_IDEA_MARKER = 'Email to leadership about';
+
+export const SAMPLE_PASS_S_OUTLINE: PassS = {
+  verdict: 'outline',
+  note: 'Lead with the ask, then say what you are proposing; the evidence, the team and the plan follow. The proposal itself has nothing yet.',
+  paragraphs: [],
+  slots: [
+    { role: 'Ask', job: 'What you want from them, first.', from: ["Ask: 20 minutes on Thursday's agenda."] },
+    { role: 'The proposal', job: 'What a yes means: the pilot in one sentence.', from: [], gap: 'Which teams, for how long, starting when.' },
+    { role: 'Evidence', job: 'Outside results, with names and numbers.', from: ['The evidence: Microsoft Japan 2019, 40% productivity; Iceland trials; the UK 2022 pilot, nobody went back to five days.'], gap: 'What the Iceland trials measured.' },
+    { role: 'The team', job: 'Why this is safe to try here.', from: ['Everyone on the team wants it, recruiting story.'] },
+    { role: 'Plan', job: 'How it runs and when you check.', from: ['Plan: three months, engineering and design first, checkpoint at six weeks.'] },
+  ],
+};
+
 export const SAMPLE_PASS_S_KEEPS: PassS = {
   verdict: 'keeps',
   note: 'The ask opens, the evidence follows it, and the plan closes. The order holds.',

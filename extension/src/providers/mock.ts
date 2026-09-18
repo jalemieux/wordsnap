@@ -1,6 +1,6 @@
 // Mock provider: canned results from the shared sample. Used for development without a key, the options "try it" step
 // when provider=mock, unit tests and the e2e suite. Matches request claims to sample verdicts by quote.
-import { SAMPLE_DICTATED_MARKER, SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_PASS_S, SAMPLE_PASS_S_KEEPS, SAMPLE_SOURCES_SEEN } from '../shared/sample';
+import { SAMPLE_DICTATED_MARKER, SAMPLE_IDEA_MARKER, SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_PASS_S, SAMPLE_PASS_S_KEEPS, SAMPLE_PASS_S_OUTLINE, SAMPLE_SOURCES_SEEN } from '../shared/sample';
 import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from './types';
 
 export interface MockProviderOptions {
@@ -72,7 +72,7 @@ export class MockProvider implements LLMProvider {
 
     if (req.pass === 'S') {
       // The dictated sample gets the reorder that turns it into SAMPLE_TEXT; anything else already holds.
-      const data = req.user.includes(SAMPLE_DICTATED_MARKER) ? SAMPLE_PASS_S : SAMPLE_PASS_S_KEEPS;
+      const data = req.user.includes(SAMPLE_DICTATED_MARKER) ? SAMPLE_PASS_S : req.user.includes(SAMPLE_IDEA_MARKER) ? SAMPLE_PASS_S_OUTLINE : SAMPLE_PASS_S_KEEPS;
       return { data: req.schema.parse(data), sourcesSeen: [], usage };
     }
     if (req.pass === 'A') {

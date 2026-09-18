@@ -1,6 +1,8 @@
 import { useState } from 'preact/hooks';
+import type { StructureSlot } from '../../shared/schemas';
+import type { SlotFill } from '../../shared/structure-map';
 import { CHECK_IDS, type Checks, type SessionState } from '../../shared/types';
-import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, firstError, sortChallenges, staleFindings, structureOpen, summaryCounts } from '../format';
+import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, firstError, sortChallenges, staleFindings, structureGuiding, structureOpen, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
@@ -19,13 +21,15 @@ export interface ChallengesPanelProps {
   onKeepStructure?: () => void;
   /** The proposal is drawn beside the draft: the panel shrinks to its header and one line, and the buttons live there. */
   compare?: boolean;
+  /** An applied outline with no room for the pane beside a narrow draft: the panel carries the checklist and Done. */
+  outlineGuide?: { slots: StructureSlot[]; fills: SlotFill[]; onDone?: () => void };
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
   minWords?: number;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, outlineGuide, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -34,7 +38,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
   const checks = checksOf(state);
   const noneOn = CHECK_IDS.every((k) => !checks[k]);
   const canAnalyze = !running && !noneOn && !structureOpen(state) && (draftChanged(state) || checksChanged(state) || staleFindings(state) || !!firstError(state));
-  const compact = !!compare && structureOpen(state);
+  const compact = !!compare && (structureOpen(state) || structureGuiding(state));
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
@@ -86,7 +90,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
       </div>
       <div class={`ws-progress${running ? ' running' : ''}`} />
       {compact ? (
-        <StructureSection state={state} compact />
+        <StructureSection state={state} compact guide={outlineGuide} />
       ) : (
         <>
       {noneOn ? <div class="ws-idle">Pick at least one check.</div> : null}
@@ -205,18 +209,59 @@ const PASS_LABEL: Record<'S' | 'A' | 'B' | 'C', string> = { S: 'Reading the orde
  * The structure pass's answer: a proposed order with Apply / Keep while it is open, otherwise one line on what it
  * found. Nothing until the pass has run.
  */
-function StructureSection({ state, onApply, onKeep, compact }: { state: SessionState; onApply?: (paragraphs: string[]) => void; onKeep?: () => void; compact?: boolean }) {
+function StructureSection({
+  state,
+  onApply,
+  onKeep,
+  compact,
+  guide,
+}: {
+  state: SessionState;
+  onApply?: (paragraphs: string[]) => void;
+  onKeep?: () => void;
+  compact?: boolean;
+  guide?: { slots: StructureSlot[]; fills: SlotFill[]; onDone?: () => void };
+}) {
   const st = state.structure;
   const running = state.passes.S?.state === 'running';
   if (!st && !running) return null;
-  const open = !!st && st.verdict === 'reorder' && st.status === 'open';
-  if (compact && open) {
+  const open = !!st && st.verdict !== 'keeps' && st.status === 'open';
+  const guiding = !!st && st.verdict === 'outline' && st.status === 'guiding';
+  if (compact && st && (open || guiding)) {
+    const outline = st.verdict === 'outline';
     return (
-      <section class="ws-sec ws-structure" data-status="open">
+      <section class="ws-sec ws-structure" data-status={st.status}>
         <h3>
-          Structure<span class="pass">waiting on you</span>
+          {outline ? 'Outline' : 'Structure'}
+          <span class="pass">{guiding ? 'as you write' : 'waiting on you'}</span>
         </h3>
-        <p class="ws-struct-note">{st!.paragraphs.length} paragraphs, beside your draft. Apply it or keep yours there; the other checks wait for that.</p>
+        {guide ? (
+          <>
+            <p class="ws-struct-note">Writing into the outline. Each paragraph, and whether it is written yet:</p>
+            <ul class="ws-guide" aria-label="Outline">
+              {guide.slots.map((sl, i) => (
+                <li key={i} data-fill={guide.fills[i]}>
+                  <b>¶{i + 1}</b>
+                  {sl.role}
+                  <span>{guide.fills[i] === 'written' ? 'written' : guide.fills[i] === 'seeded' ? 'fragment only' : 'nothing yet'}</span>
+                </li>
+              ))}
+            </ul>
+            {guide.onDone ? (
+              <div class="ws-btns">
+                <button class="ws-btn primary" data-act="outline-done" onClick={guide.onDone} title="Close the outline and check what you wrote">
+                  Done, check it
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : guiding ? (
+          <p class="ws-struct-note">Writing into the outline beside your draft. Done in the pane runs the checks on what you wrote; so does Re-analyze.</p>
+        ) : outline ? (
+          <p class="ws-struct-note">An outline from your notes, beside them: {(st.slots ?? []).length} paragraphs to write. Apply it or keep your notes as they are; the other checks wait for that.</p>
+        ) : (
+          <p class="ws-struct-note">{st.paragraphs.length} paragraphs, beside your draft. Apply it or keep yours there; the other checks wait for that.</p>
+        )}
       </section>
     );
   }
@@ -233,9 +278,13 @@ function StructureSection({ state, onApply, onKeep, compact }: { state: SessionS
         <>
           <p class="ws-struct-note">{st.note}</p>
           <div class="ws-proposal" aria-label="Proposed order">
-            {st.paragraphs.map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
+            {st.verdict === 'outline'
+              ? (st.slots ?? []).map((sl, i) => (
+                  <p key={i}>
+                    <b>{sl.role}.</b> {sl.job}
+                  </p>
+                ))
+              : st.paragraphs.map((para, i) => <p key={i}>{para}</p>)}
           </div>
           {onApply || onKeep ? (
             <div class="ws-btns">
@@ -253,8 +302,10 @@ function StructureSection({ state, onApply, onKeep, compact }: { state: SessionS
           ) : null}
           <p class="ws-struct-hint">Your sentences, reordered; nothing added. Undo in the editor puts the draft back.</p>
         </>
+      ) : st.status === 'guiding' ? (
+        <p class="ws-struct-note">Writing into the outline. Re-analyze checks what you wrote.</p>
       ) : st.status === 'applied' ? (
-        <p class="ws-struct-ok">Structure applied. {st.note}</p>
+        <p class="ws-struct-ok">{st.verdict === 'outline' ? 'Outline done.' : 'Structure applied.'} {st.note}</p>
       ) : st.status === 'kept' ? (
         <p class="ws-empty">Kept your order.</p>
       ) : (

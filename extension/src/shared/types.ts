@@ -1,5 +1,5 @@
 // Runtime types shared by background, content script, UI and options page.
-import type { Challenge, Claim, ClarityFinding, Verdict } from './schemas';
+import type { Challenge, Claim, ClarityFinding, StructureSlot, Verdict } from './schemas';
 
 export type HostId = 'gmail' | 'x' | 'linkedin' | 'generic';
 /** S runs first and proposes an order; A reads clarity and claims; B checks facts; C argues back. */
@@ -49,14 +49,20 @@ export type PassRunState = 'idle' | 'running' | 'done' | 'error';
  * while it is `open`, A, B and C wait. `keeps` records that the order already serves the reader (note says why).
  */
 export interface StructureResult {
-  verdict: 'keeps' | 'reorder';
+  /** outline: the text read as notes; `slots` say what to write, `paragraphs` is empty. */
+  verdict: 'keeps' | 'reorder' | 'outline';
   note: string;
   /** The proposed draft, one entry per paragraph. Empty when the verdict is `keeps`. */
   paragraphs: string[];
   /** A short label per proposed paragraph ("Ask", "Evidence"); absent when the model gave none. */
   roles?: string[];
-  /** open: waiting on the user. stale: the draft changed since it was proposed. */
-  status: 'open' | 'applied' | 'kept' | 'stale';
+  /** Outline only: the paragraphs to write, with the writer's fragments already placed. */
+  slots?: StructureSlot[];
+  /**
+   * open: waiting on the user. stale: the draft changed since it was proposed. guiding: an outline the user
+   * applied; it stays beside the draft while they write and edits do not stale it. applied: done with.
+   */
+  status: 'open' | 'applied' | 'kept' | 'stale' | 'guiding';
   /** Snapshot version the proposal was made for. */
   forVersion: number;
 }

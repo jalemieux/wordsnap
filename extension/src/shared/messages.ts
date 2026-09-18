@@ -21,8 +21,11 @@ export type ContentToBackground =
    * whatever the mode, and the finding itself is dropped so the fresh result decides.
    */
   | { type: 'session/recheck'; sessionKey: string; findingId: string }
-  /** The user applied or kept the structure proposal. Kept: A, B and C run on the draft as written. */
-  | { type: 'structure/action'; sessionKey: string; action: 'applied' | 'kept' }
+  /**
+   * The user acted on the structure proposal. Kept: A, B and C run on the draft as written. Applied on an outline
+   * keeps it beside the draft as a guide; done closes the guide and runs everything on what was written.
+   */
+  | { type: 'structure/action'; sessionKey: string; action: 'applied' | 'kept' | 'done' }
   /** The user asked for a fresh analysis of the latest snapshot: no debounce, no C throttle. */
   | { type: 'session/analyze'; sessionKey: string }
   /** The user flipped a check chip in the panel: remember it and drop findings the new set no longer covers. */

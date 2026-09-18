@@ -147,11 +147,11 @@ export class SessionOrchestrator {
   }
 
   /** Apply structure / Keep mine from the panel. Kept: the held passes run on the draft as written. Applied: the edit's snapshot and analyze request follow from the content script. */
-  handleStructureAction(action: 'applied' | 'kept'): void {
+  handleStructureAction(action: 'applied' | 'kept' | 'done'): void {
     if (this.closed) return;
     if (!this.session.applyStructureAction(action)) return;
     this.emit();
-    if (action === 'kept') {
+    if (action === 'kept' || action === 'done') {
       this.clearScheduled();
       void this.run({ force: true });
     }
@@ -194,7 +194,7 @@ export class SessionOrchestrator {
     if (checks.structure && !opts.recheck && (isFull || opts.force) && this.structureDue(snapshot, !!opts.force)) {
       const verdict = await this.runS(snapshot);
       if (this.closed || verdict === 'aborted') return; // a newer snapshot took over
-      if (verdict === 'reorder') {
+      if (verdict === 'reorder' || verdict === 'outline') {
         this.emit();
         return;
       }
@@ -219,7 +219,7 @@ export class SessionOrchestrator {
   private structureDue(snapshot: TextSnapshot, force: boolean): boolean {
     const st = this.session.state.structure;
     if (!st) return true;
-    if (st.status === 'stale') return force;
+    if (st.status === 'stale' || st.status === 'guiding') return force; // an outline being written into is asked again only on Re-analyze or Done
     if (st.forVersion === snapshot.version) return false;
     if (st.status === 'applied' && st.verdict === 'reorder' && sameText(snapshot.text, st.paragraphs.join('\n\n'))) return false;
     if (st.status === 'kept' && st.verdict === 'reorder' && this.session.analyzedSnapshot && sameText(snapshot.text, this.session.analyzedSnapshot.text)) return false;
@@ -227,7 +227,7 @@ export class SessionOrchestrator {
   }
 
   /** Returns the verdict recorded; 'aborted' when a newer snapshot cancelled it; null when it failed (the other passes go ahead). */
-  private async runS(snapshot: TextSnapshot): Promise<'keeps' | 'reorder' | 'aborted' | null> {
+  private async runS(snapshot: TextSnapshot): Promise<'keeps' | 'reorder' | 'outline' | 'aborted' | null> {
     const settings = this.deps.settings();
     const req = buildPassS(snapshot, { effort: settings.effort.S, context: this.deps.context });
     const res = await this.execute('S', req);
@@ -237,7 +237,7 @@ export class SessionOrchestrator {
     const { proposal, reason } = validatePassS(res.data, snapshot.text);
     if (reason) log.info(`${this.session.state.sessionKey}: structure proposal dropped (${reason})`);
     this.session.setStructure(proposal, snapshot.version);
-    if (proposal.verdict === 'reorder' && this.session.snapshot && this.session.snapshot.text !== snapshot.text) this.session.state.structure!.status = 'stale';
+    if (proposal.verdict !== 'keeps' && this.session.snapshot && this.session.snapshot.text !== snapshot.text) this.session.state.structure!.status = 'stale';
     this.emit();
     return proposal.verdict;
   }

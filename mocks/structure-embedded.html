@@ -166,6 +166,24 @@ p{margin:0}
 .links circle{fill:var(--ws-accent)}
 .v-G .panel .counts,.v-G .panel .sec{display:none}
 
+/* from an idea (H): the same two columns; the right one is an outline with slots, not sentences */
+.v-H .c-body{display:flex;gap:0}
+.v-H .editor{flex:1;min-width:0;max-width:none;padding-right:22px}
+.v-H .panel .counts,.v-H .panel .sec{display:none}
+.slot{position:relative;padding:7px 10px 9px 12px;margin:0 0 8px -12px;border-left:2px solid transparent;border-radius:0 6px 6px 0;transition:background .15s,border-color .15s}
+.slot.hot{background:var(--ws-accent-bg);border-left-color:var(--ws-accent)}
+.slot .job{font-family:var(--ui);font-size:12px;color:var(--ws-muted);margin:0 0 4px}
+.slot .from{font-family:var(--compose);font-size:14px;line-height:1.6;color:#222}
+.slot .from .sen{cursor:default}
+.slot .gap{font-family:var(--ui);font-size:12px;color:var(--amber);display:flex;align-items:center;gap:6px;margin-top:4px}
+.slot .gap::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
+.slot .done{font-family:var(--ui);font-size:11.5px;color:var(--green);margin-top:4px}
+.slot .done::before{content:"✓ "}
+.side-mode{display:inline-flex;border:1px solid var(--ws-line);border-radius:6px;overflow:hidden;margin-left:auto}
+.side-mode button{padding:3px 9px;font-size:11.5px;color:var(--ws-muted);font-family:var(--ui)}
+.side-mode button.on{background:var(--ws-accent);color:#fff}
+.v-H .tg.gap{background:var(--amber-bg);border-color:#EDD39E;color:var(--amber)}
+
 /* hover card (D): the same card as any finding */
 .hcard{position:absolute;width:340px;background:var(--ws-card);border:1px solid var(--ws-line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);font-family:var(--ui);font-size:12.5px;color:var(--ws-ink);padding:10px 12px 11px;z-index:3}
 .hcard::before{content:"";position:absolute;top:-6px;left:22px;width:10px;height:10px;background:var(--ws-card);border-left:1px solid var(--ws-line);border-top:1px solid var(--ws-line);transform:rotate(45deg)}
@@ -207,7 +225,7 @@ p{margin:0}
 
 /* variant visibility */
 [data-v]{display:none}
-.v-A [data-v~="A"],.v-B [data-v~="B"],.v-C [data-v~="C"],.v-D [data-v~="D"],.v-E [data-v~="E"],.v-F [data-v~="F"],.v-G [data-v~="G"]{display:revert}
+.v-A [data-v~="A"],.v-B [data-v~="B"],.v-C [data-v~="C"],.v-D [data-v~="D"],.v-E [data-v~="E"],.v-F [data-v~="F"],.v-G [data-v~="G"],.v-H [data-v~="H"]{display:revert}
 .v-A .strip[data-v~="A"],.v-B .strip[data-v~="B"],.v-D .strip[data-v~="D"],.v-E .strip[data-v~="E"]{display:flex}
 .v-D .hcard{display:block}
 .v-B .ghost{display:block}
@@ -244,6 +262,7 @@ p{margin:0}
     <button data-pick="E"><i>E</i>Track changes</button>
     <button data-pick="F"><i>F</i>Skeleton, morph on hover</button>
     <button data-pick="G"><i>G</i>Side by side</button>
+    <button data-pick="H"><i>H</i>From an idea</button>
   </div>
   <span class="hint">Same draft, same proposal (question, evidence, experiment, next step). One sentence moved, one word cut.</span>
 </div>
@@ -284,6 +303,7 @@ p{margin:0}
         <div class="ghost" data-v="B" id="ghost"></div>
         <div class="morph" data-v="F" id="morph"></div>
         <div class="side" data-v="G" id="side"></div>
+        <div class="side" data-v="H" id="idea"></div>
         <svg class="links" data-v="G" id="links"></svg>
         <div class="hcard" data-v="D" id="hcard">
           <div class="hh"><i></i>Structure · new paragraph <span>2 of 5</span></div>
@@ -326,6 +346,7 @@ p{margin:0}
         <p data-v="A E">Shown in your draft: 3 paragraph breaks, 1 move, 1 cut. Decide on the bar under the draft, or <span class="link">jump to the first seam</span>.</p>
         <p data-v="B">Previewing the proposed order in the composer. Nothing is written. <span class="link">Back to mine</span>.</p>
         <p data-v="F">The outline beside your draft. Hover a heading to see the draft in that order; click to hold it. <span class="link">Show the outline</span>.</p>
+        <p data-v="H">An outline for the message, from your idea. Apply writes your own fragments into the editor in that order; the outline stays beside the draft while you write. <span class="link">Show the outline</span>.</p>
         <p data-v="C">Four groups, mapped beside your draft. Hover one to see which sentences it takes. <span class="link">Show the map</span>.</p>
         <div data-v="D">
           <p>5 changes in your draft. Apply or keep each in place.</p>
@@ -358,6 +379,7 @@ p{margin:0}
     <tr><td>D · Map rail</td><td class="y">yes</td><td class="y">yes</td><td>per group, later</td><td class="n">no</td><td>labels</td><td>medium: rail component, hover to group</td></tr>
     <tr><td>F · Skeleton + morph</td><td class="n">reflows (in a copy)</td><td class="y">yes, animated</td><td class="n">no</td><td class="y">yes</td><td>roles</td><td>medium: rendered copy as in C, plus a per-sentence slide</td></tr>
     <tr><td>G · Side by side</td><td>narrows (real editor)</td><td class="y">yes, tagged</td><td class="n">no</td><td class="y">yes</td><td>roles</td><td>medium: a second column, sentence tags, hover links. Needs a style change on the host editor, or the unwired PreviewModal</td></tr>
+    <tr><td>H · From an idea</td><td>narrows (real editor)</td><td>n/a</td><td>per slot, as you write</td><td class="n">no: nothing to read yet</td><td>PassS verdict "outline" + slots</td><td>medium: the compare pane with slots, plus a live fill check while writing</td></tr>
     <tr><td>E · Track changes</td><td class="n">reflows (in a copy)</td><td class="y">yes</td><td>possible</td><td>half</td><td>none</td><td>medium, and the noisiest</td></tr>
   </table></div>
 </div>
@@ -461,6 +483,65 @@ p{margin:0}
   skel.addEventListener('pointerleave', () => { skel.querySelectorAll('.rcard').forEach(x => x.classList.remove('hot')); if (pinned === null) morphTo(null); else morphTo(pinned); });
   skel.addEventListener('click', e => { const c = e.target.closest('.rcard'); if (!c) return; pinned = pinned === c.dataset.group ? null : c.dataset.group; skel.querySelectorAll('.rcard').forEach(x => x.classList.toggle('pin', x.dataset.group === pinned)); });
 
+  // From an idea (H): the idea as typed, a few fragments, and the outline the pass would build from it.
+  const IDEA = [
+    { id: 'i0', text: 'Email to the team about the agent board experiment.' },
+    { id: 'i1', text: 'Point: rigid harness orchestration is counterproductive with frontier models, agents can self organize.' },
+    { id: 'i2', text: 'What I saw: sessions picked up work, coordinated on collisions.' },
+    { id: 'i3', text: 'Evidence: the OpenAI artifactory story, the Noam Brown interview.' },
+    { id: 'i4', text: 'Next: notifications instead of polling.' },
+    { id: 'i5', text: 'Ask them to try it this week.' },
+  ];
+  const IDEA_DEST = { i0: null, i1: '2', i2: '3', i3: '4', i4: '5', i5: '1' };
+  const SLOTS = [
+    { role: 'Ask', job: 'What you want from them, first.', from: ['i5'], gap: null },
+    { role: 'Point', job: 'The claim in one sentence, as you would defend it.', from: ['i1'], gap: null },
+    { role: 'What you saw', job: 'The experiment and what happened, concretely.', from: ['i2'], gap: 'How many sessions, for how long, and what a collision looked like.' },
+    { role: 'Evidence', job: 'Outside support for the claim, with names.', from: ['i3'], gap: 'What each source actually said.' },
+    { role: 'Next step', job: 'What you will do next and when.', from: ['i4'], gap: null },
+  ];
+  const IDEA_MSG = { i0: 'Not part of the message: it says who it is for.' };
+  let ideaMode = 'outline'; // or 'writing'
+  const idea = document.getElementById('idea');
+  function renderIdeaDraft(){
+    if (ideaMode === 'outline') {
+      return `<div class="para">${IDEA.map((f) => {
+        const d = IDEA_DEST[f.id];
+        const tag = d ? `<span class="tg" title="Lands in paragraph ${d}">¶${d}</span>` : `<span class="tg gap" title="${IDEA_MSG[f.id]}">—</span>`;
+        return `${tag}<span class="sen" data-id="${f.id}" data-group="${d ?? 'x'}">${esc(f.text)}</span>`;
+      }).join(' ')}</div><div class="sig">--<br>Best,<br>Jac<br><span class="caret"></span></div>`;
+    }
+    // After Apply: the writer's own fragments, regrouped as the first lines of each paragraph. Nothing else written.
+    const order = ['i5', 'i1', 'i2', 'i3', 'i4'];
+    return order.map((id, k) => {
+      const f = IDEA.find((x) => x.id === id);
+      const extra = k === 0 ? ' <span class="sen" data-id="w1" data-group="1">Try it on one real task this week and tell me where it breaks.</span>' : '';
+      return `<div class="para"><span class="tg" title="Paragraph ${k + 1}">¶${k + 1}</span><span class="sen" data-id="${id}" data-group="${k + 1}">${esc(f.text)}</span>${extra}</div>`;
+    }).join('') + `<div class="sig">--<br>Best,<br>Jac<br><span class="caret"></span></div>`;
+  }
+  function renderIdea(){
+    const head = ideaMode === 'outline'
+      ? `<div class="side-head"><span class="w">W</span><b>Outline</b><span>from your idea. Five paragraphs; your words go in each.</span><span class="acts"><button class="btn">Keep mine</button><button class="btn primary" id="apply-outline">Apply outline</button></span></div>
+         <p class="ws-cmp-note" style="font-family:var(--ui);font-size:12.5px;color:var(--ws-ink);margin:0 0 10px">Lead with the ask, then the point, then what you saw. Two paragraphs have nothing concrete yet.</p>`
+      : `<div class="side-head"><span class="w">W</span><b>Writing into the outline</b><span>your fragments are in place; two paragraphs still need what only you know.</span><span class="acts"><button class="btn" id="close-outline">Done</button></span></div>`;
+    idea.innerHTML = head + SLOTS.map((sl, k) => {
+      const frags = sl.from.map((id) => `<span class="sen" data-id="${id}" data-group="${k + 1}">${esc(IDEA.find((x) => x.id === id).text)}</span>`).join(' ');
+      const filled = ideaMode === 'writing' && k === 0;
+      const status = sl.gap ? `<div class="gap">${ideaMode === 'outline' ? 'Missing: ' : 'Still missing: '}${sl.gap}</div>` : (ideaMode === 'writing' ? `<div class="done">${filled ? 'Written' : 'Your fragment is in place; say it in a sentence'}</div>` : '');
+      return `<div class="slot" data-group="${k + 1}"><div class="sh"><b>¶${k + 1}</b>${sl.role}</div><p class="job">${sl.job}</p><div class="from">${frags}</div>${status}</div>`;
+    }).join('') + `<p class="fine" style="font-family:var(--ui);font-size:11px;color:var(--ws-faint);margin-top:6px">Apply writes only your fragments into the editor, in this order. The labels and the gaps stay here.</p>`;
+    editor.innerHTML = renderIdeaDraft();
+  }
+  idea.addEventListener('click', (e) => {
+    if (e.target.id === 'apply-outline') { ideaMode = 'writing'; renderIdea(); }
+    if (e.target.id === 'close-outline') { ideaMode = 'outline'; renderIdea(); }
+  });
+  idea.addEventListener('pointerover', (e) => {
+    const t = e.target.closest('.slot'); if (!t) return;
+    idea.querySelectorAll('.slot').forEach((x) => x.classList.toggle('hot', x === t));
+    editor.querySelectorAll('.sen').forEach((x) => x.classList.toggle('hot', x.dataset.group === t.dataset.group));
+  });
+
   // Side by side (G)
   const side = document.getElementById('side'), links = document.getElementById('links');
   function renderSide(){
@@ -556,6 +637,11 @@ p{margin:0}
       `<h3>Costs</h3><ul><li>The right column is a rendered copy, as in Preview in place, plus roles per paragraph from the pass (additive field).</li><li>The draft has to get narrower. WordSnap cannot resize Gmail's editor with an overlay, so this means setting a width on the host editor element while the compare is open, and restoring it after. Not content, but the first time the extension touches the host's layout.</li><li>Or open it as a modal: two columns over the compose. That reuses the unwired <code>PreviewModal</code> and touches nothing in the host, at the price of leaving the composer.</li><li>Tags are overlays anchored to sentence starts, like seams.</li></ul>`,
       `<h3>Limits</h3><ul><li>Two columns of the same words is the heaviest view on this page. It earns its place for a long reorder; three breaks in a short draft do not need it.</li><li>At the width of an inline reply there is no room for two columns, so it falls back to the modal or to seams.</li><li>Eight tags on eight sentences is fine; forty tags on forty is not. Tag paragraph starts only past a threshold.</li><li>Still all or nothing.</li></ul>`
     ],
+    H: [
+      `<h2><i>H</i>From an idea</h2><p>The draft is not a draft yet: a few fragments saying what the message is about. The pass answers with an outline instead of a reorder: one slot per paragraph, its role, one line on its job, and under it the fragments from the idea that belong there, in the writer's own words. Where the idea gives a slot nothing concrete, the slot says what is missing. Same two columns: the idea on the left with a tag on each fragment saying where it lands, the outline on the right. Apply writes only the fragments into the editor, in that order; the labels and the gaps never enter the message. The pane then stays beside the draft while the writer fills it, marking each slot written or still missing, with no model call.</p><h3>Why it fits</h3><p>It is the same reading the pass already does, one step earlier. The gaps are the sparring-partner half: the outline does not write the paragraph, it says what the paragraph owes the reader.</p>`,
+      `<h3>Costs</h3><ul><li>Pass S gets a third verdict, <code>outline</code>, with <code>slots: [{role, job, from: [quotes], gap?}]</code> (additive). The prompt decides outline versus reorder from the text itself: fragments, a "to/about" line, no complete argument.</li><li>The compare pane renders slots instead of sentences; the sentence map already places the quoted fragments on the left.</li><li>Apply reuses Apply structure: the fragments joined as paragraphs through the same insert path.</li><li>The guide state after Apply is new: the proposal stays open but no longer holds A, B and C, and the pane re-checks slot fill from each snapshot client-side (does a sentence in paragraph k exist beyond the fragment).</li></ul>`,
+      `<h3>Limits</h3><ul><li>Detection can misfire: a terse real draft could get an outline. Keep mine is the escape, and the note says what the pass took the text for.</li><li>The "job" lines are model text shown in the pane. They must stay one plain line each and never be written into the editor, or this becomes a ghostwriter.</li><li>Gaps are the model's opinion of what is missing; they are prompts, not requirements, and should read that way.</li><li>Below 720px the pane covers the idea, which is short anyway; over mode is fine here.</li></ul>`
+    ],
     E: [
       `<h2><i>E</i>Track changes</h2><p>The Word convention: paragraph marks where breaks go, the moved sentence struck at its origin and inserted at its destination, the cut word struck. Accept all or reject all on the bar.</p><h3>Why it fits</h3><p>Everyone has seen it. No learning.</p>`,
       `<h3>Costs</h3><ul><li>Like C, this is a painted copy over the editor: the inserted sentence has to reflow the text.</li><li>No schema change.</li></ul>`,
@@ -569,6 +655,7 @@ p{margin:0}
     if (v === 'F') renderMorph();
     if (v === 'G') { renderSide(); requestAnimationFrame(() => linkGroup('1')); } else links.innerHTML = '';
     editor.innerHTML = renderDraft(v);
+    if (v === 'H') { ideaMode = 'outline'; renderIdea(); }
     ghost.innerHTML = v === 'B' ? renderProposed() : '';
     editor.style.visibility = v === 'B' ? 'hidden' : 'visible';
     const n = NOTES[v];

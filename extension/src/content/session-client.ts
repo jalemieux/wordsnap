@@ -140,7 +140,7 @@ export class SessionClient {
     this.post({ type: 'session/recheck', sessionKey: this.sessionKey, findingId });
   }
 
-  sendStructureAction(action: 'applied' | 'kept'): void {
+  sendStructureAction(action: 'applied' | 'kept' | 'done'): void {
     this.post({ type: 'structure/action', sessionKey: this.sessionKey, action });
   }
 

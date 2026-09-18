@@ -6,7 +6,8 @@
 //  - a structure proposal must be the writer's words: nearly every word of four letters or more in the proposal must
 //    already be in the draft, and its length must stay between half and 1.2x the draft's, or it is dropped
 import { locateQuote, normalizeText } from '../shared/anchoring';
-import type { Challenge, Claim, ClarityFinding, PassA, PassB, PassC, PassS, Source, Verdict } from '../shared/schemas';
+import type { Challenge, Claim, ClarityFinding, PassA, PassB, PassC, PassS, Source, StructureSlot, Verdict } from '../shared/schemas';
+import { normSentence } from '../shared/structure-map';
 import type { Span } from '../shared/types';
 
 export const MAX_SUGGESTION_RATIO = 1.3;
@@ -158,12 +159,17 @@ export function wordReuse(draft: string, proposal: string): number {
 }
 
 export interface StructureProposal {
-  verdict: 'keeps' | 'reorder';
+  verdict: 'keeps' | 'reorder' | 'outline';
   note: string;
   paragraphs: string[];
   /** One label per paragraph, present only when the model returned one for every paragraph. */
   roles?: string[];
+  /** Outline only: paragraphs to write, each with the writer's fragments that were found in the notes. */
+  slots?: StructureSlot[];
 }
+
+/** Fewest slots for an outline to be worth showing; one slot is a note, not a structure. */
+export const OUTLINE_MIN_SLOTS = 2;
 
 /**
  * Turn a structure result into something safe to show. A `reorder` becomes `keeps` when the proposal is the draft
@@ -173,6 +179,7 @@ export interface StructureProposal {
 export function validatePassS(result: PassS, text: string): { proposal: StructureProposal; reason?: string } {
   const note = result.note.trim();
   if (result.verdict === 'keeps') return { proposal: { verdict: 'keeps', note, paragraphs: [] } };
+  if (result.verdict === 'outline') return validateOutline(result, text, note);
   // Single line breaks inside a paragraph (an address block, a multi-line sign-off) are kept; runs of spaces collapse.
   const paragraphs = result.paragraphs
     .map((p) => p.replace(/[ \t\r]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{2,}/g, '\n').trim())
@@ -187,6 +194,36 @@ export function validatePassS(result: PassS, text: string): { proposal: Structur
   if (reuse < STRUCTURE_MIN_WORD_REUSE) return keeps(`word reuse ${reuse.toFixed(2)} below ${STRUCTURE_MIN_WORD_REUSE}`);
   const roles = structureRoles(result, paragraphs.length);
   return { proposal: roles ? { verdict: 'reorder', note, paragraphs, roles } : { verdict: 'reorder', note, paragraphs } };
+}
+
+/**
+ * An outline shows only fragments that are really in the notes: a quote that does not locate is dropped, a slot
+ * with no role is dropped, and an outline that places no fragment at all, or has fewer than two slots, is `keeps`
+ * (the model may not invent the writer's points).
+ */
+function validateOutline(result: PassS, text: string, note: string): { proposal: StructureProposal; reason?: string } {
+  const keeps = (reason: string) => ({ proposal: { verdict: 'keeps' as const, note, paragraphs: [] }, reason });
+  const haystack = normSentence(text);
+  const used = new Set<string>();
+  const slots: StructureSlot[] = [];
+  for (const s of result.slots ?? []) {
+    const role = s.role.replace(/\s+/g, ' ').trim().replace(/[.:]+$/, '');
+    if (!role) continue;
+    const from: string[] = [];
+    for (const q of s.from) {
+      const quote = q.replace(/\s+/g, ' ').trim();
+      const n = normSentence(quote);
+      if (!n || used.has(n) || !haystack.includes(n)) continue;
+      used.add(n);
+      from.push(quote);
+    }
+    const job = s.job.replace(/\s+/g, ' ').trim();
+    const gap = s.gap?.replace(/\s+/g, ' ').trim();
+    slots.push(gap ? { role, job, from, gap } : { role, job, from });
+  }
+  if (slots.length < OUTLINE_MIN_SLOTS) return keeps(`outline with ${slots.length} slot(s)`);
+  if (!slots.some((s) => s.from.length)) return keeps('outline places none of the writer\'s fragments');
+  return { proposal: { verdict: 'outline', note, paragraphs: [], slots } };
 }
 
 /** Roles line up with the kept paragraphs only when the model labelled every paragraph it returned; otherwise none. */

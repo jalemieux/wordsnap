@@ -332,6 +332,75 @@ test('in a wide compose the proposal sits beside the draft: the editor makes roo
   expect(await body.evaluate((el) => el.style.paddingRight)).toBe('');
 });
 
+test('notes get an outline; Apply outline seeds the draft with the fragments and the guide tracks what is written until Done', async ({ context }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.goto(FIXTURE);
+  await page.evaluate(() => {
+    (document.querySelector('.compose') as HTMLElement).style.width = '1200px';
+    // Notes, one line each: who it is for, then the points, in no particular order.
+    const lines = [
+      'Email to leadership about a four-day week pilot.',
+      "Ask: 20 minutes on Thursday's agenda.",
+      'The evidence: Microsoft Japan 2019, 40% productivity; Iceland trials; the UK 2022 pilot, nobody went back to five days.',
+      'Everyone on the team wants it, recruiting story.',
+      'Plan: three months, engineering and design first, checkpoint at six weeks.',
+    ];
+    document.getElementById('message-body')!.innerHTML = lines.map((p) => `<div>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).join('');
+  });
+  const overlay = await openWordSnap(page);
+  const panel = overlay.locator('.ws-panel');
+  const compare = overlay.locator('.ws-compare');
+  await expect(compare).toHaveAttribute('data-kind', 'outline', { timeout: 15_000 });
+  await expect(compare).toHaveAttribute('data-status', 'open');
+  await expect(panel.locator('.ws-status')).toContainText(/outline proposed/i);
+
+  // Five slots: role, job, the fragment placed there, and what is missing.
+  const slots = compare.locator('.ws-cmp-slot');
+  await expect(slots).toHaveCount(5);
+  await expect(slots.nth(0).locator('h4')).toContainText(/ask/i);
+  await expect(slots.nth(0)).toContainText("20 minutes on Thursday's agenda");
+  await expect(slots.nth(1).locator('.ws-cmp-gap')).toContainText(/Missing: Which teams/);
+  await expect(compare.locator('.ws-cmp-cuts')).toContainText(/Not in the message: “Email to leadership/);
+  // The fragments are tagged in the notes with the slot they feed.
+  await expect(overlay.locator('.ws-cmp-pill').first()).toBeVisible();
+
+  await compare.locator('[data-act="apply-outline"]').click();
+
+  // The editor holds the four placed fragments in the outline's order and nothing else; the pane stays as a guide.
+  const body = page.locator('#message-body');
+  await expect(body).not.toContainText('Email to leadership');
+  const text = await body.evaluate((el) => (el as HTMLElement).innerText.replace(/\n{2,}/g, '\n\n').trim());
+  expect(text).toBe(
+    [
+      "Ask: 20 minutes on Thursday's agenda.",
+      'The evidence: Microsoft Japan 2019, 40% productivity; Iceland trials; the UK 2022 pilot, nobody went back to five days.',
+      'Everyone on the team wants it, recruiting story.',
+      'Plan: three months, engineering and design first, checkpoint at six weeks.',
+    ].join('\n\n'),
+  );
+  await expect(compare).toHaveAttribute('data-status', 'guiding');
+  await expect(slots.nth(0).locator('.ws-cmp-fill')).toHaveText(/fragment is in place/i);
+  await expect(slots.nth(1).locator('.ws-cmp-fill')).toHaveText(/nothing here yet/i);
+  await expect(panel.locator('.ws-status')).toContainText(/writing into the outline/i);
+  await expect(panel.locator('.ws-structure')).toHaveAttribute('data-status', 'guiding');
+
+  // Writing into the first paragraph marks it written, with no run and without closing the guide.
+  await body.locator('div').first().click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' We need a decision before the offsite and twenty minutes is enough.');
+  await expect(slots.nth(0).locator('.ws-cmp-fill')).toHaveText(/written/i, { timeout: 5_000 });
+  await expect(compare).toHaveAttribute('data-status', 'guiding');
+  await expect(compare.locator('.ws-cmp-sub')).toContainText(/1 of 5 written/);
+
+  // Done closes the guide and runs the checks on what was written; the structure pass reads the result as a draft.
+  await compare.locator('[data-act="outline-done"]').click();
+  await expect(compare).toHaveCount(0);
+  await expect(panel.locator('.ws-structure')).toContainText(/order holds/i, { timeout: 15_000 });
+  await expect(panel.locator('.ws-status')).toContainText(/checked/i, { timeout: 20_000 });
+  expect(await body.evaluate((el) => el.style.paddingRight)).toBe('');
+});
+
 test('Rewrite lets the user type their own wording; Apply edits the draft and the span is re-checked', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(FIXTURE);
