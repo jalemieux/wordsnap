@@ -53,6 +53,8 @@ export interface StructureResult {
   note: string;
   /** The proposed draft, one entry per paragraph. Empty when the verdict is `keeps`. */
   paragraphs: string[];
+  /** A short label per proposed paragraph ("Ask", "Evidence"); absent when the model gave none. */
+  roles?: string[];
   /** open: waiting on the user. stale: the draft changed since it was proposed. */
   status: 'open' | 'applied' | 'kept' | 'stale';
   /** Snapshot version the proposal was made for. */

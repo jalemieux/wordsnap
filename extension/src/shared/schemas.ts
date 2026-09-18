@@ -77,5 +77,7 @@ export const PassS = z.object({
   verdict: z.enum(['keeps', 'reorder']),
   note: z.string().max(280),
   paragraphs: z.array(z.string().max(2000)).max(20),
+  /** One short label per paragraph naming its job for the reader ("Ask", "Evidence"). Optional: older answers lack it. */
+  roles: z.array(z.string().max(24)).max(20).optional(),
 });
 export type PassS = z.infer<typeof PassS>;

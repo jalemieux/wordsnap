@@ -161,6 +161,8 @@ export interface StructureProposal {
   verdict: 'keeps' | 'reorder';
   note: string;
   paragraphs: string[];
+  /** One label per paragraph, present only when the model returned one for every paragraph. */
+  roles?: string[];
 }
 
 /**
@@ -183,5 +185,18 @@ export function validatePassS(result: PassS, text: string): { proposal: Structur
   if (ratio < STRUCTURE_MIN_RATIO || ratio > STRUCTURE_MAX_RATIO) return keeps(`length ratio ${ratio.toFixed(2)} out of bounds`);
   const reuse = wordReuse(text, proposal);
   if (reuse < STRUCTURE_MIN_WORD_REUSE) return keeps(`word reuse ${reuse.toFixed(2)} below ${STRUCTURE_MIN_WORD_REUSE}`);
-  return { proposal: { verdict: 'reorder', note, paragraphs } };
+  const roles = structureRoles(result, paragraphs.length);
+  return { proposal: roles ? { verdict: 'reorder', note, paragraphs, roles } : { verdict: 'reorder', note, paragraphs } };
+}
+
+/** Roles line up with the kept paragraphs only when the model labelled every paragraph it returned; otherwise none. */
+export function structureRoles(result: PassS, kept: number): string[] | undefined {
+  const roles = (result.roles ?? []).map((r) => r.replace(/\s+/g, ' ').trim().replace(/[.:]+$/, ''));
+  if (roles.length !== result.paragraphs.length || roles.some((r) => !r)) return undefined;
+  // Blank paragraphs were dropped in order; drop their roles the same way.
+  const out: string[] = [];
+  result.paragraphs.forEach((p, i) => {
+    if (p.trim()) out.push(roles[i]!);
+  });
+  return out.length === kept ? out : undefined;
 }

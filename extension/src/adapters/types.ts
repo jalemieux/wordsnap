@@ -29,4 +29,9 @@ export interface ComposerHandle {
   isAlive(): boolean;
   /** Subject or title context if the host has one (Gmail subject). */
   getContext?(): { subject?: string; recipients?: string[] };
+  /**
+   * Reserve `px` of the editor's width on the right for the structure compare pane (0 restores the host's own
+   * style). A layout change on the host element, not an edit: the text reflows, the DOM is untouched.
+   */
+  setInset?(px: number): void;
 }

@@ -1,0 +1,603 @@
+<title>Structure in the draft</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEC; --ground-ink:#1F2A2A; --ground-muted:#5F6E6E; --ground-line:#D3DADA; --ground-card:#F6F8F8;
+  --mock-bg:#1B2424; --mock-ink:#E6ECEB; --mock-muted:#8FA0A0; --mock-accent:#7FD1C8; --mock-line:#2C3838;
+  /* WordSnap layer: fixed light, it lives inside a simulated light Gmail window */
+  --ws-accent:#0E7C7B; --ws-accent-ink:#0A5E5D; --ws-accent-bg:#E6F3F2; --ws-accent-line:#B7DAD7;
+  --ws-ink:#1B2A2A; --ws-muted:#5C6B6B; --ws-faint:#8C9A9A; --ws-line:#DCE4E3; --ws-bg:#F6F8F8; --ws-card:#FFFFFF;
+  --red:#B42318; --amber:#A8690F; --amber-bg:#FBF1DF; --green:#2E7D4F; --green-bg:#E6F4EC;
+  --ui:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --host:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --compose:Arial,Helvetica,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; --ground-card:#1A2222; }
+}
+:root[data-theme="dark"]{ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; --ground-card:#1A2222; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ground-ink);font-family:var(--ui);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+h1,h2,h3,h4{margin:0;font-weight:600;text-wrap:balance}
+p{margin:0}
+[hidden]{display:none!important}
+
+/* ---------- Mock controls ---------- */
+.mockbar{background:var(--mock-bg);color:var(--mock-ink);border-bottom:1px solid var(--mock-line);padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.mockbar .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mock-muted)}
+.seg{display:inline-flex;border:1px solid var(--mock-line);border-radius:6px;overflow:hidden;flex-wrap:wrap}
+.seg button{padding:6px 12px;font-size:12px;color:var(--mock-muted);border-right:1px solid var(--mock-line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#243131;color:var(--mock-accent)}
+.seg button i{font-style:normal;font-family:var(--mono);font-size:11px;margin-right:7px;opacity:.7}
+.mockbar .hint{font-size:12px;color:var(--mock-muted);margin-left:auto}
+
+/* ---------- Stage ---------- */
+.stage{padding:16px 16px 8px;overflow-x:auto}
+.browser{width:1400px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 40px rgba(0,0,0,.14);overflow:hidden;color:#1F1F1F;font-family:var(--host);position:relative}
+.chrome{background:#E8E8EA;padding:8px 12px;display:flex;align-items:center;gap:12px;font-size:12px;color:#3C4043}
+.lights{display:flex;gap:7px}
+.lights i{width:11px;height:11px;border-radius:50%;background:#C9CDD2;display:block}
+.url{flex:0 1 420px;margin:0 auto;background:#fff;border-radius:6px;padding:4px 12px;text-align:center;font-size:12px;color:#3C4043}
+.tabs{background:#F1F1F3;border-bottom:1px solid #D9D9DE;display:flex;font-size:11.5px;color:#4A4D52}
+.tabs span{padding:6px 16px;border-right:1px solid #D9D9DE;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.tabs span.on{background:#fff;color:#1F1F1F}
+.gmail{position:relative;height:860px;background:#F6F6F6;overflow:hidden}
+.compose{position:absolute;left:190px;right:190px;top:0;bottom:0;background:#fff;display:flex;flex-direction:column}
+.c-title{background:#EEF3FB;padding:12px 16px;font-size:14px;font-weight:500;color:#1F1F1F}
+.c-field{padding:0 16px;height:38px;display:flex;align-items:center;border-bottom:1px solid #E5E5E5;font-size:14px;color:#5F6368}
+.c-body{flex:1;position:relative;padding:14px 16px 0;overflow:hidden}
+.editor{font-family:var(--compose);font-size:14px;line-height:1.6;color:#222;position:relative;max-width:1000px}
+.editor .para{margin:0 0 22px}
+.editor .para:last-child{margin-bottom:0}
+.editor .sig{margin-top:110px;color:#222}
+.c-tools{border-top:1px solid #E5E5E5;padding:12px 16px;display:flex;align-items:center;gap:16px;color:#5F6368;font-size:13px}
+.send{background:#0B57D0;color:#fff;border-radius:18px;padding:8px 22px;font-weight:500;font-size:14px}
+.tool{width:20px;height:20px;border-radius:4px;background:#E8EAED}
+.caret{display:inline-block;width:1px;height:16px;background:#222;vertical-align:-3px;margin-left:1px}
+
+/* sentences */
+.sen{border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.sen.hot{background:var(--ws-accent-bg);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+/* map rail: the hovered group stays ink, the rest fades */
+.v-C .sen{color:#A3ACAC;transition:color .15s,background .15s}
+.v-C .sen.hot{color:#222}
+.v-C .cut{border-bottom-color:transparent}
+.sen.moved{border-bottom:2px dotted var(--ws-accent);cursor:help}
+.cut{border-bottom:2px dotted var(--amber);cursor:help}
+.strike{text-decoration:line-through;color:#9AA3A3;text-decoration-color:#9AA3A3}
+.ins{background:var(--ws-accent-bg);border-bottom:2px solid var(--ws-accent)}
+
+/* seam marker: an overlay glyph at the boundary; the editor text does not move */
+.seam{display:inline-flex;align-items:center;gap:5px;vertical-align:baseline;margin:0 6px 0 2px;font-family:var(--ui);font-size:11px;line-height:1;color:var(--ws-accent);cursor:pointer;position:relative}
+.seam .pil{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:var(--ws-accent-bg);border:1px solid var(--ws-accent-line);font-weight:600;font-size:12px}
+.seam .tag{font-weight:500;letter-spacing:.02em;text-transform:uppercase;font-size:10.5px;color:var(--ws-accent-ink);background:#fff;border:1px solid var(--ws-accent-line);border-radius:4px;padding:2px 6px}
+.seam.on .pil{background:var(--ws-accent);color:#fff;border-color:var(--ws-accent)}
+.seam.decided .pil{background:var(--green-bg);border-color:#B6DDC5;color:var(--green)}
+.seam.decided .tag{color:var(--green);border-color:#B6DDC5}
+.v-B .seam .tag,.v-E .seam .tag{display:none}
+
+/* gutter labels (drawn left of the compose, aligned to the line where a paragraph would begin) */
+.gutter{position:absolute;left:0;top:0;width:190px;bottom:0;pointer-events:none;font-family:var(--ui)}
+.glabel{position:absolute;right:14px;display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-accent-ink);font-weight:500;white-space:nowrap}
+.glabel b{font-family:var(--mono);font-weight:500;font-size:11px;color:var(--ws-faint)}
+.glabel::after{content:"";width:10px;border-top:1px solid var(--ws-accent-line)}
+
+/* strip: the decision bar pinned above the Gmail toolbar */
+.strip{background:var(--ws-accent-bg);border-top:1px solid var(--ws-accent-line);border-bottom:1px solid var(--ws-accent-line);padding:8px 16px;display:flex;align-items:center;gap:12px;font-family:var(--ui);font-size:12.5px;color:var(--ws-ink)}
+.strip .w{width:20px;height:20px;border-radius:5px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:11px;flex:none}
+.strip .what{font-weight:600}
+.strip .why{color:var(--ws-muted)}
+.strip .why em{font-style:normal;color:var(--ws-ink)}
+.strip .acts{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{border:1px solid var(--ws-line);background:#fff;color:var(--ws-ink);border-radius:6px;padding:5px 11px;font-size:12.5px;font-family:var(--ui);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--ws-accent-line);background:var(--ws-accent-bg)}
+.btn.primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.btn.primary:hover{background:var(--ws-accent-ink)}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--ws-muted)}
+.btn kbd{font-family:var(--mono);font-size:10.5px;color:var(--ws-faint);border:1px solid var(--ws-line);border-radius:3px;padding:0 4px}
+.toggle{display:inline-flex;border:1px solid var(--ws-accent-line);border-radius:6px;overflow:hidden;background:#fff}
+.toggle button{padding:4px 12px;font-size:12.5px;color:var(--ws-muted)}
+.toggle button.on{background:var(--ws-accent);color:#fff}
+
+/* ghost preview (B): a rendered copy over the editor area */
+.ghost{position:absolute;inset:0;padding:14px 16px 0;background:#fff;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222}
+.ghost .para{margin:0 0 14px;max-width:1000px}
+.ghost .mark{position:absolute;right:16px;top:12px;font-family:var(--ui);font-size:11px;color:var(--ws-muted);background:var(--ws-bg);border:1px solid var(--ws-line);border-radius:12px;padding:3px 10px;display:flex;align-items:center;gap:6px}
+.ghost .mark i{width:7px;height:7px;border-radius:50%;background:var(--ws-accent);display:inline-block}
+
+/* map rail (C) */
+.rail{position:absolute;left:14px;top:150px;width:162px;font-family:var(--ui)}
+.rail h4{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-muted);font-weight:500;margin-bottom:8px;display:flex;justify-content:space-between}
+.rail h4 span{color:var(--ws-faint);letter-spacing:0;text-transform:none}
+.rcard{background:var(--ws-card);border:1px solid var(--ws-line);border-radius:8px;padding:8px 10px 9px;margin-bottom:6px;cursor:pointer;position:relative}
+.rcard:hover,.rcard.hot{border-color:var(--ws-accent);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+.rcard .n{font-family:var(--mono);font-size:11px;color:var(--ws-faint)}
+.rcard .lbl{font-size:13px;font-weight:600;color:var(--ws-ink);margin:1px 0 4px;display:flex;align-items:center;gap:6px}
+.rcard .lbl small{font-weight:400;color:var(--ws-faint);font-size:11px}
+.rcard .lines{display:flex;flex-direction:column;gap:2px}
+.rcard .lines span{font-size:11px;color:var(--ws-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px;border-left:2px solid var(--ws-line)}
+.rcard .lines span.mv{border-left-color:var(--ws-accent)}
+.rcard .lines span.mv::after{content:" moved";color:var(--ws-accent)}
+.rail .racts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.rail .racts .btn{justify-content:center}
+.rail .fine{font-size:11px;color:var(--ws-faint);margin-top:8px;line-height:1.4}
+
+/* skeleton rail (F): headers only; hovering one morphs the draft */
+.rail.skel .rcard{display:flex;align-items:baseline;gap:8px;padding:9px 10px}
+.rail.skel .rcard .lbl{margin:0;flex:1}
+.rail.skel .rcard small{font-size:11px;color:var(--ws-faint)}
+.rail.skel .rcard.pin{border-color:var(--ws-accent);background:var(--ws-accent-bg)}
+.morph{position:absolute;left:16px;right:16px;top:14px;max-width:1000px;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222;opacity:0;pointer-events:none;transition:opacity .3s}
+.morph.on{opacity:1}
+.morph .para{margin:0 0 14px}
+.morph .sen{position:relative;left:0;top:0}
+.morph.on .sen.fade{opacity:0}
+.morph .sig{margin-top:110px}
+.v-F .editor{transition:opacity .3s}
+.v-F .editor.away{opacity:0}
+@media (prefers-reduced-motion: reduce){.morph .sen{transition:none!important}}
+
+/* side by side (G): the draft stays left, tagged; the regrouped text sits right under headings */
+.v-G .c-body{display:flex;gap:0}
+.v-G .editor{flex:1;min-width:0;max-width:none;padding-right:22px}
+.side{flex:1;min-width:0;border-left:1px solid var(--ws-line);padding:0 0 0 22px;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222}
+.side-head{display:flex;align-items:center;gap:8px;font-family:var(--ui);font-size:12.5px;color:var(--ws-muted);margin-bottom:12px;flex-wrap:wrap}
+.side-head .w{width:20px;height:20px;border-radius:5px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:11px}
+.side-head b{color:var(--ws-ink);font-weight:600}
+.side-head .acts{margin-left:auto;display:flex;gap:6px}
+.sect{position:relative;padding:6px 10px 8px 12px;margin:0 0 10px -12px;border-left:2px solid transparent;border-radius:0 6px 6px 0;transition:background .15s,border-color .15s}
+.sect.hot{background:var(--ws-accent-bg);border-left-color:var(--ws-accent)}
+.sh{display:flex;align-items:baseline;gap:8px;font-family:var(--ui);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-accent-ink);font-weight:600;margin-bottom:3px;cursor:default}
+.sh b{font-family:var(--mono);font-weight:500;color:var(--ws-faint);letter-spacing:0}
+.sh small{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ws-faint);font-size:11px}
+.sect .sen{cursor:default}
+.tg{display:inline-block;font-family:var(--mono);font-size:9.5px;line-height:1;color:var(--ws-accent-ink);background:var(--ws-accent-bg);border:1px solid var(--ws-accent-line);border-radius:3px;padding:2px 4px;margin:0 5px 0 0;vertical-align:2px;user-select:none}
+.tg.mv{background:#fff}
+.v-G .sen.hot{background:var(--ws-accent-bg);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+.links{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.links path{fill:none;stroke:var(--ws-accent);stroke-width:1.2;stroke-opacity:.55}
+.links circle{fill:var(--ws-accent)}
+.v-G .panel .counts,.v-G .panel .sec{display:none}
+
+/* hover card (D): the same card as any finding */
+.hcard{position:absolute;width:340px;background:var(--ws-card);border:1px solid var(--ws-line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);font-family:var(--ui);font-size:12.5px;color:var(--ws-ink);padding:10px 12px 11px;z-index:3}
+.hcard::before{content:"";position:absolute;top:-6px;left:22px;width:10px;height:10px;background:var(--ws-card);border-left:1px solid var(--ws-line);border-top:1px solid var(--ws-line);transform:rotate(45deg)}
+.hcard .hh{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.02em;color:var(--ws-muted);margin-bottom:6px}
+.hcard .hh i{width:8px;height:8px;border-radius:50%;background:var(--ws-accent);display:inline-block}
+.hcard .hh span{margin-left:auto;color:var(--ws-faint)}
+.hcard .body{line-height:1.45}
+.hcard .body q{color:var(--ws-muted)}
+.hcard .acts{display:flex;gap:6px;margin-top:9px;align-items:center}
+.hcard .acts .quiet{margin-left:auto}
+
+/* the docked panel, as it is today, with the structure section shrunk */
+.panel{position:absolute;right:14px;bottom:14px;width:400px;background:var(--ws-card);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.22);font-family:var(--ui);color:var(--ws-ink);font-size:13px;overflow:hidden}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
+.ph .w{width:22px;height:22px;border-radius:6px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px}
+.ph b{font-weight:600;font-size:14px}
+.ph .st{color:var(--ws-muted);font-size:12.5px;display:flex;align-items:center;gap:6px}
+.ph .st i{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block}
+.ph .btn{margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px;border-bottom:1px solid var(--ws-line)}
+.chip{border:1px solid var(--ws-line);border-radius:14px;padding:3px 10px;font-size:12px;color:var(--ws-muted);display:inline-flex;gap:5px;align-items:center}
+.chip.on{color:var(--ws-accent-ink);border-color:var(--ws-accent-line);background:var(--ws-accent-bg)}
+.counts{padding:10px 14px;border-bottom:1px solid var(--ws-line);font-size:12.5px;color:var(--ws-muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.counts b{color:var(--ws-ink);font-weight:600}
+.sec{padding:11px 14px 12px;border-bottom:1px solid var(--ws-line)}
+.sec:last-child{border-bottom:0}
+.sec h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:500;display:flex;justify-content:space-between;margin-bottom:6px}
+.sec h3 span{letter-spacing:0;text-transform:none;color:var(--ws-faint)}
+.sec.struct{background:var(--ws-accent-bg)}
+.sec p{font-size:12.5px;color:var(--ws-ink);line-height:1.45}
+.sec .muted{color:var(--ws-muted)}
+.sec ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.sec li{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.sec li i{width:16px;height:16px;border-radius:4px;background:#fff;border:1px solid var(--ws-accent-line);color:var(--ws-accent);display:grid;place-items:center;font-size:11px;font-style:normal;font-weight:600;flex:none}
+.sec li.done i{border-color:#B6DDC5;color:var(--green)}
+.sec li span{color:var(--ws-faint);margin-left:auto;font-size:11.5px}
+.sec .acts{display:flex;gap:6px;margin-top:9px}
+.sec .link{color:var(--ws-accent-ink);text-decoration:underline;text-decoration-color:var(--ws-accent-line);text-underline-offset:2px}
+
+/* variant visibility */
+[data-v]{display:none}
+.v-A [data-v~="A"],.v-B [data-v~="B"],.v-C [data-v~="C"],.v-D [data-v~="D"],.v-E [data-v~="E"],.v-F [data-v~="F"],.v-G [data-v~="G"]{display:revert}
+.v-A .strip[data-v~="A"],.v-B .strip[data-v~="B"],.v-D .strip[data-v~="D"],.v-E .strip[data-v~="E"]{display:flex}
+.v-D .hcard{display:block}
+.v-B .ghost{display:block}
+.v-C .rail{display:block}
+
+/* ---------- Notes ---------- */
+.notes{max-width:1400px;margin:0 auto;padding:10px 16px 40px;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:20px}
+@media (max-width:900px){.notes{grid-template-columns:1fr}}
+.note h2{font-size:15px;margin-bottom:6px;display:flex;align-items:baseline;gap:10px}
+.note h2 i{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--ground-muted)}
+.note h2 .rec{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-accent);font-family:var(--ui);font-weight:600;border:1px solid var(--ws-accent-line);border-radius:4px;padding:1px 6px}
+.note h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ground-muted);font-weight:500;margin:12px 0 4px}
+.note p,.note li{font-size:13.5px;line-height:1.5;color:var(--ground-ink)}
+.note ul{margin:0;padding-left:18px}
+.note li{margin-bottom:3px}
+.note code{font-family:var(--mono);font-size:12px}
+.notes .grid-title{grid-column:1/-1;font-size:12px;color:var(--ground-muted);border-top:1px solid var(--ground-line);padding-top:12px}
+.matrix{grid-column:1/-1;overflow-x:auto}
+.matrix table{border-collapse:collapse;font-size:12.5px;min-width:700px}
+.matrix th,.matrix td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--ground-line);vertical-align:top}
+.matrix th{font-weight:500;color:var(--ground-muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.matrix td:first-child{white-space:nowrap;font-weight:600}
+.matrix td.y{color:var(--green)}
+.matrix td.n{color:var(--red)}
+</style>
+
+<div class="mockbar">
+  <span class="tag">WordSnap · Structure, drawn in the draft</span>
+  <div class="seg" id="seg">
+    <button data-pick="A" class="on"><i>A</i>Seams</button>
+    <button data-pick="D"><i>B</i>Seams you decide one by one</button>
+    <button data-pick="B"><i>C</i>Preview in place</button>
+    <button data-pick="C"><i>D</i>Map rail</button>
+    <button data-pick="E"><i>E</i>Track changes</button>
+    <button data-pick="F"><i>F</i>Skeleton, morph on hover</button>
+    <button data-pick="G"><i>G</i>Side by side</button>
+  </div>
+  <span class="hint">Same draft, same proposal (question, evidence, experiment, next step). One sentence moved, one word cut.</span>
+</div>
+
+<div class="stage">
+<div class="browser v-A" id="browser">
+  <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><div class="url">mail.google.com/mail/u/0/?fs=1&amp;tf=cm</div></div>
+  <div class="tabs"><span>Agent Fleet and Orchestration</span><span>#lobby · bot_board</span><span>Pull requests · jalemieux/wordsnap</span><span>WordSnap settings</span><span class="on">Compose Mail · jalemieux@gm…</span></div>
+  <div class="gmail">
+    <div class="gutter" id="gutter"></div>
+
+    <div class="rail" data-v="C">
+      <h4>Structure <span>4 from 1</span></h4>
+      <div class="rcard" data-group="0"><div class="n">¶ 1</div><div class="lbl">Question <small>1 sentence</small></div><div class="lines"><span>Experiment, agent self organization…</span></div></div>
+      <div class="rcard hot" data-group="1"><div class="n">¶ 2</div><div class="lbl">Evidence <small>3 sentences</small></div><div class="lines"><span>I noticed the other day…</span><span>the story out of open ai…</span><span class="mv">I found that by hcance…</span></div></div>
+      <div class="rcard" data-group="2"><div class="n">¶ 3</div><div class="lbl">Experiment <small>3 sentences</small></div><div class="lines"><span>O the frist two, i set myself…</span><span>I then had them start…</span><span>what i saw was really…</span></div></div>
+      <div class="rcard" data-group="3"><div class="n">¶ 4</div><div class="lbl">Next step <small>1 sentence</small></div><div class="lines"><span>Watned to take it a step further…</span></div></div>
+      <div class="racts"><button class="btn primary">Apply structure</button><button class="btn">Keep mine</button></div>
+      <div class="fine">Hover a group to see its sentences in your draft. Your sentences, regrouped; nothing added. Undo puts the draft back.</div>
+    </div>
+
+    <div class="rail skel" data-v="F">
+      <h4>Structure <span>4 from 1</span></h4>
+      <div class="rcard" data-group="0"><span class="n">¶1</span><span class="lbl">Question</span><small>1 sentence</small></div>
+      <div class="rcard" data-group="1"><span class="n">¶2</span><span class="lbl">Evidence</span><small>3</small></div>
+      <div class="rcard" data-group="2"><span class="n">¶3</span><span class="lbl">Experiment</span><small>3</small></div>
+      <div class="rcard" data-group="3"><span class="n">¶4</span><span class="lbl">Next step</span><small>1</small></div>
+      <div class="racts"><button class="btn primary">Apply structure</button><button class="btn">Keep mine</button></div>
+      <div class="fine">Hover a heading to see your draft in this order. Click to hold it while you read. Nothing is written until you apply.</div>
+    </div>
+
+    <div class="compose">
+      <div class="c-title">New Message</div>
+      <div class="c-field">Recipients</div>
+      <div class="c-field">Subject</div>
+      <div class="c-body">
+        <div class="editor" id="editor"></div>
+        <div class="ghost" data-v="B" id="ghost"></div>
+        <div class="morph" data-v="F" id="morph"></div>
+        <div class="side" data-v="G" id="side"></div>
+        <svg class="links" data-v="G" id="links"></svg>
+        <div class="hcard" data-v="D" id="hcard">
+          <div class="hh"><i></i>Structure · new paragraph <span>2 of 5</span></div>
+          <div class="body">The experiment starts here. Everything before it is what you noticed; from <q>O the frist two, i set myself…</q> on, it is what you did. A break lets the reader switch modes with you.</div>
+          <div class="acts"><button class="btn primary">Apply</button><button class="btn">Keep</button><button class="btn quiet">Next <kbd>↓</kbd></button></div>
+        </div>
+      </div>
+
+      <div class="strip" data-v="A">
+        <span class="w">W</span><span class="what">Structure</span>
+        <span class="why"><em>4 paragraphs from 1.</em> Question, evidence, experiment, next step each get their own. One sentence moves, “anyway” goes.</span>
+        <span class="acts"><button class="btn">Preview</button><button class="btn">Keep mine</button><button class="btn primary">Apply structure</button></span>
+      </div>
+      <div class="strip" data-v="D">
+        <span class="w">W</span><span class="what">Structure</span>
+        <span class="why"><em>5 changes:</em> 3 breaks, 1 move, 1 cut. Decide each in the draft, or all at once.</span>
+        <span class="acts"><button class="btn">Keep all</button><button class="btn primary">Apply all</button></span>
+      </div>
+      <div class="strip" data-v="B">
+        <span class="w">W</span><span class="what">Structure</span>
+        <span class="toggle"><button>Mine</button><button class="on">Proposed</button></span>
+        <span class="why">Your sentences in the proposed order. Nothing is written until you apply. <kbd style="font-family:var(--mono);font-size:10.5px;color:var(--ws-faint)">hold space</kbd> to compare.</span>
+        <span class="acts"><button class="btn">Keep mine</button><button class="btn primary">Apply structure</button></span>
+      </div>
+      <div class="strip" data-v="E">
+        <span class="w">W</span><span class="what">Structure</span>
+        <span class="why">Paragraph marks and the move shown as tracked changes. <em>Nothing added.</em></span>
+        <span class="acts"><button class="btn">Reject all</button><button class="btn primary">Accept all</button></span>
+      </div>
+
+      <div class="c-tools"><span class="send">Send</span><span style="font-size:15px">Aa</span><span class="tool"></span><span class="tool"></span><span class="tool"></span><span class="tool"></span><span class="tool"></span><span class="tool"></span></div>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="w">W</span><b>WordSnap</b><span class="st"><i></i>Structure proposed</span><button class="btn">Re-analyze</button></div>
+      <div class="chips"><span class="chip on">✓ Structure</span><span class="chip on">✓ Polish</span><span class="chip on">✓ Facts</span><span class="chip">☐ Challenge</span></div>
+      <div class="counts"><span><b>0</b> claims checked</span><span><b>0</b> contradicted</span><span><b>0</b> needs precision</span><span><b>0</b> clarity notes</span></div>
+      <div class="sec struct">
+        <h3>Structure <span>waiting on you</span></h3>
+        <p data-v="A E">Shown in your draft: 3 paragraph breaks, 1 move, 1 cut. Decide on the bar under the draft, or <span class="link">jump to the first seam</span>.</p>
+        <p data-v="B">Previewing the proposed order in the composer. Nothing is written. <span class="link">Back to mine</span>.</p>
+        <p data-v="F">The outline beside your draft. Hover a heading to see the draft in that order; click to hold it. <span class="link">Show the outline</span>.</p>
+        <p data-v="C">Four groups, mapped beside your draft. Hover one to see which sentences it takes. <span class="link">Show the map</span>.</p>
+        <div data-v="D">
+          <p>5 changes in your draft. Apply or keep each in place.</p>
+          <ul>
+            <li class="done"><i>✓</i>Break before “I noticed the other day…”<span>applied</span></li>
+            <li><i>¶</i>Break before “O the frist two…”<span>open</span></li>
+            <li><i>¶</i>Break before “Watned to take it…”<span>open</span></li>
+            <li><i>↕</i>Move “I found that by hcance…” after the Noam Brown story<span>open</span></li>
+            <li><i>−</i>Cut “anyway,”<span>open</span></li>
+          </ul>
+          <div class="acts"><button class="btn primary">Apply all</button><button class="btn">Keep all</button></div>
+        </div>
+      </div>
+      <div class="sec"><h3>Your argument <span>as WordSnap reads it</span></h3><p class="muted">Nothing analyzed yet.</p></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="notes">
+  <div class="note" id="note"></div>
+  <div class="note" id="note2"></div>
+  <div class="note" id="note3"></div>
+  <div class="grid-title">Side by side</div>
+  <div class="matrix"><table>
+    <tr><th>Idea</th><th>Text stays put</th><th>Shows a move</th><th>Partial accept</th><th>Reads like the email will</th><th>New schema</th><th>Build</th></tr>
+    <tr><td>A · Seams</td><td class="y">yes</td><td>tag only</td><td class="n">no</td><td class="n">no</td><td>labels (optional)</td><td>small: an overlay layer like highlights, plus a strip</td></tr>
+    <tr><td>B · Seams, one by one</td><td class="y">yes</td><td>tag + card</td><td class="y">yes</td><td class="n">no</td><td>none: edits derived from the paragraphs</td><td>medium: diff the sentence sequence, N findings, N small inserts</td></tr>
+    <tr><td>C · Preview in place</td><td class="n">reflows (in a copy)</td><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td>none</td><td>small: render a copy over the editor, toggle</td></tr>
+    <tr><td>D · Map rail</td><td class="y">yes</td><td class="y">yes</td><td>per group, later</td><td class="n">no</td><td>labels</td><td>medium: rail component, hover to group</td></tr>
+    <tr><td>F · Skeleton + morph</td><td class="n">reflows (in a copy)</td><td class="y">yes, animated</td><td class="n">no</td><td class="y">yes</td><td>roles</td><td>medium: rendered copy as in C, plus a per-sentence slide</td></tr>
+    <tr><td>G · Side by side</td><td>narrows (real editor)</td><td class="y">yes, tagged</td><td class="n">no</td><td class="y">yes</td><td>roles</td><td>medium: a second column, sentence tags, hover links. Needs a style change on the host editor, or the unwired PreviewModal</td></tr>
+    <tr><td>E · Track changes</td><td class="n">reflows (in a copy)</td><td class="y">yes</td><td>possible</td><td>half</td><td>none</td><td>medium, and the noisiest</td></tr>
+  </table></div>
+</div>
+
+<script>
+(function(){
+  // The draft as typed, sentence by sentence. Typos kept: they are the draft.
+  const S = {
+    q:  'Experiment, agent self organization . Can agent self orginzaise an acheive  effective collaboration /w rigid harness structure.',
+    s1: 'I noticed the other day that claude proceses, running on my local, where talking to one another.',
+    s2: 'I found that by hcance, but its esected given the work antrhropic and others have been putting in agents and swarms....',
+    s3a:'anyway, ',
+    s3: 'this, the story out of open ai about agent using artifactory to coomnuicate to one another, and later an interview with Noam brown confirmed my hunch that scaffholding agent orchestration in the harness is tpo contrasinting and counter productive when working iwith fronteir model.',
+    s4: 'O the frist two, i set myself to build a simple message board and instructed my claude code session to introduce themselve and ocoordinate using the board, and to not use their internal inter session tools.',
+    s5: 'I then had them start wortkoin on a problem, spining up 4 agent, one with a task and 3 as helpers...',
+    s6: 'what i saw was really intresting , where the sessions wouls start picking up work, and in case of collision, the intating process would help coordiante.',
+    n:  'Watned to take it a step further, and improve the communication chanel (the board), to allow the agent to be notifed, vs having to poll the board for update.'
+  };
+  const GROUP = {q:0,s1:1,s2:1,s3:1,s4:2,s5:2,s6:2,n:3};
+  const LABELS = ['Question','Evidence','Experiment','Next step'];
+  const editor = document.getElementById('editor');
+  const gutter = document.getElementById('gutter');
+  const ghost  = document.getElementById('ghost');
+  const browser= document.getElementById('browser');
+  const hcard  = document.getElementById('hcard');
+
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const sen = (id, cls='') => `<span class="sen ${cls}" data-id="${id}" data-group="${GROUP[id]}">${esc(S[id])}</span>`;
+  // Where each sentence lands: paragraph.sentence in the proposed order.
+  const DEST = {q:'1.1', s1:'2.1', s3:'2.2', s2:'2.3', s4:'3.1', s5:'3.2', s6:'3.3', n:'4.1'};
+  const tag = id => `<span class="tg${id === 's2' ? ' mv' : ''}" title="${id === 's2' ? 'Moves: paragraph 2, sentence 3' : 'Paragraph ' + DEST[id].replace('.', ', sentence ')}">${DEST[id]}</span>`;
+  const seam = (label, n, cls='') => `<span class="seam ${cls}" data-label="${label}" data-n="${n}"><span class="pil">¶</span><span class="tag">${label}</span></span>`;
+
+  // Draft order, with what each variant draws over it.
+  function renderDraft(v){
+    const cutTitle = 'Cut: the paragraph break does the work “anyway” was doing';
+    const mvTitle  = 'Moves after the Noam Brown story: the finding, then why it was expected';
+    let s3a, s2;
+    if (v === 'E') { s3a = `<span class="strike">${esc(S.s3a)}</span>`; s2 = `<span class="strike">${esc(S.s2)}</span> `; }
+    else if (v === 'F') { s3a = `<span class="sen" data-id="s3a" data-group="1">${esc(S.s3a)}</span>`; s2 = sen('s2') + ' '; }
+    else if (v === 'G') { s3a = `<span class="cut" title="${cutTitle}">${esc(S.s3a)}</span>`; s2 = tag('s2') + sen('s2') + ' '; }
+    const T = v === 'G' ? tag : () => '';
+    if (v === 'G') return `
+      <div class="para">${T('q')}${sen('q')}</div>
+      <div class="para">${T('s1')}${sen('s1')} ${s2}${s3a}${T('s3')}${sen('s3')} ${T('s4')}${sen('s4')} ${T('s5')}${sen('s5')} ${T('s6')}${sen('s6')}</div>
+      <div class="para">${T('n')}${sen('n')}</div>
+      <div class="sig">--<br>Best,<br>Jac<br><span class="caret"></span></div>`;
+    else { s3a = `<span class="cut" title="${cutTitle}">${esc(S.s3a)}</span>`; s2 = `<span class="sen moved" data-id="s2" data-group="1" title="${mvTitle}">${esc(S.s2)}</span> `; }
+    const seams = (v === 'A' || v === 'D' || v === 'E');
+    const s2again = v === 'E' ? ` <span class="ins">${esc(S.s2)}</span>` : '';
+    const onSeam = v === 'D';
+    return `
+      <div class="para">${sen('q')}</div>
+      <div class="para">${seams ? seam('Evidence', 2, onSeam ? 'decided' : '') : ''}${sen('s1')} ${s2}${s3a}${sen('s3')}${s2again} ${seams ? seam('Experiment', 3, onSeam ? 'on' : '') : ''}${sen('s4')} ${sen('s5')} ${sen('s6')}</div>
+      <div class="para">${seams ? seam('Next step', 4) : ''}${sen('n')}</div>
+      <div class="sig">--<br>Best,<br>Jac<br><span class="caret"></span></div>`;
+  }
+  // Proposed order (the pass's paragraphs), for the in-place preview.
+  function renderProposed(){
+    return `<div class="mark"><i></i>Preview · nothing written</div>
+      <div class="para">${esc(S.q)}</div>
+      <div class="para">${esc(S.s1)} ${esc(S.s3.replace(/^this/,'This'))} <span class="sen hot" title="Moved">${esc(S.s2)}</span></div>
+      <div class="para">${esc(S.s4)} ${esc(S.s5)} ${esc(S.s6)}</div>
+      <div class="para">${esc(S.n)}</div>
+      <div class="sig" style="margin-top:110px">--<br>Best,<br>Jac</div>`;
+  }
+
+  // Skeleton rail (F): the proposed order, painted over the editor, each sentence sliding from where it is.
+  const morph = document.getElementById('morph');
+  let pinned = null;
+  function renderMorph(){
+    morph.innerHTML = `
+      <div class="para">${sen('q')}</div>
+      <div class="para">${sen('s1')} <span class="sen fade" data-id="s3a" data-group="1">${esc(S.s3a)}</span>${sen('s3')} ${sen('s2')}</div>
+      <div class="para">${sen('s4')} ${sen('s5')} ${sen('s6')}</div>
+      <div class="para">${sen('n')}</div>
+      <div class="sig">--<br>Best,<br>Jac</div>`;
+  }
+  function offsets(){
+    return [...morph.querySelectorAll('.sen')].map(m => {
+      const d = editor.querySelector(`.sen[data-id="${m.dataset.id}"]`);
+      const a = d.getClientRects()[0], b = m.getClientRects()[0];
+      const cx = parseFloat(m.style.left) || 0, cy = parseFloat(m.style.top) || 0;
+      return { m, dx: a.left - (b.left - cx), dy: a.top - (b.top - cy) };
+    });
+  }
+  function morphTo(group){
+    const list = offsets();
+    if (group !== null) {
+      list.forEach(({m, dx, dy}) => { m.style.transition = 'none'; m.style.left = dx + 'px'; m.style.top = dy + 'px'; m.classList.toggle('hot', m.dataset.group === group); });
+      void morph.offsetHeight;
+      list.forEach(({m}) => { m.style.transition = 'left .55s cubic-bezier(.2,.7,.2,1), top .55s cubic-bezier(.2,.7,.2,1), opacity .4s'; m.style.left = '0px'; m.style.top = '0px'; });
+      morph.classList.add('on'); editor.classList.add('away');
+    } else {
+      list.forEach(({m, dx, dy}) => { m.style.left = dx + 'px'; m.style.top = dy + 'px'; m.classList.remove('hot'); });
+      morph.classList.remove('on'); editor.classList.remove('away');
+    }
+  }
+  const skel = browser.querySelector('.rail.skel');
+  skel.addEventListener('pointerover', e => { const c = e.target.closest('.rcard'); if (!c) return; skel.querySelectorAll('.rcard').forEach(x => x.classList.toggle('hot', x === c)); morphTo(c.dataset.group); });
+  skel.addEventListener('pointerleave', () => { skel.querySelectorAll('.rcard').forEach(x => x.classList.remove('hot')); if (pinned === null) morphTo(null); else morphTo(pinned); });
+  skel.addEventListener('click', e => { const c = e.target.closest('.rcard'); if (!c) return; pinned = pinned === c.dataset.group ? null : c.dataset.group; skel.querySelectorAll('.rcard').forEach(x => x.classList.toggle('pin', x.dataset.group === pinned)); });
+
+  // Side by side (G)
+  const side = document.getElementById('side'), links = document.getElementById('links');
+  function renderSide(){
+    const sect = (g, n, label, small, body) => `<div class="sect" data-group="${g}"><div class="sh"><b>¶${n}</b>${label}<small>${small}</small></div><p>${body}</p></div>`;
+    side.innerHTML = `
+      <div class="side-head"><span class="w">W</span><b>Proposed</b><span>your sentences, regrouped. Nothing added.</span><span class="acts"><button class="btn">Keep mine</button><button class="btn primary">Apply structure</button></span></div>
+      ${sect(0, 1, 'Question', '1 sentence', sen('q'))}
+      ${sect(1, 2, 'Evidence', '3 sentences · one moved, “anyway” cut', sen('s1') + ' ' + sen('s3') + ' ' + sen('s2'))}
+      ${sect(2, 3, 'Experiment', '3 sentences', sen('s4') + ' ' + sen('s5') + ' ' + sen('s6'))}
+      ${sect(3, 4, 'Next step', '1 sentence', sen('n'))}`;
+  }
+  function linkGroup(g){
+    const body = editor.parentElement.getBoundingClientRect();
+    editor.querySelectorAll('.sen').forEach(x => x.classList.toggle('hot', x.dataset.group === g));
+    side.querySelectorAll('.sect').forEach(x => x.classList.toggle('hot', x.dataset.group === g));
+    side.querySelectorAll('.sen').forEach(x => x.classList.remove('hot'));
+    let d = '', dots = '';
+    if (g !== null) {
+      const h = side.querySelector(`.sect[data-group="${g}"] .sh`).getBoundingClientRect();
+      const tx = h.left - body.left - 12, ty = h.top - body.top + h.height / 2;
+      editor.querySelectorAll(`.sen[data-group="${g}"]`).forEach(x => {
+        const r = x.getClientRects()[0];
+        const sx = editor.getBoundingClientRect().right - body.left - 22, sy = r.top - body.top + r.height / 2;
+        d += `M${sx},${sy} C${sx + 30},${sy} ${tx - 30},${ty} ${tx},${ty} `;
+        dots += `<circle cx="${sx}" cy="${sy}" r="2.5"/>`;
+      });
+      dots += `<circle cx="${tx}" cy="${ty}" r="2.5"/>`;
+    }
+    links.innerHTML = d ? `<path d="${d}"/>${dots}` : '';
+  }
+  function sideHover(e){
+    if (!browser.classList.contains('v-G')) return;
+    const t = e.target.closest('.sect, .sen'); if (!t) return;
+    linkGroup(t.dataset.group);
+    if (t.classList.contains('sen')) { const twin = (t.closest('#side') ? editor : side).querySelector(`.sen[data-id="${t.dataset.id}"]`); if (twin) twin.classList.add('hot'); }
+  }
+  side.addEventListener('pointerover', sideHover);
+  editor.addEventListener('pointerover', sideHover);
+
+  function placeGutter(v){
+    gutter.innerHTML = '';
+    if (!(v === 'A' || v === 'D')) return;
+    const g0 = document.createElement('div'); g0.className = 'glabel';
+    const q = editor.querySelector('[data-id="q"]');
+    const base = browser.querySelector('.gmail').getBoundingClientRect();
+    const put = (el, label, n) => {
+      const r = el.getBoundingClientRect();
+      const d = document.createElement('div'); d.className = 'glabel';
+      d.style.top = (r.top - base.top + 2) + 'px';
+      d.innerHTML = `<b>¶${n}</b>${label}`;
+      gutter.appendChild(d);
+    };
+    put(q, 'Question', 1);
+    editor.querySelectorAll('.seam').forEach(s => put(s, s.dataset.label, s.dataset.n));
+  }
+  function placeCard(){
+    const s = editor.querySelector('.seam.on');
+    if (!s) return;
+    const body = editor.parentElement.getBoundingClientRect();
+    const r = s.getBoundingClientRect();
+    hcard.style.left = Math.max(16, r.left - body.left - 20) + 'px';
+    hcard.style.top  = (r.bottom - body.top + 10) + 'px';
+  }
+
+  const NOTES = {
+    A: [
+      `<h2><i>A</i>Seams</h2><p>The proposal is drawn where it lands: a pilcrow at each point where a new paragraph would begin, the paragraph's role in the left margin, a dotted underline under the sentence that moves and the word that goes. The draft does not move. One bar under the draft carries the decision.</p><h3>Why it fits</h3><p>The user reads their own text and sees the cuts. No second copy to compare against. It is the same grammar as highlights: an overlay anchored to quotes.</p>`,
+      `<h3>Costs</h3><ul><li>Seams and the moved sentence are located by quote, like any finding: sentence-split the draft, sentence-split the proposal, match normalized text. Lives next to <code>anchoring.ts</code>.</li><li>The margin labels need a role per paragraph. Additive field on <code>PassS</code>: <code>roles: string[]</code> (two or three words each) or drop the labels and show only ¶1 to ¶4.</li><li>The bar is a new overlay element pinned above the host toolbar. Gmail full-screen compose has room; inline replies need the rail case anyway.</li></ul>`,
+      `<h3>Limits</h3><ul><li>A move is a tag on a sentence, not a picture of where it goes. Fine for one move, weak for three.</li><li>Still all or nothing. Apply writes the whole draft, as today.</li><li>The label column needs blank margin left of the compose; in a narrow compose it collapses to the pilcrow alone.</li></ul>`
+    ],
+    D: [
+      `<h2><i>B</i>Seams you decide one by one <span class="rec">recommended</span></h2><p>Same drawing as A, but each seam is a finding. Hover a pilcrow and the usual card opens: why the break goes here, Apply, Keep, Next. The move and the cut are findings too. Apply on a break inserts one paragraph break through the same insertText path as any suggestion. The bar still offers all at once.</p><h3>Why it fits</h3><p>It is how the rest of WordSnap already works: a quoted span, a reason, Apply or Keep. The writer keeps two breaks and rejects the move, which the panel version cannot do. Every Apply is small, undoable, and stays in the writer's words.</p>`,
+      `<h3>Costs</h3><ul><li>Derive an edit list from the pass output: breaks (insert a break before this sentence), moves (this sentence goes after that one), cuts (this span goes). Pure function over two sentence sequences, unit-testable, no schema change.</li><li>Findings of a new kind <code>structure</code> in <code>SessionState</code> (additive), rendered by <code>HighlightLayer</code> and <code>HoverCard</code>.</li><li>A move is two insertText calls (delete at origin, insert at target). Anchors shift as usual after each one.</li><li>Recheck after an Apply: none needed for a break. A move or cut re-runs A on the changed paragraph, like any Apply.</li></ul>`,
+      `<h3>Limits</h3><ul><li>Order of operations: applying a move after a break must re-anchor. The existing diff-based shifting covers it, but it needs a test per pair.</li><li>The reason text per seam is not in the pass output today. First cut: one generic line per kind, and the pass note on the bar. Better: ask S for a one-line <code>why</code> per paragraph (additive).</li><li>Five pilcrows in a long draft is still quiet; twenty is not. Cap what is drawn and fold the rest into the bar.</li></ul>`
+    ],
+    B: [
+      `<h2><i>C</i>Preview in place</h2><p>The bar gets a toggle: Mine, Proposed. Proposed paints a rendered copy of the reordered draft over the editor, in the composer's own font and width, with the moved sentence tinted. Hold space to flip back and compare. Nothing is written; Apply writes, Keep dismisses.</p><h3>Why it fits</h3><p>Structure is about reading order, and the only way to judge reading order is to read it in place, at the width the recipient will see. The panel's small box cannot do that.</p>`,
+      `<h3>Costs</h3><ul><li>A copy of the editor's computed font, size, line height and width, painted in the overlay at the editor's rect. Gmail's editor is a plain contenteditable, so this is close; X's Draft.js and LinkedIn are unknown.</li><li>The editor is covered while Proposed is on. Typing is blocked until the user flips back or decides, which matches the current hold on A, B and C.</li><li>No schema change.</li></ul>`,
+      `<h3>Limits</h3><ul><li>It shows the result, not the reasoning. Pairs well with A or B: seams for the why, preview for the read.</li><li>Formatting inside the draft (links, bold, lists) is lost in the copy unless the overlay clones the DOM, which the current text snapshot does not carry.</li><li>Two things that look like the email on screen is a trust cost. The preview mark and the tint must stay.</li></ul>`
+    ],
+    C: [
+      `<h2><i>D</i>Map rail</h2><p>The proposal as an outline beside the draft: one card per paragraph, its role, its sentence count, the first words of each sentence it takes. Hovering a card lights those sentences in the draft where they are. The draft does not move. Apply and Keep sit under the cards.</p><h3>Why it fits</h3><p>A stream-of-consciousness draft is a pile of thoughts. The map shows the grouping rather than a rewritten blob: these three sentences are your evidence, these three are the experiment. That is the insight the pass has, made visible without touching the text.</p>`,
+      `<h3>Costs</h3><ul><li>Roles per paragraph from the pass (additive field), or number-only cards.</li><li>Sentence matching as in A.</li><li>A rail component in the overlay, placed in the blank margin left of the compose. In an inline reply there is no margin; the rail would have to dock under the panel instead.</li></ul>`,
+      `<h3>Limits</h3><ul><li>The writer still has to imagine the reorder. The map says what goes together, not how it reads.</li><li>Drag to regroup before applying is the obvious next step and the obvious scope creep. Leave it out of v1.</li><li>A map for a draft that only needs three breaks is heavier than three seams.</li></ul>`
+    ],
+    F: [
+      `<h2><i>F</i>Skeleton, morph on hover</h2><p>The rail is the outline the pass found: four headings and a count, nothing else. Hover a heading and your draft morphs in place into the proposed order, each sentence sliding from where it sits to where it would go, the cut word fading, the hovered paragraph lit. Move off and it slides back. Click a heading to hold the view while you read. Apply and Keep sit under the outline.</p><h3>Why it fits</h3><p>It shows the transition itself, not two states. The outline says what the pass saw; the morph proves it with the writer's own sentences. Nothing is written until Apply.</p>`,
+      `<h3>Costs</h3><ul><li>A rendered copy over the editor, as in Preview in place, plus one measurement per sentence in each order. The slide is a <code>left/top</code> transition on inline spans, which follows wrapped lines.</li><li>Roles per paragraph from the pass (additive field), or ¶1 to ¶4 alone.</li><li>The editor's font, size, line height and width, read from computed style at mount.</li></ul>`,
+      `<h3>Limits</h3><ul><li>Motion in a mail composer needs restraint: one morph per hover, half a second, and a plain crossfade under reduced motion.</li><li>A long draft morphs off screen. The hovered paragraph has to scroll into view, and the copy has to scroll with the editor.</li><li>Inline replies have no margin for the rail. The outline then lives in the panel's Structure section, and hovering there does the same morph.</li><li>Formatting inside the draft is lost in the copy, as in Preview in place.</li></ul>`
+    ],
+    G: [
+      `<h2><i>G</i>Side by side</h2><p>The compose body splits. Left, your draft as written, with a small tag on every sentence saying where it lands: 2.3 is paragraph two, sentence three. Right, the same sentences regrouped under explicit headings, with a count and a note of what moved or went. Hover a heading or a sentence on either side and the twin lights up, with lines from each original sentence to its new paragraph. Apply and Keep sit above the proposal.</p><h3>Why it fits</h3><p>Both orders are readable at once, and the mapping is written on the original, not inferred from a hover. The headings make the new structure explicit, which the pass note only describes.</p>`,
+      `<h3>Costs</h3><ul><li>The right column is a rendered copy, as in Preview in place, plus roles per paragraph from the pass (additive field).</li><li>The draft has to get narrower. WordSnap cannot resize Gmail's editor with an overlay, so this means setting a width on the host editor element while the compare is open, and restoring it after. Not content, but the first time the extension touches the host's layout.</li><li>Or open it as a modal: two columns over the compose. That reuses the unwired <code>PreviewModal</code> and touches nothing in the host, at the price of leaving the composer.</li><li>Tags are overlays anchored to sentence starts, like seams.</li></ul>`,
+      `<h3>Limits</h3><ul><li>Two columns of the same words is the heaviest view on this page. It earns its place for a long reorder; three breaks in a short draft do not need it.</li><li>At the width of an inline reply there is no room for two columns, so it falls back to the modal or to seams.</li><li>Eight tags on eight sentences is fine; forty tags on forty is not. Tag paragraph starts only past a threshold.</li><li>Still all or nothing.</li></ul>`
+    ],
+    E: [
+      `<h2><i>E</i>Track changes</h2><p>The Word convention: paragraph marks where breaks go, the moved sentence struck at its origin and inserted at its destination, the cut word struck. Accept all or reject all on the bar.</p><h3>Why it fits</h3><p>Everyone has seen it. No learning.</p>`,
+      `<h3>Costs</h3><ul><li>Like C, this is a painted copy over the editor: the inserted sentence has to reflow the text.</li><li>No schema change.</li></ul>`,
+      `<h3>Limits</h3><ul><li>Noisiest of the five. The writer's text stops being center stage, which the visual contract forbids.</li><li>Struck-through text plus inserted text plus paragraph marks reads as an edit done to you, not a gap pointed out. It is the opposite of the register the product is built on.</li><li>Included to be ruled out on purpose.</li></ul>`
+    ]
+  };
+
+  function show(v){
+    browser.className = 'browser v-' + v;
+    pinned = null; morph.classList.remove('on'); editor.classList.remove('away');
+    if (v === 'F') renderMorph();
+    if (v === 'G') { renderSide(); requestAnimationFrame(() => linkGroup('1')); } else links.innerHTML = '';
+    editor.innerHTML = renderDraft(v);
+    ghost.innerHTML = v === 'B' ? renderProposed() : '';
+    editor.style.visibility = v === 'B' ? 'hidden' : 'visible';
+    const n = NOTES[v];
+    document.getElementById('note').innerHTML = n[0];
+    document.getElementById('note2').innerHTML = n[1];
+    document.getElementById('note3').innerHTML = n[2];
+    if (v === 'C') editor.querySelectorAll('[data-group="1"]').forEach(e => e.classList.add('hot'));
+    requestAnimationFrame(() => { placeGutter(v); if (v === 'D') placeCard(); });
+    document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.pick === v));
+    try { localStorage.setItem('ws-struct-mock', v); } catch (e) {}
+  }
+  document.getElementById('seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.pick); });
+  // Map rail: hover a group to light its sentences.
+  browser.addEventListener('pointerover', e => {
+    const c = e.target.closest('.rcard'); if (!c) return;
+    browser.querySelectorAll('.rcard').forEach(x => x.classList.toggle('hot', x === c));
+    editor.querySelectorAll('.sen').forEach(s => s.classList.toggle('hot', s.dataset.group === c.dataset.group));
+  });
+  // Seams (B): click another pilcrow to move the card.
+  editor.addEventListener('click', e => {
+    const s = e.target.closest('.seam'); if (!s || !browser.classList.contains('v-D')) return;
+    editor.querySelectorAll('.seam').forEach(x => x.classList.toggle('on', x === s));
+    placeCard();
+  });
+  window.addEventListener('resize', () => { const v = browser.className.slice(-1); placeGutter(v); if (v === 'D') placeCard(); });
+  let start = 'A';
+  try { start = localStorage.getItem('ws-struct-mock') || 'A'; } catch (e) {}
+  if (!NOTES[start]) start = 'A';
+  document.fonts && document.fonts.ready.then(() => show(start));
+  show(start);
+})();
+</script>

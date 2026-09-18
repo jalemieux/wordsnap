@@ -5,8 +5,10 @@ import type { ComposerHandle } from '../adapters/types';
 import type { SessionState, Span } from '../shared/types';
 import { emptySession } from '../shared/types';
 import css from './styles.css';
-import { bodyText } from './format';
+import { bodyText, structureOpen } from './format';
+import { mapStructure, type StructureMap } from '../shared/structure-map';
 import { ChallengesPanel } from './components/ChallengesPanel';
+import { CompareView, type CompareGeometry } from './components/CompareView';
 import { HighlightLayer, type HighlightItem, type HighlightStatus, type RectLike } from './components/HighlightLayer';
 import { HoverCard, type CardFinding } from './components/HoverCard';
 import { Launcher } from './components/Launcher';
@@ -15,6 +17,11 @@ import type { MountOverlay, OverlayCallbacks, OverlayController } from './types'
 
 const PANEL_W = 336;
 const PANEL_GAP = 14;
+/** The compare pane sits beside the draft from this editor width; narrower, it sits over it. */
+const COMPARE_MIN_WIDE = 720;
+const COMPARE_GAP = 20;
+const COMPARE_MIN_W = 320;
+const COMPARE_MAX_W = 560;
 
 interface Layout {
   anchor: RectLike;
@@ -24,6 +31,9 @@ interface Layout {
   /** Panel box in viewport coordinates, so other pieces can stay out of its way. */
   panelBox: RectLike;
   docked: boolean;
+  /** The structure proposal beside (or over) the draft, while one is open and the overlay is showing. */
+  compare?: CompareGeometry;
+  map?: StructureMap;
 }
 
 interface Store {
@@ -75,10 +85,66 @@ export function highlightTargets(state: SessionState): Omit<HighlightItem, 'rect
   return out;
 }
 
-function computeLayout(handle: ComposerHandle, state: SessionState): Layout {
+/** Width reserved in each editor for the compare pane, so a relayout only touches the host when it changes. */
+const insets = new WeakMap<ComposerHandle, number>();
+function applyInset(handle: ComposerHandle, px: number): void {
+  if ((insets.get(handle) ?? 0) === px) return;
+  insets.set(handle, px);
+  handle.setInset?.(px);
+}
+
+const mapCache = new WeakMap<ComposerHandle, { key: string; map: StructureMap }>();
+function structureMap(handle: ComposerHandle, text: string, paragraphs: string[]): StructureMap {
+  const key = `${text}\u0000${paragraphs.join('\u0000')}`;
+  const hit = mapCache.get(handle);
+  if (hit && hit.key === key) return hit.map;
+  const map = mapStructure(text, paragraphs);
+  mapCache.set(handle, { key, map });
+  return map;
+}
+
+/**
+ * Where the compare pane goes. Beside the draft when the editor is wide enough for two columns: the editor gives up
+ * its right half (a padding on the host element, restored when the proposal closes) and the pane is drawn there,
+ * clipped to the editor's scroll frame. Otherwise over the draft, full width.
+ */
+function computeCompare(handle: ComposerHandle, map: StructureMap, viewport: { width: number; height: number }): CompareGeometry {
+  const el = handle.element;
+  const er = el.getBoundingClientRect();
+  const sp = handle.scrollParent();
+  const doc = el.ownerDocument;
+  const frame = sp === doc.body || sp === doc.documentElement ? handle.anchorRect() : sp.getBoundingClientRect();
+  const wide = er.width >= COMPARE_MIN_WIDE;
+  const width = wide ? Math.min(COMPARE_MAX_W, Math.max(COMPARE_MIN_W, Math.round(er.width * 0.5))) : Math.round(er.width);
+  applyInset(handle, wide ? width + COMPARE_GAP : 0);
+  const top = Math.max(er.top, frame.top, 0);
+  const bottom = Math.min(frame.bottom, viewport.height);
+  const box: RectLike = { left: Math.round(wide ? er.right - width : er.left), top, width, height: Math.max(120, bottom - top) };
+  let font = { family: '', size: '', lineHeight: '' };
+  try {
+    const cs = doc.defaultView?.getComputedStyle(el);
+    if (cs) font = { family: cs.fontFamily, size: cs.fontSize, lineHeight: cs.lineHeight };
+  } catch {
+    /* no layout */
+  }
+  const sentences = wide ? map.draft.map((d) => toRects(handle.rangeFor(d.span))) : [];
+  const trims = wide ? map.draft.map((d) => (d.trim ? toRects(handle.rangeFor(d.trim)) : null)) : [];
+  return { box, wide, font, sentences, trims };
+}
+
+function computeLayout(handle: ComposerHandle, state: SessionState, open: boolean): Layout {
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  // The compare pane first: it changes the editor's width, and every other rect is measured after that.
+  let compare: CompareGeometry | undefined;
+  let map: StructureMap | undefined;
+  if (open && structureOpen(state) && state.structure) {
+    map = structureMap(handle, safeText(handle), state.structure.paragraphs);
+    compare = computeCompare(handle, map, viewport);
+  } else {
+    applyInset(handle, 0);
+  }
   const a = handle.anchorRect();
   const anchor = { top: a.top, left: a.left, width: a.width, height: a.height };
-  const viewport = { width: window.innerWidth, height: window.innerHeight };
   const rects: Record<string, RectLike[]> = {};
   for (const t of highlightTargets(state)) rects[t.id] = toRects(handle.rangeFor(t.span));
 
@@ -97,7 +163,17 @@ function computeLayout(handle: ComposerHandle, state: SessionState): Layout {
     panelBox = { left: viewport.width - 16 - PANEL_W, top: viewport.height - 16 - maxH, width: PANEL_W, height: maxH };
   }
 
-  return { anchor, viewport, rects, panel, panelBox, docked };
+  return { anchor, viewport, rects, panel, panelBox, docked, compare, map };
+}
+
+/** Index of the draft sentence under a point, from the compare geometry's rects. */
+function sentenceAt(geo: CompareGeometry, x: number, y: number): number | null {
+  for (let i = 0; i < geo.sentences.length; i++) {
+    for (const r of geo.sentences[i]!) {
+      if (x >= r.left && x <= r.left + r.width && y >= r.top && y <= r.top + r.height) return i;
+    }
+  }
+  return null;
 }
 
 function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void }) {
@@ -111,6 +187,36 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
   const [hot, setHot] = useState<ReadonlySet<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  // Compare pane: the lit proposed paragraph and, within it, the one sentence under the pointer.
+  const [hotStructure, setHotStructure] = useState<{ group: number | null; sentence: number | null }>({ group: null, sentence: null });
+  const compare = open ? layout.compare : undefined;
+  const map = open ? layout.map : undefined;
+
+  // Pointing at a sentence in the editor lights its paragraph in the pane. The editor keeps every event: this only
+  // watches the pointer from the window and hit-tests the rects already measured for the tags.
+  useEffect(() => {
+    if (!compare?.wide || !map) return;
+    let raf = 0;
+    let last: { group: number | null; sentence: number | null } = { group: null, sentence: null };
+    const onMove = (e: MouseEvent) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const i = sentenceAt(compare, e.clientX, e.clientY);
+        const next = i === null ? { group: null, sentence: null } : { group: map.draft[i]!.dest?.para ?? null, sentence: i };
+        if (next.group === last.group && next.sentence === last.sentence) return;
+        // Only the draft side reports here; the pane reports through its own handlers and wins while hovered.
+        if (i === null && last.sentence === null) return;
+        last = next;
+        setHotStructure(next);
+      });
+    };
+    window.addEventListener('mousemove', onMove, true);
+    return () => {
+      window.removeEventListener('mousemove', onMove, true);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [compare, map]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 10_000);
@@ -153,9 +259,38 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
   const launcher = <Launcher state={state} anchor={layout.anchor} avoid={open ? layout.panelBox : undefined} open={open} onToggle={() => setOpen(!open)} />;
   if (!open) return <div class="ws-root">{launcher}</div>;
 
+  const applyStructure = callbacks.onApplyStructure
+    ? (paragraphs: string[]) => {
+        setPinnedId(null);
+        setHoverId(null);
+        setHotStructure({ group: null, sentence: null });
+        const ok = callbacks.onApplyStructure?.(paragraphs) !== false;
+        setToast(ok ? 'Structure applied. Undo in the editor puts it back.' : 'The editor did not accept the change.');
+      }
+    : undefined;
+  const keepStructure = callbacks.onKeepStructure
+    ? () => {
+        setHotStructure({ group: null, sentence: null });
+        callbacks.onKeepStructure?.();
+      }
+    : undefined;
+
   return (
     <div class="ws-root">
       {launcher}
+      {compare && map && state.structure ? (
+        <CompareView
+          structure={state.structure}
+          fromParagraphs={Math.max(1, text.split(/\n{2,}/).filter((p) => p.trim()).length)}
+          map={map}
+          geo={compare}
+          hotGroup={hotStructure.group}
+          hotSentence={hotStructure.sentence}
+          onHot={(group, sentence) => setHotStructure({ group, sentence })}
+          onApply={applyStructure}
+          onKeep={keepStructure}
+        />
+      ) : null}
       <HighlightLayer
         items={items}
         hot={hotIds}
@@ -194,17 +329,9 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         onClose={() => setOpen(false)}
         onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
         onChecks={callbacks.onChecks ? (c) => callbacks.onChecks?.(c) : undefined}
-        onApplyStructure={
-          callbacks.onApplyStructure
-            ? (paragraphs) => {
-                setPinnedId(null);
-                setHoverId(null);
-                const ok = callbacks.onApplyStructure?.(paragraphs) !== false;
-                setToast(ok ? 'Structure applied. Undo in the editor puts it back.' : 'The editor did not accept the change.');
-              }
-            : undefined
-        }
-        onKeepStructure={callbacks.onKeepStructure ? () => callbacks.onKeepStructure?.() : undefined}
+        onApplyStructure={applyStructure}
+        onKeepStructure={keepStructure}
+        compare={!!compare}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
       />
@@ -226,7 +353,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
   document.documentElement.appendChild(host);
 
   const state0 = initial ?? emptySession(handle.key, 'generic');
-  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0), open: !!startOpen, minWords: minWords ?? 8 };
+  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0, !!startOpen), open: !!startOpen, minWords: minWords ?? 8 };
   const listeners = new Set<Listener>();
   const subscribe = (l: Listener) => {
     listeners.add(l);
@@ -237,7 +364,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     if (store.open === open) return;
     store.open = open;
     store.text = safeText(handle);
-    store.layout = computeLayout(handle, store.state);
+    store.layout = computeLayout(handle, store.state, open);
     notify();
     callbacks.onOpenChange?.(open);
   };
@@ -250,7 +377,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     raf = requestAnimationFrame(() => {
       raf = 0;
       store.text = safeText(handle);
-      store.layout = computeLayout(handle, store.state);
+      store.layout = computeLayout(handle, store.state, store.open);
       notify();
     });
   };
@@ -264,7 +391,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     update(state) {
       store.state = state;
       store.text = safeText(handle);
-      store.layout = computeLayout(handle, state);
+      store.layout = computeLayout(handle, state, store.open);
       notify();
     },
     relayout,
@@ -275,6 +402,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
       ro?.disconnect();
+      applyInset(handle, 0);
       render(null, mount);
       host.remove();
     },

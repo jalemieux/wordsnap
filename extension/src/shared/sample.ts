@@ -37,6 +37,7 @@ export const SAMPLE_PASS_S: PassS = {
   verdict: 'reorder',
   note: 'The ask was in the last paragraph and the hallway evidence came before the trials. Same sentences: the ask first, the evidence in one block, then the plan.',
   paragraphs: SAMPLE_PARAGRAPHS,
+  roles: ['Greeting', 'Ask', 'Evidence', 'The team', 'Plan', 'Next step', 'Sign-off'],
 };
 
 export const SAMPLE_PASS_S_KEEPS: PassS = {

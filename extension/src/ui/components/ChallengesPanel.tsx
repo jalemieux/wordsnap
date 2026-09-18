@@ -17,13 +17,15 @@ export interface ChallengesPanelProps {
   onApplyStructure?: (paragraphs: string[]) => void;
   /** Keep mine: dismiss the proposal and analyze the draft as written. */
   onKeepStructure?: () => void;
+  /** The proposal is drawn beside the draft: the panel shrinks to its header and one line, and the buttons live there. */
+  compare?: boolean;
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
   minWords?: number;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, wordCount, minWords }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -32,6 +34,7 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
   const checks = checksOf(state);
   const noneOn = CHECK_IDS.every((k) => !checks[k]);
   const canAnalyze = !running && !noneOn && !structureOpen(state) && (draftChanged(state) || checksChanged(state) || staleFindings(state) || !!firstError(state));
+  const compact = !!compare && structureOpen(state);
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
@@ -82,6 +85,10 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
         })}
       </div>
       <div class={`ws-progress${running ? ' running' : ''}`} />
+      {compact ? (
+        <StructureSection state={state} compact />
+      ) : (
+        <>
       {noneOn ? <div class="ws-idle">Pick at least one check.</div> : null}
       {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} checks={checks} /> : null}
       {!running && !state.argument && !state.structure && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error') ? (
@@ -185,6 +192,8 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
           })}
         </section>
       </div>
+        </>
+      )}
     </aside>
   );
 }
@@ -196,11 +205,21 @@ const PASS_LABEL: Record<'S' | 'A' | 'B' | 'C', string> = { S: 'Reading the orde
  * The structure pass's answer: a proposed order with Apply / Keep while it is open, otherwise one line on what it
  * found. Nothing until the pass has run.
  */
-function StructureSection({ state, onApply, onKeep }: { state: SessionState; onApply?: (paragraphs: string[]) => void; onKeep?: () => void }) {
+function StructureSection({ state, onApply, onKeep, compact }: { state: SessionState; onApply?: (paragraphs: string[]) => void; onKeep?: () => void; compact?: boolean }) {
   const st = state.structure;
   const running = state.passes.S?.state === 'running';
   if (!st && !running) return null;
   const open = !!st && st.verdict === 'reorder' && st.status === 'open';
+  if (compact && open) {
+    return (
+      <section class="ws-sec ws-structure" data-status="open">
+        <h3>
+          Structure<span class="pass">waiting on you</span>
+        </h3>
+        <p class="ws-struct-note">{st!.paragraphs.length} paragraphs, beside your draft. Apply it or keep yours there; the other checks wait for that.</p>
+      </section>
+    );
+  }
   return (
     <section class="ws-sec ws-structure" data-status={st ? (st.verdict === 'reorder' ? st.status : 'keeps') : 'running'}>
       <h3>

@@ -58,4 +58,4 @@ If it does not, return verdict "reorder" and the same draft in the order a reade
 - Add nothing: no new ideas, examples, claims, headings or transitions beyond a connecting word or two. Do not fix grammar or tighten wording; later passes handle that.
 - Keep greetings and sign-offs where they are.
 - "note" says in one or two sentences what moved and why the reader is better served, in the same plain voice as the other passes.
-Return "paragraphs" as an array of paragraph strings, in order, without paragraph numbers.`;
+Return "paragraphs" as an array of paragraph strings, in order, without paragraph numbers, and "roles" as an array of the same length: one to three plain words per paragraph naming its job for the reader, such as "Ask", "Evidence", "What I tried", "Next step", "Greeting". Roles are labels for a map of the draft, not headings to insert.`;

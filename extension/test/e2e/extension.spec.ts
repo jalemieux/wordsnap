@@ -232,16 +232,30 @@ test('a dictated draft gets a structure proposal; Apply structure reorders the e
   const panel = overlay.locator('.ws-panel');
   await expect(panel).toBeVisible({ timeout: 15_000 });
 
-  // The proposal shows first and the other passes wait.
+  // The proposal shows first, beside or over the draft, and the other passes wait.
   const section = panel.locator('.ws-structure');
   await expect(section).toHaveAttribute('data-status', 'open', { timeout: 15_000 });
-  await expect(section.locator('.ws-proposal p').first()).toHaveText('Hi all,');
-  await expect(section.locator('.ws-proposal p').nth(1)).toContainText('I want to put a four-day work week pilot');
+  const compare = overlay.locator('.ws-compare');
+  await expect(compare).toBeVisible();
+  // The fixture's compose is 600px wide: no room for two columns, so the pane sits over the draft.
+  await expect(compare).toHaveAttribute('data-mode', 'over');
+  const paras = compare.locator('.ws-cmp-sec');
+  await expect(paras).toHaveCount(7);
+  await expect(paras.first().locator('p')).toHaveText('Hi all,');
+  await expect(paras.first().locator('h4')).toContainText(/greeting/i);
+  await expect(paras.nth(1).locator('p')).toContainText('I want to put a four-day work week pilot');
+  await expect(paras.nth(1).locator('h4')).toContainText(/ask/i);
+  await expect(paras.nth(1).locator('h4')).toContainText(/1 moved/);
+  await expect(compare.locator('.ws-cmp-cuts')).toContainText(/Drops/);
   await expect(panel.locator('.ws-status')).toContainText(/structure proposed/i);
   await expect(panel.locator('.ws-reanalyze')).toBeDisabled();
   await expect(panel.locator('.ws-ch-row')).toHaveCount(0);
+  // The panel shrinks to a line while the pane is up: the buttons are in the pane.
+  await expect(section).toContainText(/beside your draft/i);
+  await expect(section.locator('[data-act="apply-structure"]')).toHaveCount(0);
 
-  await section.locator('[data-act="apply-structure"]').click();
+  await compare.locator('[data-act="apply-structure"]').click();
+  await expect(compare).toHaveCount(0);
 
   // The host editor now reads in the proposed order, paragraph breaks intact, and the old filler is gone.
   const body = page.locator('#message-body');
@@ -267,12 +281,55 @@ test('Keep mine dismisses the proposal and analyzes the draft as written', async
   const panel = overlay.locator('.ws-panel');
   const section = panel.locator('.ws-structure');
   await expect(section).toHaveAttribute('data-status', 'open', { timeout: 15_000 });
-  await section.locator('[data-act="keep-structure"]').click();
+  await overlay.locator('.ws-compare [data-act="keep-structure"]').click();
+  await expect(overlay.locator('.ws-compare')).toHaveCount(0);
   await expect(section).toHaveAttribute('data-status', 'kept');
   await expect(section).toContainText(/kept your order/i);
   await expect(page.locator('#message-body')).toContainText("ok so I've been going back and forth");
   // Three of the four canned challenges anchor in the dictated wording (the coverage sentence reads differently there).
   await expect(panel.locator('.ws-ch-row')).toHaveCount(3, { timeout: 20_000 });
+});
+
+test('in a wide compose the proposal sits beside the draft: the editor makes room, tags mark where each paragraph starts, hover links the two', async ({ context }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.goto(FIXTURE);
+  await page.evaluate(() => {
+    (document.querySelector('.compose') as HTMLElement).style.width = '1200px';
+  });
+  await setDictatedDraft(page);
+  const overlay = await openWordSnap(page);
+  const compare = overlay.locator('.ws-compare');
+  await expect(compare).toBeVisible({ timeout: 15_000 });
+  await expect(compare).toHaveAttribute('data-mode', 'beside');
+
+  // The host editor gave up its right half through a padding, nothing else changed on it.
+  const body = page.locator('#message-body');
+  const padding = await body.evaluate((el) => parseInt(getComputedStyle(el).paddingRight, 10));
+  expect(padding).toBeGreaterThan(300);
+  const editorBox = (await body.boundingBox())!;
+  const paneBox = (await compare.boundingBox())!;
+  expect(paneBox.x + paneBox.width).toBeLessThanOrEqual(editorBox.x + editorBox.width + 1);
+  expect(paneBox.x).toBeGreaterThan(editorBox.x + editorBox.width - padding - 1);
+
+  // One tag per paragraph start in the draft, plus one on the sentence that moves.
+  const pills = overlay.locator('.ws-cmp-pill');
+  await expect(pills.first()).toBeVisible();
+  const labels = await pills.allTextContents();
+  expect(labels).toContain('¶1');
+  expect(labels).toContain('¶2.1');
+  // The cut filler is marked in the draft.
+  await expect(overlay.locator('.ws-cmp-cut').first()).toBeVisible();
+
+  // Hovering the second proposed paragraph lights its source sentence in the draft.
+  await compare.locator('.ws-cmp-sec').nth(1).hover();
+  await expect(overlay.locator('.ws-cmp-hot').first()).toBeVisible();
+  await expect(compare.locator('.ws-cmp-sec').nth(1)).toHaveClass(/is-hot/);
+
+  // Keep restores the editor's own style.
+  await compare.locator('[data-act="keep-structure"]').click();
+  await expect(compare).toHaveCount(0);
+  expect(await body.evaluate((el) => el.style.paddingRight)).toBe('');
 });
 
 test('Rewrite lets the user type their own wording; Apply edits the draft and the span is re-checked', async ({ context }) => {

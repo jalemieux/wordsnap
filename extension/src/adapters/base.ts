@@ -169,6 +169,24 @@ export class ContenteditableComposer implements ComposerHandle {
     return el.getBoundingClientRect();
   }
 
+  private inset = 0;
+  private insetSaved: { paddingRight: string; boxSizing: string } | null = null;
+
+  setInset(px: number): void {
+    if (px === this.inset) return;
+    const st = this.element.style;
+    if (px > 0) {
+      if (!this.insetSaved) this.insetSaved = { paddingRight: st.paddingRight, boxSizing: st.boxSizing };
+      st.boxSizing = 'border-box';
+      st.paddingRight = `${px}px`;
+    } else if (this.insetSaved) {
+      st.paddingRight = this.insetSaved.paddingRight;
+      st.boxSizing = this.insetSaved.boxSizing;
+      this.insetSaved = null;
+    }
+    this.inset = px;
+  }
+
   scrollParent(): HTMLElement {
     return findScrollParent(this.element);
   }
