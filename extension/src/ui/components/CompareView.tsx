@@ -38,7 +38,7 @@ export interface CompareViewProps {
   onHot: (group: number | null, sentence: number | null) => void;
   onApply?: (paragraphs: string[]) => void;
   onKeep?: () => void;
-  onApplyOutline?: (paragraphs: string[]) => void;
+  onApplyOutline?: (paragraphs: string[], fragments: string[]) => void;
   onDone?: () => void;
 }
 
@@ -176,7 +176,7 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
                     <button
                       class="ws-btn primary"
                       data-act="apply-outline"
-                      onClick={() => onApplyOutline(outlineParagraphs(slots))}
+                      onClick={() => onApplyOutline(outlineParagraphs(slots), slots.flatMap((s) => s.from))}
                       title="Put your fragments in this order in the editor and keep the skeleton beside them"
                     >
                       Apply skeleton

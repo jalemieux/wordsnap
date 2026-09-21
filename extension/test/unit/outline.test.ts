@@ -5,7 +5,7 @@ import { PassS } from '../../src/shared/schemas';
 import { mapStructure, outlineFill, paragraphSpans } from '../../src/shared/structure-map';
 import { outlineParagraphs } from '../../src/ui/components/CompareView';
 import { Session } from '../../src/background/session';
-import { snapshotFromText } from '../../src/shared/anchoring';
+import { skeletonEdit, snapshotFromText } from '../../src/shared/anchoring';
 
 const NOTES = [
   'Email to the team about the board experiment.',
@@ -191,5 +191,46 @@ describe('Session with an outline', () => {
     s.setStructure({ verdict: 'keeps', note: 'n', paragraphs: [] }, 1);
     expect(s.state.structure?.status).toBe('kept');
     expect(s.applyStructureAction('applied')).toBe(false);
+  });
+});
+
+describe('skeletonEdit', () => {
+  const slots = OUTLINE.slots!;
+  const fragments = slots.flatMap((s) => s.from);
+  const paragraphs = outlineParagraphs(slots);
+
+  it('replaces only the paragraphs that hold the placed fragments: a greeting above and a signature below stay', () => {
+    const text = `Hi all,\n\n${NOTES}\n\n— Jac`;
+    const snap = snapshotFromText(text);
+    const edit = skeletonEdit(snap, paragraphs, fragments)!;
+    expect(text.slice(edit.span.start, edit.span.end)).toBe(NOTES);
+    const after = text.slice(0, edit.span.start) + edit.replacement + text.slice(edit.span.end);
+    expect(after.startsWith('Hi all,\n\n')).toBe(true);
+    expect(after.endsWith('\n\n— Jac')).toBe(true);
+    expect(after).not.toContain('Email to the team about');
+  });
+
+  it('spans from the first placed fragment to the last, even when they sit in different paragraphs', () => {
+    const text = `Hi all,\n\nAsk them to try it this week.\n\nSomething in between.\n\nWhat I saw: sessions picked up work, coordinated on collisions.\n\n— Jac`;
+    const snap = snapshotFromText(text);
+    const edit = skeletonEdit(snap, paragraphs, fragments)!;
+    expect(text.slice(edit.span.start, edit.span.end)).toBe('Ask them to try it this week.\n\nSomething in between.\n\nWhat I saw: sessions picked up work, coordinated on collisions.');
+  });
+
+  it('locates fragments loosely, as the validator did, so a quote with different punctuation still anchors', () => {
+    const snap = snapshotFromText(NOTES);
+    const edit = skeletonEdit(snap, paragraphs, ['ask them to try it this week'])!;
+    expect(edit.span).toEqual({ start: 0, end: NOTES.length });
+  });
+
+  it('falls back to the whole draft when nothing locates', () => {
+    const snap = snapshotFromText(NOTES);
+    const edit = skeletonEdit(snap, paragraphs, ['nothing of the kind'])!;
+    expect(edit.span).toEqual({ start: 0, end: NOTES.length });
+  });
+
+  it('is null when the text is already the skeleton', () => {
+    const snap = snapshotFromText(paragraphs.join('\n\n'));
+    expect(skeletonEdit(snap, paragraphs, fragments)).toBeNull();
   });
 });

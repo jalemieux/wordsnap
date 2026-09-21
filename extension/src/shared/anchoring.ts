@@ -319,6 +319,23 @@ export function stableId(prefix: string, input: string): string {
  * and at the end are left alone (a greeting, a signature block with its formatting), only the middle is replaced.
  * Null when nothing differs. Paragraphs compare after whitespace, quote and dash normalization.
  */
+/**
+ * Apply skeleton: the fragments the skeleton placed are located in the draft, and the paragraphs from the first to the
+ * last of them are replaced by the skeleton's paragraphs. A greeting above or a signature below that the skeleton did
+ * not place stays where it is. When no fragment locates, the whole draft is replaced as a reorder would be.
+ */
+export function skeletonEdit(snapshot: TextSnapshot, paragraphs: string[], fragments: string[]): { span: Span; replacement: string } | null {
+  const located = fragments.map((f) => locateQuote(snapshot.text, f)).filter((s): s is Span => !!s);
+  if (!located.length || !snapshot.paragraphs.length) return minimalParagraphEdit(snapshot, paragraphs);
+  const first = paragraphIndexAt(snapshot, Math.min(...located.map((s) => s.start)));
+  const last = paragraphIndexAt(snapshot, Math.max(...located.map((s) => s.end)) - 1);
+  if (first < 0 || last < 0) return minimalParagraphEdit(snapshot, paragraphs);
+  const span = { start: snapshot.paragraphs[first]!.start, end: snapshot.paragraphs[last]!.end };
+  const replacement = paragraphs.join('\n\n');
+  if (snapshot.text.slice(span.start, span.end) === replacement) return null;
+  return { span, replacement };
+}
+
 export function minimalParagraphEdit(snapshot: TextSnapshot, paragraphs: string[]): { span: Span; replacement: string } | null {
   const cur = snapshot.paragraphs.map((p) => normalizeText(snapshot.text.slice(p.start, p.end)).text);
   const next = paragraphs.map((p) => normalizeText(p).text);

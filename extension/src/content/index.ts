@@ -5,7 +5,7 @@ import { countWords } from '../adapters/base';
 import { mountOverlay } from '../ui/overlay';
 import type { OverlayController } from '../ui/types';
 import type { TextSnapshot } from '../shared/types';
-import { minimalParagraphEdit } from '../shared/anchoring';
+import { minimalParagraphEdit, skeletonEdit } from '../shared/anchoring';
 import { sendToBackground, type ContentRequest, type ContentResponse } from '../shared/messages';
 import { SessionClient } from './session-client';
 import { log } from '../shared/log';
@@ -110,13 +110,14 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
       onKeepStructure() {
         client.sendStructureAction('kept');
       },
-      onApplyOutline(paragraphs) {
+      onApplyOutline(paragraphs, fragments) {
         if (debounce) clearTimeout(debounce);
         debounce = null;
-        const edit = minimalParagraphEdit(handle.getSnapshot(), paragraphs);
+        // Only the paragraphs holding the placed fragments are rewritten: a greeting or signature the skeleton did not place stays.
+        const edit = skeletonEdit(handle.getSnapshot(), paragraphs, fragments);
         const ok = edit ? handle.applyEdit(edit.span, edit.replacement) : true;
         if (ok) {
-          log.info(`composer ${handle.key}: outline applied (${paragraphs.length} paragraphs seeded)`);
+          log.info(`composer ${handle.key}: skeleton applied (${paragraphs.length} paragraphs seeded${edit ? `, chars ${edit.span.start}-${edit.span.end} replaced` : ', already in place'})`);
           // The snapshot first, so the guide is measured against the seeded text; then the action. No analysis yet.
           send(handle.getSnapshot(), 'edit');
           client.sendStructureAction('applied');

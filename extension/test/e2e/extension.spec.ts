@@ -355,7 +355,8 @@ test('Elaborate: notes get a skeleton; Apply seeds the draft with the fragments,
       'Everyone on the team wants it, recruiting story.',
       'Plan: three months, engineering and design first, checkpoint at six weeks.',
     ];
-    document.getElementById('message-body')!.innerHTML = lines.map((p) => `<div>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).join('');
+    // A signature below the notes, as Gmail adds one; the skeleton does not place it and Apply must leave it alone.
+    document.getElementById('message-body')!.innerHTML = lines.map((p) => `<div>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).join('') + '<div><br></div><div>— Jordan</div>';
   });
   const overlay = await openWordSnap(page);
   const panel = overlay.locator('.ws-panel');
@@ -389,6 +390,7 @@ test('Elaborate: notes get a skeleton; Apply seeds the draft with the fragments,
       'The evidence: Microsoft Japan 2019, 40% productivity; Iceland trials; the UK 2022 pilot, nobody went back to five days.',
       'Everyone on the team wants it, recruiting story.',
       'Plan: three months, engineering and design first, checkpoint at six weeks.',
+      '— Jordan',
     ].join('\n\n'),
   );
   await expect(compare).toHaveAttribute('data-status', 'guiding');

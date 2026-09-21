@@ -1,4 +1,5 @@
 // Shared ComposerHandle implementations. Adapters only decide where composers are and how they are framed.
+import { log } from '../shared/log';
 import type { PlatformInfo } from '../shared/messages';
 import type { Span, TextSnapshot } from '../shared/types';
 import {
@@ -100,7 +101,10 @@ export class ContenteditableComposer implements ComposerHandle {
   applyEdit(span: Span, replacement: string): boolean {
     const before = this.mapped();
     const range = rangeForSpan(before, span);
-    if (!range) return false;
+    if (!range) {
+      log.warn(`edit ${span.start}-${span.end}: no DOM range for that span (text moved?)`);
+      return false;
+    }
     const doc = this.element.ownerDocument;
     const view = doc.defaultView;
     const sel = view?.getSelection?.();
@@ -116,6 +120,7 @@ export class ContenteditableComposer implements ComposerHandle {
       ok = false;
     }
     this.invalidate();
+    if (!ok) log.warn(`edit ${span.start}-${span.end}: the editor refused insertText`);
     if (ok && this.verify(span.start, replacement)) return true;
     if (!this.opts.allowDirectReplace) return false;
     // Generic adapter only: the editor does not implement insertText. Replace the text nodes directly
@@ -132,9 +137,20 @@ export class ContenteditableComposer implements ComposerHandle {
     return this.verify(span.start, replacement);
   }
 
+  /**
+   * Did the text land? Exact first. Editors shape whitespace their own way (Gmail turns a blank line into a div with
+   * a br, some drop one of two newlines), so a match that differs only in whitespace counts too: what the snapshot
+   * reads back is what the user has.
+   */
   private verify(start: number, replacement: string): boolean {
     const text = this.mapped().text;
-    return text.slice(start, start + replacement.length) === replacement;
+    const got = text.slice(start, start + replacement.length);
+    if (got === replacement) return true;
+    const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
+    const slack = (replacement.match(/\n/g) ?? []).length * 2 + 4;
+    if (squash(text.slice(start, start + replacement.length + slack)).startsWith(squash(replacement))) return true;
+    log.warn(`edit at ${start} did not land: expected …${JSON.stringify(replacement.slice(-60))}, editor has …${JSON.stringify(got.slice(-60))}`);
+    return false;
   }
 
   onChange(cb: (snapshot: TextSnapshot) => void): () => void {
