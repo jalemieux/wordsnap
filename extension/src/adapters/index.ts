@@ -5,7 +5,7 @@ import type { HostAdapter } from './types';
 import { xAdapter } from './x';
 import type { HostId } from '../shared/types';
 
-export { activateGeneric, deactivateGeneric, isGenericActive } from './generic';
+export { activateGeneric, deactivateGeneric, genericAdapter, isGenericActive } from './generic';
 export type { ComposerHandle, HostAdapter } from './types';
 
 export const adapters: readonly HostAdapter[] = [gmailAdapter, xAdapter, linkedinAdapter, genericAdapter];

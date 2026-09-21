@@ -176,6 +176,11 @@ export interface Settings {
   autoAnalyze: boolean;
   /** Which checks run, as last picked in the panel. Remembered per browser, not per draft. */
   checks: Checks;
+  /**
+   * Origins ("https://docs.example.com") the user set to always on from the toolbar popup. Each has a registered
+   * content script and a granted host permission; the generic adapter starts on its own there. Sorted, unique.
+   */
+  sites: string[];
 }
 
 export const DEFAULT_OPENROUTER: OpenRouterSettings = {
@@ -193,12 +198,13 @@ export const DEFAULT_SETTINGS: Settings = {
   workspaceId: '',
   openrouter: { ...DEFAULT_OPENROUTER },
   blockedDomains: [],
-  enabledHosts: { gmail: true, x: true, linkedin: true, generic: false },
+  enabledHosts: { gmail: true, x: true, linkedin: true, generic: true },
   effort: { S: 'medium', A: 'low', B: 'high', C: 'high' },
   lifetimeCostUsd: 0,
   onboarded: false,
   autoAnalyze: false,
   checks: { ...DEFAULT_CHECKS },
+  sites: [],
 };
 
 export const EMPTY_PASSES: Record<PassId, PassStatus> = {

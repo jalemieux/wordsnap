@@ -47,7 +47,8 @@
   ],
   "options_page": "options.html",
   "action": {
-    "default_title": "WordSnap settings",
+    "default_title": "WordSnap",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

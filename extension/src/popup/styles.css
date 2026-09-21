@@ -1,0 +1,38 @@
+:root{
+  --accent:#0E7C7B; --accent-ink:#0A5E5D; --accent-bg:#E6F3F2; --accent-line:#B7DAD7;
+  --ink:#1B2A2A; --muted:#5C6B6B; --faint:#8C9A9A; --line:#DCE4E3; --bg:#F4F6F6; --card:#FFFFFF;
+  --red:#B42318; --green:#2E7D4F;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{--accent:#5FC2BC; --accent-ink:#8ED9D4; --accent-bg:#17302F; --accent-line:#2F5654;
+    --ink:#E6ECEB; --muted:#A3B1B0; --faint:#7C8B8A; --line:#2A3635; --bg:#121818; --card:#1A2222;
+    --red:#F08A80; --green:#7CC79A;}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--card);color:var(--ink);font-family:var(--ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{width:300px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.brand{display:flex;align-items:center;gap:8px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;font-size:12px;display:grid;place-items:center}
+.brand b{font-weight:600;font-size:14px}
+.brand .host{margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu{padding:6px 0}
+.entry{display:flex;flex-direction:column;gap:1px;width:100%;padding:8px 14px}
+.entry:hover:not(:disabled){background:var(--bg)}
+.entry:disabled{cursor:default;color:var(--faint)}
+.entry .t{font-weight:500}
+.entry .d{color:var(--muted);font-size:12px}
+.entry:disabled .d{color:var(--faint)}
+.line{padding:8px 14px;color:var(--muted)}
+.line.on{color:var(--accent-ink)}
+.line.on b{font-weight:600}
+.line.err{color:var(--red)}
+.line.ok{color:var(--green)}
+.sep{height:1px;background:var(--line);margin:4px 0}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+.dev{padding:0 14px 8px;font-size:11px;color:var(--faint);font-family:var(--mono)}

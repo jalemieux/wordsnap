@@ -1,11 +1,12 @@
 // Content script entry. Finds composers on the host page, opens a session per composer, streams snapshots
 // to the background, and mounts the overlay. Nothing here talks to a model or holds a credential.
-import { adapterFor, type ComposerHandle, type HostAdapter } from '../adapters';
+import { activateGeneric, adapterFor, genericAdapter, type ComposerHandle, type HostAdapter } from '../adapters';
 import { countWords } from '../adapters/base';
 import { mountOverlay } from '../ui/overlay';
 import type { OverlayController } from '../ui/types';
 import type { TextSnapshot } from '../shared/types';
 import { minimalParagraphEdit } from '../shared/anchoring';
+import { sendToBackground, type ContentRequest, type ContentResponse } from '../shared/messages';
 import { SessionClient } from './session-client';
 import { log } from '../shared/log';
 
@@ -300,10 +301,10 @@ function sessionForKey(key: string): Session | undefined {
   return undefined;
 }
 
-export function main(): void {
-  const adapter = adapterFor(new URL(location.href));
-  if (!adapter) return;
-  log.info(`active on ${location.hostname} with the ${adapter.id} adapter`);
+let running: HostAdapter | null = null;
+
+function run(adapter: HostAdapter): void {
+  running = adapter;
   scan(adapter);
   let timer: ReturnType<typeof setTimeout> | null = null;
   const mo = new MutationObserver(() => {
@@ -324,6 +325,38 @@ export function main(): void {
   });
 }
 
+/**
+ * Switch the generic adapter on for this page (any long enough textarea or contenteditable). Called when the popup
+ * says so, or on load when the background says the origin is always on. A second call rescans, nothing more.
+ */
+export function activateHere(why: string): number {
+  if (running) {
+    if (running === genericAdapter) scan(genericAdapter);
+    return sessions.size;
+  }
+  activateGeneric();
+  log.info(`active on ${location.hostname} with the generic adapter (${why})`);
+  run(genericAdapter);
+  return sessions.size;
+}
+
+export function main(): void {
+  const adapter = adapterFor(new URL(location.href));
+  if (adapter) {
+    log.info(`active on ${location.hostname} with the ${adapter.id} adapter`);
+    run(adapter);
+    return;
+  }
+  // Not Gmail, X or LinkedIn: WordSnap runs here only when asked to. The toolbar popup asks through tabs.sendMessage
+  // right after injecting this script (the listener below); on an origin the user set to always on, the background
+  // says so now.
+  sendToBackground({ type: 'site/registered', origin: location.origin })
+    .then((r) => {
+      if (r.type === 'site' && r.site.status === 'registered') activateHere('always on');
+    })
+    .catch((err: Error) => log.warn('could not ask whether this site is always on:', err.message));
+}
+
 if (typeof document !== 'undefined' && !(globalThis as { __WORDSNAP_NO_AUTOSTART__?: boolean }).__WORDSNAP_NO_AUTOSTART__) {
   // Guard against running twice in one world (manifest injection plus scripting.executeScript on install).
   const g = globalThis as { __wordsnapStarted?: boolean };
@@ -331,5 +364,17 @@ if (typeof document !== 'undefined' && !(globalThis as { __WORDSNAP_NO_AUTOSTART
     g.__wordsnapStarted = true;
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => main(), { once: true });
     else main();
+    // The popup's "Use WordSnap here" lands here right after injection. Registered at once, before the DOM is ready,
+    // so the message is never missed; the answer waits for the DOM when it must.
+    chrome.runtime.onMessage.addListener((msg: ContentRequest, _sender, respond: (r: ContentResponse) => void) => {
+      if (!msg || msg.type !== 'generic/activate') return false;
+      const answer = () => respond({ type: 'generic/active', composers: activateHere('toolbar') });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', answer, { once: true });
+        return true;
+      }
+      answer();
+      return false;
+    });
   }
 }

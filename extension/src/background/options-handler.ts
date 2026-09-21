@@ -12,6 +12,7 @@ import { AUTH_TIMEOUT_MS, TAB_CALLBACK_URL, beginAuthTab, cancelAuthTab, catchAu
 import type { ClaimCache } from './cache';
 import { SessionOrchestrator } from './orchestrator';
 import type { SettingsStore } from './settings';
+import { chromeSiteDeps, handleSiteRequest, type SiteDeps } from './sites';
 import { ChromeSessionStorage } from './storage';
 
 /** Chrome has chrome.identity (declared in the manifest); Safari has neither the API nor the permission. */
@@ -19,7 +20,7 @@ function hasIdentity(): boolean {
   return typeof chrome.identity?.launchWebAuthFlow === 'function';
 }
 
-export async function handleOptionsRequest(req: OptionsRequest, store: SettingsStore, cache: ClaimCache): Promise<OptionsResponse> {
+export async function handleOptionsRequest(req: OptionsRequest, store: SettingsStore, cache: ClaimCache, sites: () => SiteDeps = chromeSiteDeps): Promise<OptionsResponse> {
   switch (req.type) {
     case 'settings/get':
       return { type: 'settings', settings: await store.get() };
@@ -44,6 +45,12 @@ export async function handleOptionsRequest(req: OptionsRequest, store: SettingsS
       return testProvider(store);
     case 'sample/run':
       return { type: 'sample', state: await runSample(store, cache) };
+    case 'site/status':
+    case 'site/use':
+    case 'site/register':
+    case 'site/unregister':
+    case 'site/registered':
+      return handleSiteRequest(req, store, sites());
   }
 }
 

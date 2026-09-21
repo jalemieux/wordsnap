@@ -185,7 +185,9 @@ background (MV3 service worker)
  ├─ Provider: Claude      @anthropic-ai/sdk, streaming, web_search tool, structured output
  └─ Storage               chrome.storage.local: settings, API key, claim cache
 
-options page               provider, API key, model, per-site enable, blocked domains
+options page               provider, API key, model, per-site enable, always-on sites, blocked domains
+toolbar popup              any other site: "Use WordSnap here" (activeTab, this tab) or "Always on <origin>"
+                           (one host permission, one registered content script, per origin)
 ```
 
 Why the split lands this way:
@@ -236,7 +238,7 @@ Site specifics known today. Verify each against the live DOM in the M0 spike, be
 - **Gmail.** Body is `div[aria-label="Message Body"][contenteditable="true"]` (Gmail's `g_editable`). Subject and recipients are readable for context. Compose appears as a popup, a full-screen dialog, or inline reply; `anchorRect` handles all three. Apply edits by selecting the range and calling `document.execCommand('insertText', false, text)`, which Gmail's editor accepts as a native input and records in its own undo stack.
 - **X.** Composer is Draft.js: `div[data-testid="tweetTextarea_0"][contenteditable]`. Draft.js ignores direct DOM writes. Apply edits the same `execCommand('insertText')` way after setting the selection; confirm in the spike that Draft.js state stays in sync. Threads have `tweetTextarea_1..n`; treat each as a composer with a shared session.
 - **LinkedIn.** Quill: `div.ql-editor[contenteditable]` inside the share box and comment boxes. Same edit approach.
-- **Generic.** Any `textarea` or `contenteditable` with more than about 40 words, activated only when the user clicks the toolbar icon on that page. Never automatic. Requires `optional_host_permissions`.
+- **Generic.** Any `textarea` or `contenteditable` with 40 words or more, on any page, but only when asked. The toolbar popup offers two ways in. **Use WordSnap here** injects the content script into the active tab under `activeTab` (no prompt, nothing kept) and sends it `generic/activate`. **Always on <origin>** requests `origin/*` from the `optional_host_permissions` inside the click, registers the content script for that origin with `chrome.scripting.registerContentScripts` (`persistAcrossSessions`), records the origin in `settings.sites`, and switches the tab on. On later loads of a registered origin the injected script asks the background (`site/registered`) and activates itself; on Gmail, X and LinkedIn it never asks. Settings lists the always-on sites with a Remove that unregisters the script and revokes the origin; install and browser start re-sync the registrations with the setting. The "Other sites (on click)" switch in settings gates both popup entries. The manifest never gains `<all_urls>` and `content_scripts.matches` stays the three sites.
 
 ### Text model and anchoring
 
@@ -456,7 +458,7 @@ Anti-slop rules go in the shared preamble and are tested by the eval set: no gen
 - The draft text goes only to the provider the user configured, from the user's own account. No WordSnap server, no analytics, no crash reporting in v1. This is the whole privacy story and it belongs in the README verbatim.
 - API key in `chrome.storage.local` only (never `sync`), readable only by the background. Content scripts never receive it. Options page redacts it after save.
 - Closed Shadow DOM for the overlay. The host page can still observe DOM changes, so the overlay never renders anything the user has not already typed into that page, plus WordSnap's findings.
-- Manifest `host_permissions`: `https://mail.google.com/*`, `https://x.com/*`, `https://twitter.com/*`, `https://www.linkedin.com/*`, `https://api.anthropic.com/*`. `optional_host_permissions: ["https://*/*"]` for the generic adapter, requested on click. Permissions: `storage`, `activeTab`. No `<all_urls>`, no `tabs`.
+- Manifest `host_permissions`: `https://mail.google.com/*`, `https://x.com/*`, `https://twitter.com/*`, `https://www.linkedin.com/*`, `https://openrouter.ai/*` (`https://api.anthropic.com/*` stays for the dormant provider). `optional_host_permissions: ["https://*/*"]` is never requested wholesale: the popup's Always on asks for one `https://host/*` at a time, and each grant is paired with a content script registered for that origin only, both dropped on Remove. "Use WordSnap here" runs on `activeTab` alone. Permissions: `storage`, `activeTab`, `scripting`, `identity` (Chrome only). No `<all_urls>`, no `tabs`.
 - Prompt injection: the draft is user data. The preamble says so, findings are display-only, and no finding can trigger an action other than the user clicking Apply.
 - Anthropic's terms require showing citations to end users when displaying search-derived output; the hover card and challenge items always show sources, and the copy/export path carries no sources because the export is the user's own text.
 
@@ -486,6 +488,7 @@ wordsnap/
       providers/    types.ts  claude.ts
       schemas/      findings.ts
       options/      Options.tsx
+      popup/        Popup.tsx     the toolbar popup: Use WordSnap here / Always on <origin> / Settings
       shared/       messages.ts  diff.ts  text-snapshot.ts
     test/
       fixtures/     saved Gmail, X, LinkedIn composer DOM snapshots

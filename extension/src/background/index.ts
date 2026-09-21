@@ -1,8 +1,11 @@
 // Service worker entry. Listeners are registered synchronously at top level so Chrome can wake the worker for them.
+import { log } from '../shared/log';
+import type { OptionsRequest } from '../shared/messages';
 import { ClaimCache } from './cache';
-import { registerAuthTabHandlers, registerOptionsHandler } from './options-handler';
+import { handleOptionsRequest, registerAuthTabHandlers, registerOptionsHandler } from './options-handler';
 import { registerPortHandler } from './port';
 import { SettingsStore, SETTINGS_KEY } from './settings';
+import { chromeSiteDeps, syncRegisteredSites } from './sites';
 import { ChromeLocalStorage } from './storage';
 
 const storage = new ChromeLocalStorage();
@@ -23,6 +26,12 @@ chrome.runtime.onInstalled.addListener((details) => {
   // Content scripts only auto-inject into pages loaded after this point. Attach to tabs that are already open
   // (Gmail tabs live for days), so an install or a dev reload takes effect without a page refresh.
   void injectIntoOpenTabs();
+  // An update drops dynamically registered scripts: put the always-on sites back.
+  void syncRegisteredSites(chromeSiteDeps(), store).catch((err) => log.warn('always-on sites not synced:', err instanceof Error ? err.message : err));
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void syncRegisteredSites(chromeSiteDeps(), store).catch((err) => log.warn('always-on sites not synced:', err instanceof Error ? err.message : err));
 });
 
 async function injectIntoOpenTabs(): Promise<void> {
@@ -48,6 +57,9 @@ async function injectIntoOpenTabs(): Promise<void> {
   }
 }
 
-chrome.action.onClicked.addListener(() => {
-  void chrome.runtime.openOptionsPage();
-});
+// The toolbar button opens the popup (manifest action.default_popup); onClicked does not fire when a popup is set.
+
+if (__WORDSNAP_DEV__) {
+  // The e2e suite drives the popup's requests from the worker (a worker cannot message itself).
+  (globalThis as { __wordsnapDev?: unknown }).__wordsnapDev = { request: (req: OptionsRequest) => handleOptionsRequest(req, store, cache) };
+}

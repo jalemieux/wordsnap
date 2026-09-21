@@ -1,4 +1,4 @@
-// Build the extension with esbuild. Three bundles plus static files.
+// Build the extension with esbuild. Four bundles plus static files.
 //   node scripts/build.mjs            production build to dist/
 //   node scripts/build.mjs --dev      dev build: sourcemaps, mock provider allowed, local fixture hosts in manifest
 //   node scripts/build.mjs --watch    rebuild on change
@@ -50,6 +50,7 @@ const bundles = [
   { entryPoints: ['src/background/index.ts'], outfile: out('background.js'), format: safari ? 'iife' : 'esm', platform: 'browser' },
   { entryPoints: ['src/content/index.ts'], outfile: out('content.js'), format: 'iife', platform: 'browser' },
   { entryPoints: ['src/options/index.tsx'], outfile: out('options.js'), format: 'iife', platform: 'browser' },
+  { entryPoints: ['src/popup/index.tsx'], outfile: out('popup.js'), format: 'iife', platform: 'browser' },
 ];
 
 async function staticFiles() {

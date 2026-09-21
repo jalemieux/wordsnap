@@ -55,6 +55,7 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
     effort: { ...DEFAULT_SETTINGS.effort, ...(partial.effort ?? {}) },
     checks: { ...DEFAULT_CHECKS, ...(partial.checks ?? {}) },
     blockedDomains: Array.isArray(partial.blockedDomains) ? partial.blockedDomains : [],
+    sites: Array.isArray(partial.sites) ? [...new Set(partial.sites.filter((o): o is string => typeof o === 'string' && o.length > 0))].sort() : [],
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : '',
     model: partial.model || DEFAULT_SETTINGS.model,
     openrouter: {

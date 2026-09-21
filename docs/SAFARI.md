@@ -37,7 +37,14 @@ If the badge does not show on a Gmail compose window, the fix is to click the Wo
 
 **Sign-in opens a tab.** Without `chrome.identity` the OAuth flow cannot use a popup. The background opens `openrouter.ai/auth` in a tab with the callback set to `https://openrouter.ai/wordsnap/connected`, a path on a host the extension already reads. A top-level `tabs.onUpdated` listener catches the redirect, closes the tab before the page renders, exchanges the code for a key, stores it, and broadcasts an `openrouter/connected` message that the options page is waiting for. The pending sign-in (PKCE verifier, tab id) lives in `storage.session`, so it survives the event page unloading while the user is on the OpenRouter page. Closing the tab cancels; ten minutes without a redirect expires it (the code's own lifetime). This path is used whenever `chrome.identity` is absent, so it also serves any other browser without that API.
 
+## The toolbar popup and other sites
+
+Clicking the toolbar button opens `popup.html` on every target. On a site the manifest does not cover it offers **Use WordSnap here** (`chrome.scripting.executeScript` into the active tab under `activeTab`) and **Always on <origin>** (`chrome.permissions.request` for `https://host/*` from the optional host permissions, then `chrome.scripting.registerContentScripts` for that origin with `persistAcrossSessions`). The Safari manifest keeps the popup and the `scripting` permission as they are; `scripts/manifest.mjs` changes nothing for it. None of this has run in Safari: see the list below.
+
 ## Untested on the live browser
+
+- **The popup.** Safari shows its own per-site access prompt from the toolbar button; whether it still does so when the button opens a popup, and whether `activeTab` then covers `executeScript` from the background, is unverified. If the prompt is lost, the Site access card in Settings is the fallback for the built-in sites.
+- **Always on.** `chrome.permissions.request` for one origin out of `optional_host_permissions`, and `scripting.registerContentScripts` with `persistAcrossSessions`, are documented for Safari 16.4 and up but have not been exercised. If registration does not persist, the sync at browser start (`syncRegisteredSites`) re-registers from `settings.sites`; if the optional grant is refused, only "Use WordSnap here" works and the entry should say so.
 
 - Whether `tabs.onUpdated` reports the redirect URL for `openrouter.ai` after the user has allowed that site. It should: Safari populates `changeInfo.url` for hosts the extension has permission for. If it does not, the fallback is adding the `tabs` permission to the Safari manifest.
 - Whether OpenRouter's auth page accepts the callback path above. It accepted the arbitrary `chromiumapp.org` URL Chrome uses, so it should.

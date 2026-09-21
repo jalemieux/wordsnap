@@ -78,3 +78,8 @@ details.alt > summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 details.alt > summary:hover { color: var(--ink); }
 .btn.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-bg); }
 .step.pending { opacity: 0.55; }
+
+/* always-on sites, under the site checkboxes */
+.sites{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.site-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+.site-host{font-family:var(--mono);font-size:13px;min-width:180px}

@@ -240,6 +240,51 @@ function SiteAccess() {
   );
 }
 
+/** The origins the toolbar popup set to always on, each with a Remove that unregisters the script and gives the site back. */
+function AlwaysOnSites({ sites, generic, reload }: { sites: string[]; generic: boolean; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const remove = async (origin: string) => {
+    setBusy(origin);
+    setError(null);
+    const r = await sendToBackground({ type: 'site/unregister', origin }).catch((e: Error) => ({ type: 'error' as const, message: e.message }));
+    if (r.type === 'error') setError(r.message);
+    await reload();
+    setBusy(null);
+  };
+  return (
+    <div class="sites">
+      <p class="msg muted">
+        Other sites: click the WordSnap button in the toolbar on a page where you write. Use it once, or set the site to always on.{generic ? '' : ' Both are off while the box above is unchecked.'}
+      </p>
+      {sites.length ? (
+        <ul class="site-list">
+          {sites.map((origin) => (
+            <li key={origin} class="row">
+              <span class="site-host">{hostOf(origin)}</span>
+              <span class="msg muted" style={{ margin: 0 }}>always on</span>
+              <button class="btn" disabled={busy === origin} onClick={() => void remove(origin)}>
+                {busy === origin ? <span class="spin" /> : null}Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="msg muted">No site is set to always on.</p>
+      )}
+      {error ? <p class="msg err">{error}</p> : null}
+    </div>
+  );
+}
+
+function hostOf(origin: string): string {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin;
+  }
+}
+
 function ConnectButton({ c, connect, label }: { c: Connect; connect: () => void; label: string }) {
   return (
     <div class="row">
@@ -577,6 +622,7 @@ function SettingsView({ settings, save, reload }: { settings: Settings; save: (p
             </label>
           ))}
         </div>
+        <AlwaysOnSites sites={settings.sites} generic={settings.enabledHosts.generic} reload={reload} />
       </div>
       {SAFARI ? <SiteAccess /> : null}
 
