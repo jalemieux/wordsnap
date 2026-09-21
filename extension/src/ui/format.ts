@@ -142,9 +142,10 @@ export function checksOf(state: SessionState): Checks {
   return state.checks ?? ALL_CHECKS;
 }
 
-export const CHECK_LABEL: Record<CheckId, string> = { structure: 'Structure', polish: 'Polish', facts: 'Facts', challenge: 'Challenge' };
+export const CHECK_LABEL: Record<CheckId, string> = { structure: 'Structure', elaborate: 'Elaborate', polish: 'Polish', facts: 'Facts', challenge: 'Challenge' };
 export const CHECK_HINT: Record<CheckId, string> = {
   structure: 'A proposed order for your own sentences when the point is buried, your thesis as a reader will hear it, and where the narrative loses them.',
+  elaborate: 'A skeleton for what you typed: the paragraphs the message needs, your fragments placed, what is missing. Nothing written for you.',
   polish: 'Fuzzy sentences, hedges, filler. A tighter phrasing in your register.',
   facts: 'Every factual claim verified with sources.',
   challenge: 'The strongest counterargument, the blind spots, the gaps.',
@@ -163,6 +164,20 @@ export function staleFindings(state: SessionState): boolean {
 /** A structure proposal is on screen and the other passes are waiting for Apply or Keep. */
 export function structureOpen(state: SessionState): boolean {
   return (state.structure?.verdict === 'reorder' || state.structure?.verdict === 'outline') && state.structure.status === 'open';
+}
+
+/**
+ * Where an Elaborate run stands: the skeleton is proposed, the user is writing into it, or Done handed the draft to
+ * the checks. Null when Elaborate is not in play.
+ */
+export type ElaborateStage = 'elaborate' | 'write' | 'check';
+export function elaborateStage(state: SessionState): ElaborateStage | null {
+  const st = state.structure;
+  if (st?.verdict === 'outline' && st.status === 'guiding') return 'write';
+  if (st?.verdict === 'outline') return 'elaborate';
+  if (state.elaborated) return 'check';
+  if (checksOf(state).elaborate) return 'elaborate';
+  return null;
 }
 
 /** An applied outline is beside the draft while the user writes into it; nothing waits on it. */

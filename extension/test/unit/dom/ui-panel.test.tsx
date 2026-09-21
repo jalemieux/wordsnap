@@ -92,22 +92,27 @@ describe('StatusPill', () => {
 describe('check picker chips', () => {
   it('renders four chips from the state and reports a flipped set', () => {
     const s = sampleState();
-    s.checks = { structure: true, polish: true, facts: true, challenge: false };
+    s.checks = { structure: true, elaborate: false, polish: true, facts: true, challenge: false };
     const onChecks = vi.fn();
     const c = document.createElement('div');
     render(<ChallengesPanel state={s} onHot={() => {}} onChecks={onChecks} />, c);
     const chips = [...c.querySelectorAll('.ws-pick')];
-    expect(chips.map((b) => b.textContent?.trim())).toEqual(['Structure', 'Polish', 'Facts', 'Challenge']);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'true', 'true', 'false']);
+    expect(chips.map((b) => b.textContent?.trim())).toEqual(['Structure', 'Elaborate', 'Polish', 'Facts', 'Challenge']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'true', 'true', 'false']);
     click(c.querySelector('.ws-pick[data-check="challenge"]'));
-    expect(onChecks).toHaveBeenCalledWith({ structure: true, polish: true, facts: true, challenge: true });
+    expect(onChecks).toHaveBeenCalledWith({ structure: true, elaborate: false, polish: true, facts: true, challenge: true });
     click(c.querySelector('.ws-pick[data-check="facts"]'));
-    expect(onChecks).toHaveBeenLastCalledWith({ structure: true, polish: true, facts: false, challenge: false });
+    expect(onChecks).toHaveBeenLastCalledWith({ structure: true, elaborate: false, polish: true, facts: false, challenge: false });
+    // Structure and Elaborate are one choice: picking Elaborate clears Structure, picking it again picks neither.
+    click(c.querySelector('.ws-pick[data-check="elaborate"]'));
+    expect(onChecks).toHaveBeenLastCalledWith({ structure: false, elaborate: true, polish: true, facts: true, challenge: false });
+    click(c.querySelector('.ws-pick[data-check="structure"]'));
+    expect(onChecks).toHaveBeenLastCalledWith({ structure: false, elaborate: false, polish: true, facts: true, challenge: false });
   });
 
   it('with Challenge off, the section says so and the summary drops the challenge count', () => {
     const s = sampleState();
-    s.checks = { structure: true, polish: true, facts: true, challenge: false };
+    s.checks = { structure: true, elaborate: false, polish: true, facts: true, challenge: false };
     s.challenges = [];
     const onChecks = vi.fn();
     const c = document.createElement('div');
@@ -122,8 +127,8 @@ describe('check picker chips', () => {
   it('a flipped chip enables Re-analyze and the pill says why', () => {
     const s = sampleState();
     s.analyzedVersion = s.snapshotVersion;
-    s.analyzedChecks = { structure: true, polish: true, facts: true, challenge: false };
-    s.checks = { structure: true, polish: true, facts: true, challenge: true };
+    s.analyzedChecks = { structure: true, elaborate: false, polish: true, facts: true, challenge: false };
+    s.checks = { structure: true, elaborate: false, polish: true, facts: true, challenge: true };
     expect(statusOf(s).text).toBe('Checks changed');
     const c = document.createElement('div');
     render(<ChallengesPanel state={s} onHot={() => {}} onAnalyze={() => {}} />, c);
@@ -167,7 +172,7 @@ describe('structure section', () => {
     expect(c.querySelector('.ws-structure')?.textContent).toMatch(/draft changed/i);
     expect(c.querySelector('[data-act="apply-structure"]')).toBeNull();
     // Structure off: no section at all.
-    const s4 = { ...s1, checks: { structure: false, polish: true, facts: true, challenge: true } };
+    const s4 = { ...s1, checks: { structure: false, elaborate: false, polish: true, facts: true, challenge: true } };
     render(<ChallengesPanel state={s4} onHot={() => {}} />, c);
     expect(c.querySelector('.ws-structure')).toBeNull();
   });

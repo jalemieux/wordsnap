@@ -1,6 +1,7 @@
 // Session state holder: anchors pass results into the state, keeps ids stable across runs,
 // shifts spans on edits and marks findings stale when their text changed.
 import { paragraphIndexAt, shiftSpans, stableId } from '../shared/anchoring';
+import { CHECK_IDS, structureMode } from '../shared/types';
 import type { Located, LocatedChallenge } from '../passes/validate';
 import type { Claim, ClarityFinding, Verdict } from '../shared/schemas';
 import type { Anchored, AnchoredChallenge, ClaimWithVerdict, HostId, PassId, SessionState, Span, StructureResult, TextSnapshot } from '../shared/types';
@@ -145,16 +146,20 @@ export class Session {
    * next run: `analyzedChecks` tracks what the findings on screen still reflect, so it loses the pruned checks too.
    */
   applyChecks(checks: Checks, keep: ClarityKindFilter): void {
+    const before = this.state.checks;
     this.state.checks = { ...checks };
     if (this.state.analyzedChecks) {
       const a = this.state.analyzedChecks;
-      this.state.analyzedChecks = { structure: a.structure && checks.structure, polish: a.polish && checks.polish, facts: a.facts && checks.facts, challenge: a.challenge && checks.challenge };
+      this.state.analyzedChecks = Object.fromEntries(CHECK_IDS.map((k) => [k, !!a[k] && checks[k]])) as Checks;
     }
     this.state.clarity = this.state.clarity.filter((f) => keep(f.data.kind));
     if (!checks.facts) this.state.claims = [];
     if (!checks.challenge) this.state.challenges = [];
-    if (!checks.challenge && !checks.structure) this.state.argument = undefined;
-    if (!checks.structure) this.state.structure = undefined;
+    const mode = structureMode(checks);
+    if (!checks.challenge && !mode) this.state.argument = undefined;
+    // A structure result belongs to the job that produced it: none, or the other job, and it goes.
+    if (!mode || (before && structureMode(before) !== mode)) this.state.structure = undefined;
+    if (before && structureMode(before) !== mode) this.state.elaborated = undefined;
   }
 
   mergePassC(result: { thesis: string; premises: string[]; challenges: LocatedChallenge[] }): void {
@@ -190,6 +195,7 @@ export class Session {
     if (action === 'done' && st.status !== 'guiding') return false;
     if (st.status === next) return false;
     st.status = next;
+    if (action === 'done') this.state.elaborated = true;
     return true;
   }
 

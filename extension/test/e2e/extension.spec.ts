@@ -18,7 +18,7 @@ test.beforeEach(async ({ context, extensionId }) => {
   const [worker] = context.serviceWorkers();
   await worker!.evaluate(async () => {
     const { settings } = (await chrome.storage.local.get('settings')) as { settings: Record<string, unknown> };
-    await chrome.storage.local.set({ settings: { ...settings, checks: { structure: true, polish: true, facts: true, challenge: true } } });
+    await chrome.storage.local.set({ settings: { ...settings, checks: { structure: true, elaborate: false, polish: true, facts: true, challenge: true } } });
   });
 });
 
@@ -241,9 +241,12 @@ test('a dictated draft gets a structure proposal; Apply structure reorders the e
   await expect(compare).toHaveAttribute('data-mode', 'over');
   const paras = compare.locator('.ws-cmp-sec');
   await expect(paras).toHaveCount(7);
-  await expect(paras.first().locator('p')).toHaveText('Hi all,');
+  await expect(paras.first().locator('.ws-cmp-text')).toHaveText('Hi all,');
   await expect(paras.first().locator('h4')).toContainText(/greeting/i);
-  await expect(paras.nth(1).locator('p')).toContainText('I want to put a four-day work week pilot');
+  await expect(paras.nth(1).locator('.ws-cmp-text')).toContainText('I want to put a four-day work week pilot');
+  // A reorder now carries the job of each paragraph and what it lacks.
+  await expect(paras.nth(1).locator('.ws-cmp-job')).toHaveText(/what you want/i);
+  await expect(paras.nth(2).locator('.ws-cmp-gap')).toContainText(/Iceland/);
   await expect(paras.nth(1).locator('h4')).toContainText(/ask/i);
   await expect(paras.nth(1).locator('h4')).toContainText(/1 moved/);
   await expect(compare.locator('.ws-cmp-cuts')).toContainText(/Drops/);
@@ -332,7 +335,13 @@ test('in a wide compose the proposal sits beside the draft: the editor makes roo
   expect(await body.evaluate((el) => el.style.paddingRight)).toBe('');
 });
 
-test('notes get an outline; Apply outline seeds the draft with the fragments and the guide tracks what is written until Done', async ({ context }) => {
+test('Elaborate: notes get a skeleton; Apply seeds the draft with the fragments, the guide tracks what is written, Done hands the draft to Structure', async ({ context, extensionId: _id }) => {
+  // The Elaborate chip is the request; the text is not inspected for it.
+  const [worker] = context.serviceWorkers();
+  await worker!.evaluate(async () => {
+    const { settings } = (await chrome.storage.local.get('settings')) as { settings: Record<string, unknown> };
+    await chrome.storage.local.set({ settings: { ...settings, checks: { structure: false, elaborate: true, polish: true, facts: true, challenge: true } } });
+  });
   const page = await context.newPage();
   await page.setViewportSize({ width: 1500, height: 900 });
   await page.goto(FIXTURE);
@@ -353,7 +362,10 @@ test('notes get an outline; Apply outline seeds the draft with the fragments and
   const compare = overlay.locator('.ws-compare');
   await expect(compare).toHaveAttribute('data-kind', 'outline', { timeout: 15_000 });
   await expect(compare).toHaveAttribute('data-status', 'open');
-  await expect(panel.locator('.ws-status')).toContainText(/outline proposed/i);
+  await expect(panel.locator('.ws-status')).toContainText(/skeleton proposed/i);
+  await expect(panel.locator('.ws-pick[data-check="elaborate"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.ws-pick[data-check="structure"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel.locator('.ws-stage.now')).toHaveText(/elaborate/i);
 
   // Five slots: role, job, the fragment placed there, and what is missing.
   const slots = compare.locator('.ws-cmp-slot');
@@ -382,8 +394,10 @@ test('notes get an outline; Apply outline seeds the draft with the fragments and
   await expect(compare).toHaveAttribute('data-status', 'guiding');
   await expect(slots.nth(0).locator('.ws-cmp-fill')).toHaveText(/fragment is in place/i);
   await expect(slots.nth(1).locator('.ws-cmp-fill')).toHaveText(/nothing here yet/i);
-  await expect(panel.locator('.ws-status')).toContainText(/writing into the outline/i);
+  await expect(panel.locator('.ws-status')).toContainText(/writing into the skeleton/i);
   await expect(panel.locator('.ws-structure')).toHaveAttribute('data-status', 'guiding');
+  await expect(panel.locator('.ws-stage.now')).toHaveText(/write/i);
+  await expect(panel.locator('.ws-picks')).toHaveClass(/dim/);
 
   // Writing into the first paragraph marks it written, with no run and without closing the guide.
   await body.locator('div').first().click();
@@ -396,9 +410,16 @@ test('notes get an outline; Apply outline seeds the draft with the fragments and
   // Done closes the guide and runs the checks on what was written; the structure pass reads the result as a draft.
   await compare.locator('[data-act="outline-done"]').click();
   await expect(compare).toHaveCount(0);
+  // Done hands the draft to the ordinary structure pass: the pair flips to Structure, the stage line reads Check.
+  await expect(panel.locator('.ws-pick[data-check="structure"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.ws-pick[data-check="elaborate"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel.locator('.ws-stage.now')).toHaveText(/check/i);
   await expect(panel.locator('.ws-structure')).toContainText(/order holds/i, { timeout: 15_000 });
   await expect(panel.locator('.ws-status')).toContainText(/checked/i, { timeout: 20_000 });
   expect(await body.evaluate((el) => el.style.paddingRight)).toBe('');
+  const saved = await worker!.evaluate(async () => ((await chrome.storage.local.get('settings')) as { settings: { checks: Record<string, boolean> } }).settings.checks);
+  expect(saved.structure).toBe(true);
+  expect(saved.elaborate).toBe(false);
 });
 
 test('Rewrite lets the user type their own wording; Apply edits the draft and the span is re-checked', async ({ context }) => {

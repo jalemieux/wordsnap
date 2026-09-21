@@ -2,7 +2,7 @@
 import type { PassRequest } from '../providers/types';
 import type { Claim, ClarityFinding } from '../shared/schemas';
 import { PassA, PassB, PassC, PassCThesis, PassS } from '../shared/schemas';
-import type { Effort, TextSnapshot } from '../shared/types';
+import type { Effort, TextSnapshot, StructureMode } from '../shared/types';
 import { PASS_A_SYSTEM, PASS_B_SYSTEM, PASS_C_SYSTEM, PASS_S_SYSTEM } from './prompts';
 
 export const RESEARCH_BUDGET = { B: 6, C: 4 } as const;
@@ -107,14 +107,16 @@ export function buildPassC(snapshot: TextSnapshot, opts: PassCOptions): PassRequ
 export interface PassSOptions {
   effort: Effort;
   context?: DraftContext;
+  /** Which of the pass's two jobs to do: regroup the writer's sentences, or lay out a skeleton for what they typed. */
+  mode: StructureMode;
 }
 
-/** Structure: the whole draft, no research. Runs before A when the Structure check is on. */
+/** Structure: the whole draft, no research. Runs before A when the Structure or Elaborate check is on. The mode line comes first so a cached system prompt serves both. */
 export function buildPassS(snapshot: TextSnapshot, opts: PassSOptions): PassRequest<PassS> {
   return {
     pass: 'S',
     system: PASS_S_SYSTEM,
-    user: `${contextLine(opts.context)}<draft>\n${numberedDraft(snapshot)}\n</draft>`,
+    user: `Mode: ${opts.mode}\n${contextLine(opts.context)}<draft>\n${numberedDraft(snapshot)}\n</draft>`,
     schema: PassS,
     effort: opts.effort,
   };

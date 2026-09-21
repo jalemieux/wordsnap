@@ -72,7 +72,9 @@ export class MockProvider implements LLMProvider {
 
     if (req.pass === 'S') {
       // The dictated sample gets the reorder that turns it into SAMPLE_TEXT; anything else already holds.
-      const data = req.user.includes(SAMPLE_DICTATED_MARKER) ? SAMPLE_PASS_S : req.user.includes(SAMPLE_IDEA_MARKER) ? SAMPLE_PASS_S_OUTLINE : SAMPLE_PASS_S_KEEPS;
+      // Elaborate: the sample notes get the skeleton, anything else keeps. Organize: the dictated sample gets the reorder that turns it into SAMPLE_TEXT.
+      const elaborate = req.user.startsWith('Mode: elaborate');
+      const data = elaborate ? (req.user.includes(SAMPLE_IDEA_MARKER) ? SAMPLE_PASS_S_OUTLINE : SAMPLE_PASS_S_KEEPS) : req.user.includes(SAMPLE_DICTATED_MARKER) ? SAMPLE_PASS_S : SAMPLE_PASS_S_KEEPS;
       return { data: req.schema.parse(data), sourcesSeen: [], usage };
     }
     if (req.pass === 'A') {

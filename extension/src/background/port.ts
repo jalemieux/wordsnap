@@ -105,6 +105,11 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               provider: () => holder.get(),
               settings: () => settings!,
               cache,
+              persistChecks: (checks) => {
+                void store.set({ checks }).then((s) => {
+                  settings = s;
+                });
+              },
               emit: (state) => {
                 send({ type: 'session/state', sessionKey: raw.sessionKey, state });
                 persist(raw.sessionKey);

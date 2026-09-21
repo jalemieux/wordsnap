@@ -7,7 +7,7 @@ import { ProviderError } from '../providers/types';
 import { changedParagraphs, normalizeText } from '../shared/anchoring';
 import { estimateCostUsd } from '../shared/cost';
 import type { Claim, PassA, PassB, PassC, PassS, Verdict } from '../shared/schemas';
-import { activeModel, clarityKindFilter, sameChecks, type Checks, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
+import { activeModel, clarityKindFilter, sameChecks, structureMode, type Checks, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
 import type { ClaimCache } from './cache';
 import { Session, type SavedSession } from './session';
 
@@ -27,6 +27,8 @@ export interface OrchestratorDeps {
   cache: ClaimCache;
   emit: (state: SessionState) => void;
   onCost?: (usd: number) => void;
+  /** Persist a checks change the orchestrator makes itself (Done on a skeleton hands the draft to Structure). */
+  persistChecks?: (checks: Checks) => void;
   now?: () => number;
   timers?: Timers;
   context?: DraftContext;
@@ -109,7 +111,7 @@ export class SessionOrchestrator {
   setChecks(checks: Checks): void {
     if (this.closed) return;
     // A structure result landing after the chip went off would hold the other passes with no way to answer it.
-    if (!checks.structure) this.abort('S');
+    if (!structureMode(checks)) this.abort('S');
     this.session.applyChecks(checks, clarityKindFilter(checks));
     this.emit();
   }
@@ -150,6 +152,12 @@ export class SessionOrchestrator {
   handleStructureAction(action: 'applied' | 'kept' | 'done'): void {
     if (this.closed) return;
     if (!this.session.applyStructureAction(action)) return;
+    // The skeleton did its job: the draft that came out of it gets the ordinary structure pass from here on.
+    if (action === 'done' && this.checks().elaborate) {
+      const next: Checks = { ...this.checks(), elaborate: false, structure: true };
+      this.session.state.checks = next;
+      this.deps.persistChecks?.(next);
+    }
     this.emit();
     if (action === 'kept' || action === 'done') {
       this.clearScheduled();
@@ -191,7 +199,7 @@ export class SessionOrchestrator {
 
     // Structure first, on the whole draft. A proposed reorder holds the other passes until the user applies or keeps it.
     // A stale proposal waits for Re-analyze or a full run: in auto mode a paragraph edit must not ask again.
-    if (checks.structure && !opts.recheck && (isFull || opts.force) && this.structureDue(snapshot, !!opts.force)) {
+    if (structureMode(checks) && !opts.recheck && (isFull || opts.force) && this.structureDue(snapshot, !!opts.force)) {
       const verdict = await this.runS(snapshot);
       if (this.closed || verdict === 'aborted') return; // a newer snapshot took over
       if (verdict === 'reorder' || verdict === 'outline') {
@@ -201,7 +209,7 @@ export class SessionOrchestrator {
     }
 
     const wantC = (checks.challenge || checks.structure) && !opts.recheck;
-    const wantA = checks.polish || checks.structure || checks.facts;
+    const wantA = checks.polish || checks.structure || checks.elaborate || checks.facts;
     const runC = wantC && (opts.force || checksChanged ? this.forceC() : this.shouldRunC(changed, isFull));
     const cWork = runC ? this.runC(snapshot) : Promise.resolve();
     const aWork = wantA ? this.runA(snapshot, isFull ? undefined : changed) : Promise.resolve();
@@ -229,12 +237,13 @@ export class SessionOrchestrator {
   /** Returns the verdict recorded; 'aborted' when a newer snapshot cancelled it; null when it failed (the other passes go ahead). */
   private async runS(snapshot: TextSnapshot): Promise<'keeps' | 'reorder' | 'outline' | 'aborted' | null> {
     const settings = this.deps.settings();
-    const req = buildPassS(snapshot, { effort: settings.effort.S, context: this.deps.context });
+    const mode = structureMode(this.checks()) ?? 'organize';
+    const req = buildPassS(snapshot, { effort: settings.effort.S, context: this.deps.context, mode });
     const res = await this.execute('S', req);
     if (!res) return this.outcome.S === 'aborted' ? 'aborted' : null;
-    if (!this.checks().structure) return null; // the chip went off while S was out: nothing to show
+    if (structureMode(this.checks()) !== mode) return null; // the chips changed while S was out: nothing to show
     // The proposal is for the text S read. If the draft moved on meanwhile it is stale on arrival.
-    const { proposal, reason } = validatePassS(res.data, snapshot.text);
+    const { proposal, reason } = validatePassS(res.data, snapshot.text, mode);
     if (reason) log.info(`${this.session.state.sessionKey}: structure proposal dropped (${reason})`);
     this.session.setStructure(proposal, snapshot.version);
     if (proposal.verdict !== 'keeps' && this.session.snapshot && this.session.snapshot.text !== snapshot.text) this.session.state.structure!.status = 'stale';

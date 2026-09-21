@@ -287,7 +287,7 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
     ? (paragraphs: string[]) => {
         setHotStructure({ group: null, sentence: null });
         const ok = callbacks.onApplyOutline?.(paragraphs) !== false;
-        setToast(ok ? 'Your fragments are in place. Write into the outline; press Done when the message is written.' : 'The editor did not accept the change.');
+        setToast(ok ? 'Your fragments are in place. Write into the skeleton; press Done when the message is written.' : 'The editor did not accept the change.');
       }
     : undefined;
   const outlineDone = callbacks.onOutlineDone

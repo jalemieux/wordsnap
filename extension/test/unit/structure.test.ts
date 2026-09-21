@@ -135,11 +135,24 @@ describe('PassS schema', () => {
   });
 });
 
+describe('validatePassS jobs and gaps', () => {
+  const base = { verdict: 'reorder' as const, note: NOTE, paragraphs: REORDERED };
+  it('carries jobs and gaps when there is one per paragraph; a gap may be blank', () => {
+    const { proposal } = validatePassS({ ...base, jobs: ['Result first.', 'The ask.', 'Readiness.'], gaps: ['', 'By when.', ''] }, DRAFT);
+    expect(proposal.jobs).toEqual(['Result first.', 'The ask.', 'Readiness.']);
+    expect(proposal.gaps).toEqual(['', 'By when.', '']);
+  });
+  it('drops jobs that do not line up, and jobs with a blank entry', () => {
+    expect(validatePassS({ ...base, jobs: ['Result first.'] }, DRAFT).proposal.jobs).toBeUndefined();
+    expect(validatePassS({ ...base, jobs: ['Result first.', '', 'Readiness.'] }, DRAFT).proposal.jobs).toBeUndefined();
+  });
+});
+
 describe('buildPassS', () => {
   const snapshot = snapshotFromText(DRAFT);
 
   it('builds a structure request with no research', () => {
-    const req = buildPassS(snapshot, { effort: 'medium' });
+    const req = buildPassS(snapshot, { effort: 'medium', mode: 'organize' });
     expect(req.pass).toBe('S');
     expect(req.schema).toBe(PassS);
     expect(req.effort).toBe('medium');
@@ -148,12 +161,16 @@ describe('buildPassS', () => {
   });
 
   it('puts the numbered draft in the user text', () => {
-    const req = buildPassS(snapshot, { effort: 'low' });
+    const req = buildPassS(snapshot, { effort: 'low', mode: 'organize' });
     expect(req.user).toContain(`<draft>\n[P1] ${P1}\n\n[P2] ${P2}\n\n[P3] ${P3}\n</draft>`);
   });
 
   it('prefixes the medium and subject when given', () => {
-    const req = buildPassS(snapshot, { effort: 'low', context: { platform: 'email', subject: 'Beta on Friday' } });
-    expect(req.user.startsWith('Medium: email. Subject line: Beta on Friday\n\n<draft>')).toBe(true);
+    const req = buildPassS(snapshot, { effort: 'low', mode: 'organize', context: { platform: 'email', subject: 'Beta on Friday' } });
+    expect(req.user.startsWith('Mode: organize\nMedium: email. Subject line: Beta on Friday\n\n<draft>')).toBe(true);
+  });
+
+  it('names the job on the first line so the cached system prompt serves both', () => {
+    expect(buildPassS(snapshot, { effort: 'low', mode: 'elaborate' }).user.startsWith('Mode: elaborate\n')).toBe(true);
   });
 });

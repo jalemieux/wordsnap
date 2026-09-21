@@ -88,7 +88,8 @@ h3,h4,p{margin:0}
 .ws-mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;font-size:12px;display:grid;place-items:center;flex:none;font-family:var(--ui)}
 .ws-mark.sm{width:18px;height:18px;border-radius:4px;font-size:11px}
 .ws-name{font-weight:600;font-size:14px;letter-spacing:-.01em}
-.ws-status{margin-left:auto;font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ws-status{margin-left:auto;font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ws-status .dot+*{overflow:hidden;text-overflow:ellipsis}
 .ws-status .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
 .ws-status.running .dot{background:var(--accent);animation:ws-pulse 1s infinite}
 .ws-status.error .dot{background:var(--red)}
@@ -254,3 +255,20 @@ h3,h4,p{margin:0}
 .ws-guide li span{margin-left:auto;font-size:11px;color:var(--faint)}
 .ws-guide li[data-fill="written"] span{color:var(--green)}
 .ws-guide li[data-fill="empty"] span{color:var(--amber)}
+
+/* Structure / Elaborate pair and the Elaborate stage line */
+.ws-pair{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.ws-pair .ws-pick{border:0;border-radius:0;border-right:1px solid var(--line);background:transparent}
+.ws-pair .ws-pick:last-child{border-right:0}
+.ws-pair .ws-pick.on{background:var(--accent-bg)}
+.ws-pair:has(.ws-pick.on){border-color:var(--accent-line)}
+.ws-picks.dim .ws-pick,.ws-picks.dim .ws-pair{opacity:.45;pointer-events:none}
+.ws-picks-note{padding:0 14px 10px;font-size:11px;color:var(--faint);line-height:1.4}
+.ws-stages{display:flex;align-items:center;gap:2px;padding:0 14px 8px;font-size:11.5px;color:var(--faint)}
+.ws-stage{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:12px}
+.ws-stage b{font-family:var(--mono);font-weight:500;font-size:10px;width:16px;height:16px;border-radius:50%;border:1px solid var(--line);display:inline-grid;place-items:center;color:var(--faint)}
+.ws-stage+.ws-stage::before{content:"›";color:var(--line);margin-right:2px}
+.ws-stage.done{color:var(--muted)}
+.ws-stage.done b{border-color:var(--green);color:var(--green)}
+.ws-stage.now{color:var(--accent-ink);background:var(--accent-bg);font-weight:600}
+.ws-stage.now b{border-color:var(--accent);background:var(--accent);color:#fff}

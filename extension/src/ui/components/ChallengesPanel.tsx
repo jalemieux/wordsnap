@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
 import type { StructureSlot } from '../../shared/schemas';
 import type { SlotFill } from '../../shared/structure-map';
-import { CHECK_IDS, type Checks, type SessionState } from '../../shared/types';
-import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, firstError, sortChallenges, staleFindings, structureGuiding, structureOpen, summaryCounts } from '../format';
+import { CHECK_IDS, type CheckId, type Checks, type SessionState } from '../../shared/types';
+import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, elaborateStage, firstError, sortChallenges, staleFindings, structureGuiding, structureOpen, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
@@ -39,6 +39,32 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
   const noneOn = CHECK_IDS.every((k) => !checks[k]);
   const canAnalyze = !running && !noneOn && !structureOpen(state) && (draftChanged(state) || checksChanged(state) || staleFindings(state) || !!firstError(state));
   const compact = !!compare && (structureOpen(state) || structureGuiding(state));
+  const stage = elaborateStage(state);
+  const writing = structureGuiding(state);
+  // Structure and Elaborate are two jobs for one pass: picking one clears the other; picking it again picks neither.
+  const pick = (id: CheckId) => {
+    if (!onChecks) return;
+    const on = checks[id];
+    if (id === 'structure' || id === 'elaborate') onChecks({ ...checks, structure: id === 'structure' && !on, elaborate: id === 'elaborate' && !on });
+    else onChecks({ ...checks, [id]: !on });
+  };
+  const chip = (id: CheckId) => {
+    const on = checks[id];
+    return (
+      <button key={id} class={`ws-pick${on ? ' on' : ''}`} data-check={id} aria-pressed={on} title={CHECK_HINT[id]} onClick={() => pick(id)}>
+        {on ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2.5 6.5l2.5 2.5 4.5-5" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="9" height="9" rx="2" />
+          </svg>
+        )}
+        {CHECK_LABEL[id]}
+      </button>
+    );
+  };
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
@@ -62,32 +88,28 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
           </button>
         ) : null}
       </div>
-      <div class="ws-picks" role="group" aria-label="What to check">
-        {CHECK_IDS.map((id) => {
-          const on = checks[id];
-          return (
-            <button
-              key={id}
-              class={`ws-pick${on ? ' on' : ''}`}
-              data-check={id}
-              aria-pressed={on}
-              title={CHECK_HINT[id]}
-              onClick={() => onChecks?.({ ...checks, [id]: !on })}
-            >
-              {on ? (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M2.5 6.5l2.5 2.5 4.5-5" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-                  <rect x="1.5" y="1.5" width="9" height="9" rx="2" />
-                </svg>
-              )}
-              {CHECK_LABEL[id]}
-            </button>
-          );
-        })}
+      {stage ? (
+        <div class="ws-stages" aria-label="Elaborate stages">
+          {(['elaborate', 'write', 'check'] as const).map((st, i) => {
+            const at = ['elaborate', 'write', 'check'].indexOf(stage);
+            const cls = i < at ? 'done' : i === at ? 'now' : '';
+            return (
+              <span key={st} class={`ws-stage ${cls}`} data-stage={st}>
+                <b>{i < at ? '✓' : i + 1}</b>
+                {st === 'elaborate' ? 'Elaborate' : st === 'write' ? 'Write' : 'Check'}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+      <div class={`ws-picks${writing ? ' dim' : ''}`} role="group" aria-label="What to check">
+        <div class="ws-pair" role="group" aria-label="Structure or Elaborate">
+          {chip('structure')}
+          {chip('elaborate')}
+        </div>
+        {CHECK_IDS.filter((id) => id !== 'structure' && id !== 'elaborate').map(chip)}
       </div>
+      {writing ? <p class="ws-picks-note">Polish, Facts and Challenge run when you press Done in the pane, on what you wrote.</p> : null}
       <div class={`ws-progress${running ? ' running' : ''}`} />
       {compact ? (
         <StructureSection state={state} compact guide={outlineGuide} />
@@ -232,13 +254,13 @@ function StructureSection({
     return (
       <section class="ws-sec ws-structure" data-status={st.status}>
         <h3>
-          {outline ? 'Outline' : 'Structure'}
+          {outline ? 'Skeleton' : 'Structure'}
           <span class="pass">{guiding ? 'as you write' : 'waiting on you'}</span>
         </h3>
         {guide ? (
           <>
-            <p class="ws-struct-note">Writing into the outline. Each paragraph, and whether it is written yet:</p>
-            <ul class="ws-guide" aria-label="Outline">
+            <p class="ws-struct-note">Writing into the skeleton. Each paragraph, and whether it is written yet:</p>
+            <ul class="ws-guide" aria-label="Skeleton">
               {guide.slots.map((sl, i) => (
                 <li key={i} data-fill={guide.fills[i]}>
                   <b>¶{i + 1}</b>
@@ -249,16 +271,16 @@ function StructureSection({
             </ul>
             {guide.onDone ? (
               <div class="ws-btns">
-                <button class="ws-btn primary" data-act="outline-done" onClick={guide.onDone} title="Close the outline and check what you wrote">
+                <button class="ws-btn primary" data-act="outline-done" onClick={guide.onDone} title="Close the skeleton and check what you wrote">
                   Done, check it
                 </button>
               </div>
             ) : null}
           </>
         ) : guiding ? (
-          <p class="ws-struct-note">Writing into the outline beside your draft. Done in the pane runs the checks on what you wrote; so does Re-analyze.</p>
+          <p class="ws-struct-note">Writing into the skeleton beside your draft. Done in the pane runs the checks on what you wrote; so does Re-analyze.</p>
         ) : outline ? (
-          <p class="ws-struct-note">An outline from your notes, beside them: {(st.slots ?? []).length} paragraphs to write. Apply it or keep your notes as they are; the other checks wait for that.</p>
+          <p class="ws-struct-note">A skeleton for what you typed, beside it: {(st.slots ?? []).length} paragraphs to write. Apply it or keep yours as it is; the other checks wait for that.</p>
         ) : (
           <p class="ws-struct-note">{st.paragraphs.length} paragraphs, beside your draft. Apply it or keep yours there; the other checks wait for that.</p>
         )}
@@ -303,9 +325,9 @@ function StructureSection({
           <p class="ws-struct-hint">Your sentences, reordered; nothing added. Undo in the editor puts the draft back.</p>
         </>
       ) : st.status === 'guiding' ? (
-        <p class="ws-struct-note">Writing into the outline. Re-analyze checks what you wrote.</p>
+        <p class="ws-struct-note">Writing into the skeleton. Re-analyze checks what you wrote.</p>
       ) : st.status === 'applied' ? (
-        <p class="ws-struct-ok">{st.verdict === 'outline' ? 'Outline done.' : 'Structure applied.'} {st.note}</p>
+        <p class="ws-struct-ok">{st.verdict === 'outline' ? 'Skeleton done.' : 'Structure applied.'} {st.note}</p>
       ) : st.status === 'kept' ? (
         <p class="ws-empty">Kept your order.</p>
       ) : (

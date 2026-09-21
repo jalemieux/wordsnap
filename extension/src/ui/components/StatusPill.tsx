@@ -11,8 +11,8 @@ export function statusOf(state: SessionState, now = Date.now()): { mode: 'runnin
   }
   const err = firstError(state);
   if (err) return { mode: 'error', text: err };
-  if (structureOpen(state)) return { mode: 'stale', text: state.structure?.verdict === 'outline' ? 'Outline proposed' : 'Structure proposed' };
-  if (structureGuiding(state)) return { mode: 'stale', text: 'Writing into the outline' };
+  if (structureOpen(state)) return { mode: 'stale', text: state.structure?.verdict === 'outline' ? 'Skeleton proposed' : 'Structure proposed' };
+  if (structureGuiding(state)) return { mode: 'stale', text: 'Writing into the skeleton' };
   if (draftChanged(state)) return { mode: 'stale', text: 'Draft changed' };
   if (checksChanged(state)) return { mode: 'stale', text: 'Checks changed' };
   const at = lastCheckedAt(state);
@@ -25,7 +25,7 @@ export function StatusPill({ state, now }: { state: SessionState; now?: number }
   return (
     <span class={`ws-status ${s.mode}`} role="status" aria-live="polite" title={s.text}>
       <span class="dot" />
-      {s.text}
+      <span>{s.text}</span>
     </span>
   );
 }

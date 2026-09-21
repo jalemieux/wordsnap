@@ -1,0 +1,290 @@
+<title>Text or idea</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEC; --ground-ink:#1F2A2A; --ground-muted:#5F6E6E; --ground-line:#D3DADA;
+  --mock-bg:#1B2424; --mock-ink:#E6ECEB; --mock-muted:#8FA0A0; --mock-accent:#7FD1C8; --mock-line:#2C3838;
+  --ws-accent:#0E7C7B; --ws-accent-ink:#0A5E5D; --ws-accent-bg:#E6F3F2; --ws-accent-line:#B7DAD7;
+  --ws-ink:#1B2A2A; --ws-muted:#5C6B6B; --ws-faint:#8C9A9A; --ws-line:#DCE4E3; --ws-bg:#F6F8F8; --ws-card:#FFFFFF;
+  --amber:#A8690F; --amber-bg:#FBF1DF; --green:#2E7D4F;
+  --ui:"Instrument Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --host:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; --compose:Arial,Helvetica,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; } }
+:root[data-theme="dark"]{ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; --ground-line:#26302F; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ground-ink);font-family:var(--ui);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+h1,h2,h3,h4{margin:0;font-weight:600}
+p{margin:0}
+.mockbar{background:var(--mock-bg);color:var(--mock-ink);border-bottom:1px solid var(--mock-line);padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 26px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.mockbar .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mock-muted)}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl-label{font-size:12px;color:var(--mock-muted)}
+.seg{display:inline-flex;border:1px solid var(--mock-line);border-radius:6px;overflow:hidden}
+.seg button{padding:6px 12px;font-size:12px;color:var(--mock-muted);border-right:1px solid var(--mock-line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#243131;color:var(--mock-accent)}
+.stage{padding:16px 16px 8px;overflow-x:auto}
+.browser{width:1400px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 40px rgba(0,0,0,.14);overflow:hidden;color:#1F1F1F;font-family:var(--host);position:relative}
+.chrome{background:#E8E8EA;padding:8px 12px;display:flex;align-items:center;gap:12px;font-size:12px;color:#3C4043}
+.lights{display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;background:#C9CDD2;display:block}
+.url{flex:0 1 420px;margin:0 auto;background:#fff;border-radius:6px;padding:4px 12px;text-align:center;font-size:12px}
+.gmail{position:relative;height:760px;background:#F6F6F6;overflow:hidden}
+.compose{position:absolute;left:190px;right:190px;top:0;bottom:0;background:#fff;display:flex;flex-direction:column}
+.c-title{background:#EEF3FB;padding:12px 16px;font-size:14px;font-weight:500}
+.c-field{padding:0 16px;height:38px;display:flex;align-items:center;border-bottom:1px solid #E5E5E5;font-size:14px;color:#5F6368}
+.c-body{flex:1;position:relative;padding:14px 16px 0;overflow:hidden;display:flex}
+.editor{flex:1;min-width:0;padding-right:22px;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222}
+.editor .para{margin:0 0 14px}
+.editor .sig{margin-top:60px}
+.c-tools{border-top:1px solid #E5E5E5;padding:12px 16px;display:flex;align-items:center;gap:16px;color:#5F6368;font-size:13px}
+.send{background:#0B57D0;color:#fff;border-radius:18px;padding:8px 22px;font-weight:500}
+.tool{width:20px;height:20px;border-radius:4px;background:#E8EAED}
+.sen{border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.sen.hot{background:var(--ws-accent-bg);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+.cut{border-bottom:2px dotted var(--amber)}
+.tg{display:inline-block;font-family:var(--mono);font-size:9.5px;line-height:1;color:var(--ws-accent-ink);background:var(--ws-accent-bg);border:1px solid var(--ws-accent-line);border-radius:3px;padding:2px 4px;margin:0 5px 0 0;vertical-align:2px;user-select:none}
+.tg.mv{background:#fff}
+.tg.none{color:var(--ws-faint);background:#fff;border-color:var(--ws-line)}
+/* the pane: identical in both modes */
+.side{flex:1;min-width:0;border-left:1px solid var(--ws-line);padding:0 0 0 22px;font-family:var(--compose);font-size:14px;line-height:1.6;color:#222;overflow:auto}
+.side-head{display:flex;align-items:center;gap:8px;font-family:var(--ui);font-size:12.5px;color:var(--ws-muted);margin-bottom:8px;flex-wrap:wrap}
+.side-head .w{width:20px;height:20px;border-radius:5px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:11px}
+.side-head b{color:var(--ws-ink);font-weight:600}
+.side-head .acts{margin-left:auto;display:flex;gap:6px}
+.btn{border:1px solid var(--ws-line);background:#fff;color:var(--ws-ink);border-radius:6px;padding:5px 11px;font-size:12.5px;font-family:var(--ui);display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.mode{display:inline-flex;border:1px solid var(--ws-accent-line);border-radius:6px;overflow:hidden;background:#fff;font-family:var(--ui)}
+.mode button{padding:4px 10px;font-size:12px;color:var(--ws-muted);display:inline-flex;align-items:center;gap:6px}
+.mode button.on{background:var(--ws-accent);color:#fff}
+.mode button i{font-style:normal;font-family:var(--mono);font-size:11px;opacity:.8}
+.note{font-family:var(--ui);font-size:12.5px;color:var(--ws-ink);margin:0 0 10px;line-height:1.45}
+.note small{display:block;color:var(--ws-faint);font-size:11.5px;margin-top:2px}
+.sect{position:relative;padding:7px 10px 9px 12px;margin:0 0 8px -12px;border-left:2px solid transparent;border-radius:0 6px 6px 0;transition:background .15s,border-color .15s}
+.sect.hot{background:var(--ws-accent-bg);border-left-color:var(--ws-accent)}
+.sh{display:flex;align-items:baseline;gap:8px;font-family:var(--ui);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-accent-ink);font-weight:600;margin-bottom:2px}
+.sh b{font-family:var(--mono);font-weight:500;color:var(--ws-faint);letter-spacing:0}
+.sh small{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ws-faint);font-size:11px}
+.job{font-family:var(--ui);font-size:12px;color:var(--ws-muted);margin:0 0 4px}
+.from .sen{cursor:default}
+.from.empty{font-family:var(--ui);font-size:12px;color:var(--ws-faint);font-style:italic}
+.gap{font-family:var(--ui);font-size:12px;color:var(--amber);display:flex;align-items:baseline;gap:6px;margin-top:4px}
+.gap::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none;transform:translateY(-1px)}
+.fine{font-family:var(--ui);font-size:11px;color:var(--ws-faint);margin-top:8px;line-height:1.4}
+/* toggle placements */
+.badge{position:absolute;right:16px;top:8px;width:28px;height:28px;border-radius:7px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-family:var(--ui);font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.badge-menu{position:absolute;right:16px;top:42px;width:290px;background:var(--ws-card);border:1px solid var(--ws-line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);font-family:var(--ui);font-size:12.5px;width:250px;overflow:hidden;z-index:3}
+.badge-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;padding:9px 12px;border-bottom:1px solid var(--ws-line)}
+.badge-menu button:last-child{border-bottom:0}
+.badge-menu button b{font-weight:600;color:var(--ws-ink)}
+.badge-menu button span{color:var(--ws-muted);font-size:11.5px}
+.badge-menu button.on{background:var(--ws-accent-bg)}
+.panel{position:absolute;right:14px;bottom:14px;width:400px;background:var(--ws-card);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.22);font-family:var(--ui);color:var(--ws-ink);font-size:13px;overflow:hidden}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
+.ph .w{width:22px;height:22px;border-radius:6px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px}
+.ph b{font-weight:600;font-size:14px}
+.ph .st{color:var(--ws-muted);font-size:12.5px;display:flex;align-items:center;gap:6px}
+.ph .st i{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block}
+.ph .btn{margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}
+.chip{border:1px solid var(--ws-line);border-radius:14px;padding:3px 10px;font-size:12px;color:var(--ws-muted)}
+.chip.on{color:var(--ws-accent-ink);border-color:var(--ws-accent-line);background:var(--ws-accent-bg)}
+.subrow{display:flex;align-items:center;gap:8px;padding:0 14px 12px;font-size:12px;color:var(--ws-muted);border-bottom:1px solid var(--ws-line)}
+.subrow .mode{margin-left:auto}
+.sec{padding:11px 14px 12px;background:var(--ws-accent-bg)}
+.sec h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:500;display:flex;justify-content:space-between;margin-bottom:6px}
+.sec h3 span{letter-spacing:0;text-transform:none;color:var(--ws-faint)}
+.sec p{font-size:12.5px;line-height:1.45}
+.badge-menu{display:none}
+.s-click .badge-menu{display:block}
+.s-click .side{display:none}
+.s-click .editor{padding-right:0}
+.s-click .panel{display:none}
+.badge-menu button:hover{background:var(--ws-bg)}
+.badge-menu .hd{padding:8px 12px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-faint);border-bottom:1px solid var(--ws-line)}
+/* notes */
+.notes{max-width:1400px;margin:0 auto;padding:10px 16px 40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+@media (max-width:900px){.notes{grid-template-columns:1fr}}
+.nb h2{font-size:15px;margin-bottom:6px}
+.nb h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ground-muted);font-weight:500;margin:12px 0 4px}
+.nb p,.nb li{font-size:13.5px;line-height:1.5}
+.nb ul{margin:0;padding-left:18px}.nb li{margin-bottom:3px}
+.nb code{font-family:var(--mono);font-size:12px}
+</style>
+
+<div class="mockbar">
+  <span class="tag">WordSnap · Organize or Elaborate</span>
+  <div class="ctl"><span class="ctl-label">What you typed</span><div class="seg" id="seg-input"><button data-input="text" class="on">A draft</button><button data-input="idea">An idea</button></div></div>
+  <div class="ctl"><span class="ctl-label">Moment</span><div class="seg" id="seg-step"><button data-step="click" class="on">You click the badge</button><button data-step="result">After the run</button></div></div>
+  <span class="ctl-label" style="margin-left:auto">The switch only changes the proposal. What you typed stays put.</span></div>
+</div>
+
+<div class="stage">
+<div class="browser p-pane" id="browser">
+  <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><div class="url">mail.google.com/mail/u/0/?fs=1&amp;tf=cm</div></div>
+  <div class="gmail">
+    <div class="compose">
+      <div class="c-title">New Message</div>
+      <div class="c-field">Recipients</div>
+      <div class="c-field">Subject</div>
+      <div class="c-body">
+        <div class="editor" id="editor"></div>
+        <div class="side" id="side"></div>
+      </div>
+      <div class="badge">W</div>
+      <div class="badge-menu" id="badge-menu"></div>
+      <div class="c-tools"><span class="send">Send</span><span style="font-size:15px">Aa</span><span class="tool"></span><span class="tool"></span><span class="tool"></span><span class="tool"></span></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span class="w">W</span><b>WordSnap</b><span class="st"><i></i>Structure proposed</span><button class="btn">Re-analyze</button></div>
+      <div class="chips"><span class="chip on">✓ Structure</span><span class="chip on">✓ Polish</span><span class="chip on">✓ Facts</span><span class="chip">☐ Challenge</span></div>
+      <div class="sec"><h3>Structure <span>waiting on you</span></h3><p id="panel-line"></p></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="notes">
+  <div class="nb"><h2>At the click</h2><p>Today the badge starts every check at once. With two things the structure pass can do, the badge asks first: <b>Organize</b> keeps every sentence and regroups them; <b>Elaborate</b> lays out the paragraphs a message on this needs, places what you typed, and names what is missing. Both then run the other checks. The choice is made at the moment it matters, on what is actually in the editor, with nothing else on screen yet. Nothing runs until one is clicked; Esc or a click elsewhere closes it and nothing is sent.</p><h3>After the run</h3><p>The pane header carries the same two positions, so a wrong pick is one click from the other one; flipping re-runs the pass in the other mode and the checks that depend on it. Per draft, remembered for the session.</p></div>
+  <div class="nb"><h2>One pane, four cases</h2><p>The pane does not change shape with the input or the mode. Every section is the same four lines: role, one line on the job for the reader, your material that belongs there, and a Missing line when there is a hole. Organize a draft: sentences regrouped, few gaps. Elaborate a draft: the same sentences placed, plus the paragraphs the draft lacks (an ask, a next step by when). Organize an idea: fragments in reading order, honest and thin. Elaborate an idea: the skeleton, with empty slots and what each needs. Apply writes your material in that order and nothing else, in all four.</p></div>
+  <div class="nb"><h2>What changes in code</h2><ul><li>The badge click opens a two-entry menu instead of starting the run; the entry sends the mode with the first snapshot. Auto-analyze mode keeps starting on its own, in Organize.</li><li>A <code>mode</code> on the pass S request; the prompt gets the two jobs as two branches. The detection that shipped in dev build 43 goes.</li><li>The schema is already there. Organize gains the same <code>job</code> and <code>gap</code> per paragraph as the skeleton, so both render through one section component.</li><li><code>structure/mode</code> (additive) and <code>SessionState.structureMode</code>; flipping in the pane re-runs S.</li><li>The guide after Apply, the fill check and Done already exist and apply to both.</li></ul></div>
+</div>
+
+<script>
+(function(){
+  const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const TEXT = {
+    q: 'Experiment, agent self organization . Can agent self orginzaise an acheive effective collaboration /w rigid harness structure.',
+    s1: 'I noticed the other day that claude proceses, running on my local, where talking to one another.',
+    s2: 'I found that by hcance, but its esected given the work antrhropic and others have been putting in agents and swarms....',
+    s3: 'this, the story out of open ai about agent using artifactory to coomnuicate to one another, and later an interview with Noam brown confirmed my hunch that scaffholding agent orchestration in the harness is tpo contrasinting and counter productive when working iwith fronteir model.',
+    s4: 'O the frist two, i set myself to build a simple message board and instructed my claude code session to introduce themselve and ocoordinate using the board, and to not use their internal inter session tools.',
+    s5: 'I then had them start wortkoin on a problem, spining up 4 agent, one with a task and 3 as helpers...',
+    s6: 'what i saw was really intresting , where the sessions wouls start picking up work, and in case of collision, the intating process would help coordiante.',
+    n: 'Watned to take it a step further, and improve the communication chanel (the board), to allow the agent to be notifed, vs having to poll the board for update.'
+  };
+  const IDEA = {
+    i0: 'Email to the team about the agent board experiment.',
+    i1: 'Point: rigid harness orchestration is counterproductive with frontier models, agents can self organize.',
+    i2: 'What I saw: sessions picked up work, coordinated on collisions.',
+    i3: 'Evidence: the OpenAI artifactory story, the Noam Brown interview.',
+    i4: 'Next: notifications instead of polling.',
+    i5: 'Ask them to try it this week.'
+  };
+  const SRC = { text: TEXT, idea: IDEA };
+  // Four cases, one shape: role, job, your material, what is missing.
+  const SECTIONS = {
+    text: {
+      organize: [
+        { role: 'Question', job: 'The question you are answering, first.', from: ['q'] },
+        { role: 'Evidence', job: 'What you noticed and what confirmed it.', from: ['s1', 's3', 's2'], gap: 'Which OpenAI story: name it or link it.' },
+        { role: 'Experiment', job: 'What you built and what happened.', from: ['s4', 's5', 's6'] },
+        { role: 'Next step', job: 'What you will do next.', from: ['n'] },
+      ],
+      elaborate: [
+        { role: 'Ask', job: 'What you want from the reader, first.', from: [], gap: 'Try the board, reply with what broke, or decide something? Say which.' },
+        { role: 'Point', job: 'The claim in one sentence, as you would defend it.', from: ['q'] },
+        { role: 'Evidence', job: 'What you noticed and what confirmed it.', from: ['s1', 's3', 's2'], gap: 'Which OpenAI story: name it or link it.' },
+        { role: 'Experiment', job: 'What you built and what happened.', from: ['s4', 's5', 's6'], gap: 'What a collision looked like and how the initiating session resolved it.' },
+        { role: 'Next step', job: 'What you will do next and when.', from: ['n'], gap: 'By when.' },
+      ],
+    },
+    idea: {
+      organize: [
+        { role: 'Ask', job: 'What you want from them, first.', from: ['i5'] },
+        { role: 'Point', job: 'The claim in one sentence.', from: ['i1'] },
+        { role: 'What you saw', job: 'The experiment and what happened.', from: ['i2'] },
+        { role: 'Evidence', job: 'Outside support for the claim.', from: ['i3'] },
+        { role: 'Next step', job: 'What you will do next.', from: ['i4'] },
+      ],
+      elaborate: [
+        { role: 'Ask', job: 'What you want from them, first.', from: ['i5'] },
+        { role: 'Point', job: 'The claim in one sentence, as you would defend it.', from: ['i1'] },
+        { role: 'What you saw', job: 'The experiment and what happened, concretely.', from: ['i2'], gap: 'How many sessions, for how long, and what a collision looked like.' },
+        { role: 'Evidence', job: 'Outside support for the claim, with names.', from: ['i3'], gap: 'What each source actually said.' },
+        { role: 'Next step', job: 'What you will do next and when.', from: ['i4'], gap: 'By when, and what the team would notice.' },
+      ],
+    },
+  };
+  const NOTE = {
+    text: {
+      organize: ['Split the single paragraph so the question, evidence, experiment and next step each get their own. One sentence moves, “anyway” goes.', '4 paragraphs from 1. Your sentences, regrouped; nothing added.'],
+      elaborate: ['The draft tells the story but never asks for anything. The ask goes first; your sentences fill the rest, and two paragraphs are missing a detail the reader will want.', '5 paragraphs, 1 with nothing from you yet. Your sentences placed; nothing written for you.'],
+    },
+    idea: {
+      organize: ['The ask first, then the point, what you saw, the evidence, the next step. The first line says who it is for and is not part of the message.', '5 paragraphs from your fragments, in reading order. This reads as notes; Elaborate says what each paragraph still needs.'],
+      elaborate: ['Lead with the ask, then the point, then what you saw. Three paragraphs have nothing concrete yet.', '5 paragraphs; your words go in each. Nothing written for you.'],
+    },
+  };
+  let input = 'text', mode = 'organize', step = 'click';
+  const editor = document.getElementById('editor'), side = document.getElementById('side'), browser = document.getElementById('browser');
+  const secs = () => SECTIONS[input][mode];
+  function destOf(){
+    const out = {};
+    secs().forEach((s, p) => s.from.forEach((id, i) => { out[id] = { p: p + 1, i: i + 1, moved: input === 'text' && id === 's2' && mode === 'organize' }; }));
+    return out;
+  }
+  const sen = (id, text, d) => `<span class="sen" data-id="${id}" data-group="${d ? d.p : 'x'}">${esc(text)}</span>`;
+  const tag = (d, title) => step === 'click' ? '' : d ? `<span class="tg${d.moved ? ' mv' : ''}" title="${title || ('Paragraph ' + d.p)}">¶${d.p}${d.moved ? '.' + d.i : ''}</span>` : `<span class="tg none" title="Not part of the message: it says who it is for.">—</span>`;
+  function renderEditor(){
+    const D = destOf();
+    if (input === 'text') {
+      const cut = step === 'click' || mode !== 'organize' ? 'anyway, ' : `<span class="cut" title="Cut: the break does the work “anyway” was doing">anyway, </span>`;
+      editor.innerHTML = `
+        <div class="para">${tag(D.q)}${sen('q', TEXT.q, D.q)}</div>
+        <div class="para">${tag(D.s1)}${sen('s1', TEXT.s1, D.s1)} ${tag(D.s2, 'Moves: paragraph 2, sentence 3')}${sen('s2', TEXT.s2, D.s2)} ${cut}${sen('s3', TEXT.s3, D.s3)} ${tag(D.s4)}${sen('s4', TEXT.s4, D.s4)} ${sen('s5', TEXT.s5, D.s5)} ${sen('s6', TEXT.s6, D.s6)}</div>
+        <div class="para">${tag(D.n)}${sen('n', TEXT.n, D.n)}</div>
+        <div class="sig">--<br>Best,<br>Jac</div>`;
+    } else {
+      editor.innerHTML = `<div class="para">${Object.keys(IDEA).map(id => `${tag(D[id])}${sen(id, IDEA[id], D[id])}`).join(' ')}</div><div class="sig">--<br>Best,<br>Jac</div>`;
+    }
+  }
+  function modeSwitch(){
+    return `<div class="mode"><button data-set="organize" class="${mode === 'organize' ? 'on' : ''}" title="Keep every sentence and regroup them"><i>≡</i>Organize</button><button data-set="elaborate" class="${mode === 'elaborate' ? 'on' : ''}" title="Lay out the paragraphs this message needs and place what you have"><i>¶</i>Elaborate</button></div>`;
+  }
+  function renderSide(){
+    const src = SRC[input];
+    const unit = input === 'text' ? ['sentence', 'sentences'] : ['fragment', 'fragments'];
+    side.innerHTML = `
+      <div class="side-head"><span class="w">W</span><b>${mode === 'organize' ? 'Organized' : 'Elaborated'}</b><span>from what you typed.</span>${modeSwitch()}<span class="acts"><button class="btn">Keep mine</button><button class="btn primary">Apply</button></span></div>
+      <p class="note">${NOTE[input][mode][0]}<small>${NOTE[input][mode][1]}</small></p>
+      ${secs().map((s, k) => `
+        <div class="sect" data-group="${k + 1}">
+          <div class="sh"><b>¶${k + 1}</b>${s.role}<small>${s.from.length ? s.from.length + ' ' + (s.from.length === 1 ? unit[0] : unit[1]) : 'nothing from you yet'}${s.from.includes('s2') && mode === 'organize' ? ', 1 moved' : ''}</small></div>
+          <p class="job">${s.job}</p>
+          <div class="from${s.from.length ? '' : ' empty'}">${s.from.length ? s.from.map(id => sen(id, src[id], { p: k + 1 })).join(' ') : 'Yours to write.'}</div>
+          ${s.gap ? `<div class="gap">Missing: ${s.gap}</div>` : ''}
+        </div>`).join('')}
+      <p class="fine">Apply writes your ${unit[1]} into the editor in this order and nothing else. The roles, the job lines and the gaps stay here beside the draft while you write.</p>`;
+    document.getElementById('panel-line').textContent = `${secs().length} paragraphs, beside what you typed. Apply it or keep yours; the other checks wait for that.`;
+    document.getElementById('badge-menu').innerHTML = `
+      <div class="hd">Check this with WordSnap</div>
+      <button data-run="organize"><b>Organize</b><span>Keep my sentences, put them in the order a reader needs, then check them.</span></button>
+      <button data-run="elaborate"><b>Elaborate</b><span>Lay out the paragraphs this message needs, place what I typed, tell me what is missing.</span></button>`;
+  }
+  function render(){
+    browser.className = 'browser s-' + step;
+    renderEditor(); renderSide();
+    document.querySelectorAll('#seg-input button').forEach(b => b.classList.toggle('on', b.dataset.input === input));
+    document.querySelectorAll('#seg-step button').forEach(b => b.classList.toggle('on', b.dataset.step === step));
+  }
+  document.getElementById('seg-input').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { input = b.dataset.input; render(); } });
+  document.getElementById('seg-step').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { step = b.dataset.step; render(); } });
+  // The badge menu picks the first run; the pane header flips it. Neither touches what you typed.
+  browser.addEventListener('click', e => {
+    const r = e.target.closest('[data-run]'); if (r) { mode = r.dataset.run; step = 'result'; render(); return; }
+    const b = e.target.closest('[data-set]'); if (b) { mode = b.dataset.set; render(); }
+  });
+  browser.addEventListener('pointerover', e => {
+    const t = e.target.closest('.sect, .sen'); if (!t) return;
+    const g = t.dataset.group;
+    side.querySelectorAll('.sect').forEach(x => x.classList.toggle('hot', x.dataset.group === g));
+    editor.querySelectorAll('.sen').forEach(x => x.classList.toggle('hot', x.dataset.group === g));
+  });
+  render();
+})();
+</script>

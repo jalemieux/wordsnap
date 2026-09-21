@@ -28,7 +28,7 @@ const OUTLINE: PassS = {
 
 describe('validatePassS on an outline', () => {
   it('keeps slots whose fragments are in the notes, with roles trimmed and gaps carried', () => {
-    const { proposal, reason } = validatePassS(OUTLINE, NOTES);
+    const { proposal, reason } = validatePassS(OUTLINE, NOTES, 'elaborate');
     expect(reason).toBeUndefined();
     expect(proposal.verdict).toBe('outline');
     expect(proposal.paragraphs).toEqual([]);
@@ -45,7 +45,7 @@ describe('validatePassS on an outline', () => {
         { role: 'Again', job: 'j', from: ['Ask them to try it this week.'] },
       ],
     });
-    const { proposal } = validatePassS(r, NOTES);
+    const { proposal } = validatePassS(r, NOTES, 'elaborate');
     expect(proposal.verdict).toBe('outline');
     expect(proposal.slots?.[0]?.from).toEqual(['Ask them to try it this week.']);
     expect(proposal.slots?.[1]?.from).toEqual([]);
@@ -59,7 +59,7 @@ describe('validatePassS on an outline', () => {
         { role: 'Point', job: 'j', from: [] },
       ],
     });
-    const { proposal } = validatePassS(r, NOTES);
+    const { proposal } = validatePassS(r, NOTES, 'elaborate');
     expect(proposal.slots?.[0]).toEqual({ role: 'Ask', job: 'What you want.', from: ['ask them to try it this week'] });
   });
 
@@ -71,7 +71,7 @@ describe('validatePassS on an outline', () => {
         { role: 'Point', job: 'j', from: [] },
       ],
     });
-    const { proposal, reason } = validatePassS(r, NOTES);
+    const { proposal, reason } = validatePassS(r, NOTES, 'elaborate');
     expect(proposal.verdict).toBe('keeps');
     expect(reason).toMatch(/none of the writer/);
   });
@@ -84,13 +84,19 @@ describe('validatePassS on an outline', () => {
         { role: '   ', job: 'j', from: [] },
       ],
     });
-    const { proposal, reason } = validatePassS(r, NOTES);
+    const { proposal, reason } = validatePassS(r, NOTES, 'elaborate');
     expect(proposal.verdict).toBe('keeps');
     expect(reason).toMatch(/1 slot/);
   });
 
+  it('is demoted to keeps when the Organize job was asked for: an outline is never shown uninvited', () => {
+    const { proposal, reason } = validatePassS(OUTLINE, NOTES, 'organize');
+    expect(proposal.verdict).toBe('keeps');
+    expect(reason).toMatch(/organize/);
+  });
+
   it('accepts the canned outline against the sample notes', () => {
-    const { proposal, reason } = validatePassS(SAMPLE_PASS_S_OUTLINE, SAMPLE_IDEA_TEXT);
+    const { proposal, reason } = validatePassS(SAMPLE_PASS_S_OUTLINE, SAMPLE_IDEA_TEXT, 'elaborate');
     expect(reason).toBeUndefined();
     expect(proposal.verdict).toBe('outline');
     expect(proposal.slots).toHaveLength(5);

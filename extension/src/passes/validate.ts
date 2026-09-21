@@ -7,6 +7,7 @@
 //    already be in the draft, and its length must stay between half and 1.2x the draft's, or it is dropped
 import { locateQuote, normalizeText } from '../shared/anchoring';
 import type { Challenge, Claim, ClarityFinding, PassA, PassB, PassC, PassS, Source, StructureSlot, Verdict } from '../shared/schemas';
+import type { StructureMode } from '../shared/types';
 import { normSentence } from '../shared/structure-map';
 import type { Span } from '../shared/types';
 
@@ -166,6 +167,9 @@ export interface StructureProposal {
   roles?: string[];
   /** Outline only: paragraphs to write, each with the writer's fragments that were found in the notes. */
   slots?: StructureSlot[];
+  /** Reorder only, aligned with paragraphs when the model gave one per paragraph. */
+  jobs?: string[];
+  gaps?: string[];
 }
 
 /** Fewest slots for an outline to be worth showing; one slot is a note, not a structure. */
@@ -176,10 +180,13 @@ export const OUTLINE_MIN_SLOTS = 2;
  * itself, when it brings in vocabulary the writer did not use, or when its length is out of bounds: the model may not
  * rewrite under the name of reordering. `reason` says why a proposal was demoted, for the log.
  */
-export function validatePassS(result: PassS, text: string): { proposal: StructureProposal; reason?: string } {
+export function validatePassS(result: PassS, text: string, mode: StructureMode = 'organize'): { proposal: StructureProposal; reason?: string } {
   const note = result.note.trim();
   if (result.verdict === 'keeps') return { proposal: { verdict: 'keeps', note, paragraphs: [] } };
-  if (result.verdict === 'outline') return validateOutline(result, text, note);
+  if (result.verdict === 'outline') {
+    if (mode !== 'elaborate') return { proposal: { verdict: 'keeps', note, paragraphs: [] }, reason: 'outline returned in organize mode' };
+    return validateOutline(result, text, note);
+  }
   // Single line breaks inside a paragraph (an address block, a multi-line sign-off) are kept; runs of spaces collapse.
   const paragraphs = result.paragraphs
     .map((p) => p.replace(/[ \t\r]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{2,}/g, '\n').trim())
@@ -193,7 +200,13 @@ export function validatePassS(result: PassS, text: string): { proposal: Structur
   const reuse = wordReuse(text, proposal);
   if (reuse < STRUCTURE_MIN_WORD_REUSE) return keeps(`word reuse ${reuse.toFixed(2)} below ${STRUCTURE_MIN_WORD_REUSE}`);
   const roles = structureRoles(result, paragraphs.length);
-  return { proposal: roles ? { verdict: 'reorder', note, paragraphs, roles } : { verdict: 'reorder', note, paragraphs } };
+  const jobs = alignedLines(result.jobs, result.paragraphs, paragraphs.length);
+  const gaps = alignedLines(result.gaps, result.paragraphs, paragraphs.length, true);
+  const out: StructureProposal = { verdict: 'reorder', note, paragraphs };
+  if (roles) out.roles = roles;
+  if (jobs) out.jobs = jobs;
+  if (gaps) out.gaps = gaps;
+  return { proposal: out };
 }
 
 /**
@@ -224,6 +237,18 @@ function validateOutline(result: PassS, text: string, note: string): { proposal:
   if (slots.length < OUTLINE_MIN_SLOTS) return keeps(`outline with ${slots.length} slot(s)`);
   if (!slots.some((s) => s.from.length)) return keeps('outline places none of the writer\'s fragments');
   return { proposal: { verdict: 'outline', note, paragraphs: [], slots } };
+}
+
+/** A per-paragraph list (jobs, gaps) kept only when it has one entry per returned paragraph; blank paragraphs drop their entry too. */
+function alignedLines(list: string[] | undefined, returned: string[], kept: number, blanksOk = false): string[] | undefined {
+  if (!list || list.length !== returned.length) return undefined;
+  const out: string[] = [];
+  returned.forEach((p, i) => {
+    if (p.trim()) out.push(list[i]!.replace(/\s+/g, ' ').trim());
+  });
+  if (out.length !== kept) return undefined;
+  if (!blanksOk && out.some((l) => !l)) return undefined;
+  return out;
 }
 
 /** Roles line up with the kept paragraphs only when the model labelled every paragraph it returned; otherwise none. */

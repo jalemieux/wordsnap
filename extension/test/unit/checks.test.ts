@@ -26,7 +26,7 @@ const passes = (p: MockProvider) => p.calls.map((c) => c.pass);
 
 describe('check picker', () => {
   it('defaults to Structure, Polish and Facts on and Challenge off', () => {
-    expect(DEFAULT_CHECKS).toEqual({ structure: true, polish: true, facts: true, challenge: false });
+    expect(DEFAULT_CHECKS).toEqual({ structure: true, elaborate: false, polish: true, facts: true, challenge: false });
     expect(mergeSettings({}).checks).toEqual(DEFAULT_CHECKS);
     expect(mergeSettings({ checks: { ...DEFAULT_CHECKS, challenge: true } }).checks.challenge).toBe(true);
   });
@@ -63,7 +63,7 @@ describe('check picker', () => {
   });
 
   it('with only Challenge on, A and B do not run at all', async () => {
-    const { provider } = setup({ structure: false, polish: false, facts: false, challenge: true });
+    const { provider } = setup({ structure: false, elaborate: false, polish: false, facts: false, challenge: true });
     await flush();
     expect(passes(provider)).toEqual(['C']);
   });
@@ -110,7 +110,7 @@ describe('check picker', () => {
   it('turning every check off prunes everything and runs nothing', async () => {
     const { orch, provider } = setup({ ...ALL_CHECKS });
     await flush();
-    orch.setChecks({ structure: false, polish: false, facts: false, challenge: false });
+    orch.setChecks({ structure: false, elaborate: false, polish: false, facts: false, challenge: false });
     expect(orch.state.clarity).toEqual([]);
     expect(orch.state.argument).toBeUndefined();
     const before = provider.calls.length;

@@ -58,6 +58,9 @@ export interface StructureResult {
   roles?: string[];
   /** Outline only: the paragraphs to write, with the writer's fragments already placed. */
   slots?: StructureSlot[];
+  /** Reorder only, one per paragraph: what the paragraph does for the reader, and what it still lacks ('' for nothing). */
+  jobs?: string[];
+  gaps?: string[];
   /**
    * open: waiting on the user. stale: the draft changed since it was proposed. guiding: an outline the user
    * applied; it stays beside the draft while they write and edits do not stale it. applied: done with.
@@ -88,11 +91,20 @@ export interface Usage {
  * structure half of pass A's clarity notes and the thesis; Polish is the other half of A's notes; Facts is pass B;
  * Challenge is pass C. With Structure on and Challenge off, C runs thesis-only without research.
  */
-export type CheckId = 'structure' | 'polish' | 'facts' | 'challenge';
+export type CheckId = 'structure' | 'elaborate' | 'polish' | 'facts' | 'challenge';
 export type Checks = Record<CheckId, boolean>;
-export const CHECK_IDS: readonly CheckId[] = ['structure', 'polish', 'facts', 'challenge'];
-export const DEFAULT_CHECKS: Checks = { structure: true, polish: true, facts: true, challenge: false };
-export const ALL_CHECKS: Checks = { structure: true, polish: true, facts: true, challenge: true };
+export const CHECK_IDS: readonly CheckId[] = ['structure', 'elaborate', 'polish', 'facts', 'challenge'];
+export const DEFAULT_CHECKS: Checks = { structure: true, elaborate: false, polish: true, facts: true, challenge: false };
+export const ALL_CHECKS: Checks = { structure: true, elaborate: false, polish: true, facts: true, challenge: true };
+
+/**
+ * The two jobs of pass S are one choice: Structure regroups the writer's sentences, Elaborate lays out a skeleton
+ * for what they typed. The panel keeps the two chips exclusive; this says which job runs, or null for neither.
+ */
+export type StructureMode = 'organize' | 'elaborate';
+export function structureMode(checks: Checks): StructureMode | null {
+  return checks.elaborate ? 'elaborate' : checks.structure ? 'organize' : null;
+}
 export type ClarityKindFilter = (kind: ClarityFinding['kind']) => boolean;
 /** Which clarity kinds a check set keeps: Polish owns fuzzy, hedge and grammar; Structure owns structure and unsupported_leap. */
 export function clarityKindFilter(checks: Checks): ClarityKindFilter {
@@ -119,6 +131,8 @@ export interface SessionState {
   argument?: { thesis: string; premises: string[] };
   /** Result of the structure pass for this draft; absent until it has run. */
   structure?: StructureResult;
+  /** An Elaborate skeleton was written into and closed with Done: the stage line shows Check until the chips change. */
+  elaborated?: boolean;
   challenges: AnchoredChallenge[];
   passes: Record<PassId, PassStatus>;
   usage: Usage;

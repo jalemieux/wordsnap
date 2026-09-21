@@ -38,6 +38,8 @@ export const SAMPLE_PASS_S: PassS = {
   note: 'The ask was in the last paragraph and the hallway evidence came before the trials. Same sentences: the ask first, the evidence in one block, then the plan.',
   paragraphs: SAMPLE_PARAGRAPHS,
   roles: ['Greeting', 'Ask', 'Evidence', 'The team', 'Plan', 'Next step', 'Sign-off'],
+  jobs: ['Who it is for.', 'What you want, in one sentence, first.', 'Outside results the reader can check.', 'Why it is safe to try here.', 'How it runs and when you check.', 'The one thing to decide now.', 'Sign-off.'],
+  gaps: ['', '', 'What the Iceland trials measured.', '', 'Who covers support during the pilot.', '', ''],
 };
 
 /**

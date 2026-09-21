@@ -50,7 +50,7 @@ function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof 
   const costs: number[] = [];
   // Most cases below exercise auto mode (re-run on edit); on-demand mode, the default, has its own describe.
   // Every check on: these cases cover the passes themselves; the picker has its own file (checks.test.ts).
-  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const, autoAnalyze: true, checks: { structure: true, polish: true, facts: true, challenge: true }, ...settingsOverride };
+  const settings = { ...DEFAULT_SETTINGS, provider: 'mock' as const, autoAnalyze: true, checks: { structure: true, elaborate: false, polish: true, facts: true, challenge: true }, ...settingsOverride };
   const orch = new SessionOrchestrator('s1', 'gmail', {
     provider: () => provider,
     settings: () => settings,
@@ -117,7 +117,7 @@ describe('SessionOrchestrator', () => {
   it('cancels an in-flight pass A when a new snapshot arrives', async () => {
     const slow = new MockProvider({ delayMs: 500, sleep: (ms, signal) => new Promise((res, rej) => { const t = setTimeout(res, 0); signal.addEventListener('abort', () => { clearTimeout(t); const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); }) });
     // Structure off so A is the first pass in flight (the structure pass has its own abort case below).
-    const { orch, clock, provider, states } = setup(slow, { checks: { structure: false, polish: true, facts: true, challenge: true } });
+    const { orch, clock, provider, states } = setup(slow, { checks: { structure: false, elaborate: false, polish: true, facts: true, challenge: true } });
     orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
     await clock.advance(DEBOUNCE_MS);
     // A is now "in flight" (its sleep resolves on a real macrotask we never let run before the next snapshot)
@@ -141,7 +141,7 @@ describe('SessionOrchestrator', () => {
     const states: SessionState[] = [];
     const orch2 = new SessionOrchestrator('s2', 'gmail', {
       provider: () => provider2,
-      settings: () => ({ ...DEFAULT_SETTINGS, provider: 'mock', checks: { structure: true, polish: true, facts: true, challenge: true } }),
+      settings: () => ({ ...DEFAULT_SETTINGS, provider: 'mock', checks: { structure: true, elaborate: false, polish: true, facts: true, challenge: true } }),
       cache: first.cache,
       emit: (s) => states.push(s),
       now: () => first.clock.now,
@@ -299,7 +299,7 @@ describe('structure pass', () => {
     orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
     await clock.advance(0);
     expect(last(states).passes.S.state).toBe('running');
-    orch.setChecks({ structure: false, polish: true, facts: true, challenge: true });
+    orch.setChecks({ structure: false, elaborate: false, polish: true, facts: true, challenge: true });
     await flush();
     expect(last(states).structure).toBeUndefined();
     expect(last(states).passes.S.state).not.toBe('running');
@@ -336,7 +336,7 @@ describe('structure pass', () => {
   });
 
   it('with Structure off, no structure pass runs and the passes go straight on', async () => {
-    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false, checks: { structure: false, polish: true, facts: true, challenge: true } });
+    const { orch, clock, provider, states } = setup(undefined, { autoAnalyze: false, checks: { structure: false, elaborate: false, polish: true, facts: true, challenge: true } });
     orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
     await clock.advance(0);
     expect(provider.calls.map((c) => c.pass)).not.toContain('S');
@@ -347,7 +347,7 @@ describe('structure pass', () => {
     const { orch, clock, states } = setup(undefined, { autoAnalyze: false });
     orch.handleSnapshot(snapshotFromText(SAMPLE_DICTATED_TEXT, 1), true);
     await clock.advance(0);
-    orch.setChecks({ structure: false, polish: true, facts: true, challenge: true });
+    orch.setChecks({ structure: false, elaborate: false, polish: true, facts: true, challenge: true });
     expect(last(states).structure).toBeUndefined();
   });
 
@@ -416,10 +416,10 @@ describe('re-check after an applied change', () => {
   });
 
   it('a recheck leaves the analyzed checks alone, so a chip flipped before it still asks for a full run', async () => {
-    const { orch, clock, states } = setup(undefined, { autoAnalyze: false, checks: { structure: true, polish: true, facts: true, challenge: false } });
+    const { orch, clock, states } = setup(undefined, { autoAnalyze: false, checks: { structure: true, elaborate: false, polish: true, facts: true, challenge: false } });
     orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
     await clock.advance(0);
-    orch.setChecks({ structure: true, polish: true, facts: true, challenge: true });
+    orch.setChecks({ structure: true, elaborate: false, polish: true, facts: true, challenge: true });
     const note = last(states).clarity[0]!;
     orch.handleAction(note.id, 'applied');
     orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT.replace(note.quote, 'x'), 2));

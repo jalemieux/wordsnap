@@ -94,5 +94,8 @@ export const PassS = z.object({
   roles: z.array(z.string().max(24)).max(20).optional(),
   /** Outline only: one entry per paragraph the message needs, in order. */
   slots: z.array(StructureSlot).max(12).optional(),
+  /** Reorder only, aligned with paragraphs: the paragraph's job for the reader, and what it lacks ("" when nothing). */
+  jobs: z.array(z.string().max(160)).max(20).optional(),
+  gaps: z.array(z.string().max(200)).max(20).optional(),
 });
 export type PassS = z.infer<typeof PassS>;

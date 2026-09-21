@@ -3,7 +3,7 @@
 // pane with the same sentences regrouped under the roles the pass named. Hovering either side lights the other.
 // When the editor is too narrow for two columns the pane sits over the draft instead, tags off.
 //
-// An outline (the text read as notes) uses the same two columns: each slot on the right is a paragraph to write,
+// A skeleton (verdict `outline`, the Elaborate job) uses the same two columns: each slot on the right is a paragraph to write,
 // with its job, the writer's fragments that belong there and what the notes leave out. Once applied, the pane stays
 // as a guide and marks each slot written or not from the draft alone.
 import type { StructureSlot } from '../../shared/schemas';
@@ -141,7 +141,7 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
         data-mode={geo.wide ? 'beside' : 'over'}
         data-kind={outline ? 'outline' : 'reorder'}
         data-status={structure.status}
-        aria-label={outline ? 'Proposed outline' : 'Proposed structure'}
+        aria-label={outline ? 'Proposed skeleton' : 'Proposed structure'}
         style={{ left: `${geo.box.left}px`, top: `${geo.box.top}px`, width: `${geo.box.width}px`, height: `${geo.box.height}px` }}
         onMouseLeave={() => onHot(null, null)}
       >
@@ -149,13 +149,13 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
           <Mark small />
           {guiding ? (
             <>
-              <b>Writing into the outline</b>
+              <b>Writing into the skeleton</b>
               <span class="ws-cmp-sub">
                 {written} of {slots.length} written{empty ? `, ${empty} still empty` : ''}.
               </span>
               {onDone ? (
                 <div class="ws-cmp-acts">
-                  <button class="ws-btn primary" data-act="outline-done" onClick={onDone} title="Close the outline and check what you wrote">
+                  <button class="ws-btn primary" data-act="outline-done" onClick={onDone} title="Close the skeleton and check what you wrote">
                     Done, check it
                   </button>
                 </div>
@@ -163,12 +163,12 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
             </>
           ) : outline ? (
             <>
-              <b>Outline</b>
-              <span class="ws-cmp-sub">from your notes. {slots.length} paragraphs; your words go in each.</span>
+              <b>Skeleton</b>
+              <span class="ws-cmp-sub">for what you typed. {slots.length} paragraphs; your words go in each.</span>
               {onApplyOutline || onKeep ? (
                 <div class="ws-cmp-acts">
                   {onKeep ? (
-                    <button class="ws-btn" data-act="keep-structure" onClick={onKeep} title="Keep the notes as they are and check them as written">
+                    <button class="ws-btn" data-act="keep-structure" onClick={onKeep} title="Keep what you typed as it is and check it as written">
                       Keep mine
                     </button>
                   ) : null}
@@ -177,9 +177,9 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
                       class="ws-btn primary"
                       data-act="apply-outline"
                       onClick={() => onApplyOutline(outlineParagraphs(slots))}
-                      title="Put your fragments in this order in the editor and keep the outline beside them"
+                      title="Put your fragments in this order in the editor and keep the skeleton beside them"
                     >
-                      Apply outline
+                      Apply skeleton
                     </button>
                   ) : null}
                 </div>
@@ -257,7 +257,7 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
                       {sl.role}
                     </h4>
                     <p class="ws-cmp-job">{sl.job}</p>
-                    {has ? <p>{sentenceSpans(gi)}</p> : null}
+                    {has ? <p class="ws-cmp-text">{sentenceSpans(gi)}</p> : null}
                     {guiding && fill ? <p class={`ws-cmp-fill ${fill}`}>{FILL_TEXT[fill]}</p> : null}
                     {sl.gap ? (
                       <p class={`ws-cmp-gap${fill === 'written' ? ' done' : ''}`}>
@@ -281,14 +281,16 @@ export function CompareView({ structure, fromParagraphs, map, geo, fills, hotGro
                         {moved ? `, ${moved} moved` : ''}
                       </small>
                     </h4>
-                    <p>{sentenceSpans(gi)}</p>
+                    {structure.jobs?.[gi] ? <p class="ws-cmp-job">{structure.jobs[gi]}</p> : null}
+                    <p class="ws-cmp-text">{sentenceSpans(gi)}</p>
+                    {structure.gaps?.[gi] ? <p class="ws-cmp-gap">Missing: {structure.gaps[gi]}</p> : null}
                   </section>
                 );
               })}
         </div>
         <p class="ws-cmp-hint">
           {guiding
-            ? 'Edits do not close the outline. Done runs the checks on what you wrote; so does Re-analyze.'
+            ? 'Edits do not close the skeleton. Done runs the checks on what you wrote; so does Re-analyze.'
             : outline
               ? 'Apply writes only your fragments into the editor, in this order. The labels and the gaps stay here.'
               : 'Apply writes this order into the editor; undo there puts the draft back. Keep runs the checks on the draft as written.'}
