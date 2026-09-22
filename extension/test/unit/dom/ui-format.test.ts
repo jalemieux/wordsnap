@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { bodyText, openIssueCount, readSeconds, relativeTime, splitForX, summaryCounts, wordCount } from '../../../src/ui/format';
+import { bodyText, openIssueCount, readSeconds, relativeTime, splitForX, summaryCounts, wordCount, intentHint, intentOf } from '../../../src/ui/format';
 import { SAMPLE_TEXT } from '../../../src/shared/sample';
 import { sampleState } from './ui-helpers';
 
@@ -65,5 +65,27 @@ describe('counts and time', () => {
     expect(summaryCounts(s)).toEqual({ checked: 3, contradicted: 1, precision: 1, challenges: 4, clarity: 2 });
     s.claims.find((c) => c.id === 'f3')!.status = 'applied';
     expect(openIssueCount(s)).toBe(1);
+  });
+});
+
+describe('intentOf / intentHint', () => {
+  const NOTES = "Email to leadership about a four-day week pilot.\nAsk: 20 minutes on Thursday's agenda.\nEvidence: Microsoft Japan, Iceland, the UK pilot.";
+  const DRAFT = SAMPLE_TEXT;
+  const structure = { structure: true, elaborate: false, polish: true, facts: true, challenge: false };
+  const elaborate = { structure: false, elaborate: true, polish: true, facts: true, challenge: false };
+
+  it('reads a few lines or fragments as an idea, and running prose as a draft', () => {
+    expect(intentOf(NOTES).intent).toBe('idea');
+    expect(intentOf('One sentence that says what I want to write about today.').intent).toBe('idea');
+    expect(intentOf(DRAFT).intent).toBe('draft');
+  });
+
+  it('suggests the job that fits when the pick does not, and stays quiet when it does', () => {
+    expect(intentHint(NOTES, structure)).toMatchObject({ intent: 'idea', suggest: 'elaborate' });
+    expect(intentHint(NOTES, elaborate).suggest).toBeNull();
+    expect(intentHint(DRAFT, elaborate)).toMatchObject({ intent: 'draft', suggest: 'structure' });
+    expect(intentHint(DRAFT, structure).suggest).toBeNull();
+    expect(intentHint(NOTES, structure).text).toMatch(/^Reads like an idea/);
+    expect(intentHint(DRAFT, structure).text).toMatch(/sentences in \d+ paragraphs/);
   });
 });

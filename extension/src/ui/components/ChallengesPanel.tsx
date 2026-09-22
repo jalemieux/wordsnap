@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import type { StructureSlot } from '../../shared/schemas';
 import type { SlotFill } from '../../shared/structure-map';
 import { CHECK_IDS, type CheckId, type Checks, type SessionState } from '../../shared/types';
-import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, elaborateStage, firstError, sortChallenges, staleFindings, structureGuiding, structureOpen, summaryCounts } from '../format';
+import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draftChanged, elaborateStage, firstError, intentHint, sortChallenges, staleFindings, structureGuiding, structureOpen, summaryCounts } from '../format';
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
@@ -26,10 +26,14 @@ export interface ChallengesPanelProps {
   /** Words in the draft right now and the minimum before analysis starts; drives the idle hint. */
   wordCount?: number;
   minWords?: number;
+  /** The draft as it stands, for the hint under the picks before the first run. */
+  draftText?: string;
+  /** Start the first run with the picks as they are. Absent (auto mode, or already running): no Start block. */
+  onStart?: () => void;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, outlineGuide, wordCount, minWords }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, outlineGuide, wordCount, minWords, draftText, onStart }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -39,6 +43,8 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
   const noneOn = CHECK_IDS.every((k) => !checks[k]);
   const canAnalyze = !running && !noneOn && !structureOpen(state) && (draftChanged(state) || checksChanged(state) || staleFindings(state) || !!firstError(state));
   const compact = !!compare && (structureOpen(state) || structureGuiding(state));
+  // Before the first run the panel is the picks, the hint and Start; counts and sections would only say zero.
+  const beforeStart = !!onStart && !analyzed && !running && !state.structure && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error');
   const stage = elaborateStage(state);
   const writing = structureGuiding(state);
   // Structure and Elaborate are two jobs for one pass: picking one clears the other; picking it again picks neither.
@@ -115,11 +121,17 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
         <StructureSection state={state} compact guide={outlineGuide} />
       ) : (
         <>
-      {noneOn ? <div class="ws-idle">Pick at least one check.</div> : null}
+      {noneOn && analyzed ? <div class="ws-idle">Pick at least one check.</div> : null}
       {running && !state.argument && state.claims.every((cl) => !cl.data.verdict) ? <PassProgress state={state} checks={checks} /> : null}
       {!running && !state.argument && !state.structure && state.claims.length === 0 && state.clarity.length === 0 && !Object.values(state.passes).some((p) => p.state === 'error') ? (
-        <IdleHint wordCount={wordCount ?? 0} minWords={minWords ?? 8} />
+        beforeStart && (wordCount ?? 0) >= (minWords ?? 8) ? (
+          <StartBlock text={draftText ?? ''} checks={checks} noneOn={noneOn} onStart={onStart} onChecks={onChecks} />
+        ) : (
+          <IdleHint wordCount={wordCount ?? 0} minWords={minWords ?? 8} />
+        )
       ) : null}
+      {beforeStart ? null : (
+      <>
       <div class="ws-summary">
         {checks.facts ? (
           <>
@@ -218,6 +230,8 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
           })}
         </section>
       </div>
+      </>
+      )}
         </>
       )}
     </aside>
@@ -357,6 +371,33 @@ function PassProgress({ state, checks }: { state: SessionState; checks: Checks }
         })}
       </ul>
       <p class="ws-firstrun-note">Fact checks search the web, so the first pass on a new draft can take up to a minute. Findings appear as each pass finishes.</p>
+    </div>
+  );
+}
+
+/**
+ * Before the first run: the picks are above, this says what the text reads like and which job fits it, and Start
+ * runs with the picks as they are. Nothing has left the page yet.
+ */
+function StartBlock({ text, checks, noneOn, onStart, onChecks }: { text: string; checks: Checks; noneOn: boolean; onStart: () => void; onChecks?: (c: Checks) => void }) {
+  const hint = intentHint(text, checks);
+  const label = checks.elaborate ? 'Build the skeleton' : checks.structure ? 'Check this draft' : 'Run the checks';
+  return (
+    <div class="ws-start" role="status">
+      <p class="ws-start-hint" data-intent={hint.intent}>
+        {hint.text}
+        {hint.suggest && onChecks ? (
+          <>
+            {' '}
+            <button class="ws-link" data-act={`pick-${hint.suggest}`} onClick={() => onChecks({ ...checks, structure: hint.suggest === 'structure', elaborate: hint.suggest === 'elaborate' })}>
+              Pick {hint.suggest === 'elaborate' ? 'Elaborate' : 'Structure'}
+            </button>
+          </>
+        ) : null}
+      </p>
+      <button class="ws-btn primary ws-start-btn" data-act="start" disabled={noneOn} onClick={onStart} title={noneOn ? 'Pick at least one check' : 'Nothing is sent until you press this'}>
+        {label}
+      </button>
     </div>
   );
 }

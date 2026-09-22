@@ -28,6 +28,20 @@ async function openWordSnap(page: import('@playwright/test').Page) {
   // Nothing but the badge until the user asks.
   await expect(overlay.locator('.ws-panel')).toHaveCount(0);
   await overlay.locator('.ws-launcher').click();
+  // The panel opens on the picks; nothing runs until Start.
+  const start = overlay.locator('[data-act="start"]');
+  await expect(start).toBeVisible();
+  await start.click();
+  await expect(start).toHaveCount(0);
+  return overlay;
+}
+
+/** Open the panel without starting: the picks and the hint are on screen, nothing has been sent. */
+async function openPicks(page: import('@playwright/test').Page) {
+  const overlay = page.locator('wordsnap-overlay');
+  await expect(overlay).toHaveCount(1);
+  await overlay.locator('.ws-launcher').click();
+  await expect(overlay.locator('[data-act="start"]')).toBeVisible();
   return overlay;
 }
 
@@ -422,6 +436,43 @@ test('Elaborate: notes get a skeleton; Apply seeds the draft with the fragments,
   const saved = await worker!.evaluate(async () => ((await chrome.storage.local.get('settings')) as { settings: { checks: Record<string, boolean> } }).settings.checks);
   expect(saved.structure).toBe(true);
   expect(saved.elaborate).toBe(false);
+});
+
+test('the badge opens the picks first: a hint says what the text reads like, the pick can follow it, and Start runs', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  // Notes, not a draft: the hint says so and offers the other job.
+  await page.evaluate(() => {
+    document.getElementById('message-body')!.innerHTML = ['Email to leadership about a four-day week pilot.', "Ask: 20 minutes on Thursday's agenda.", 'Evidence: Microsoft Japan, Iceland, the UK pilot.'].map((p) => `<div>${p}</div>`).join('');
+  });
+  const overlay = await openPicks(page);
+  const panel = overlay.locator('.ws-panel');
+  await expect(panel.locator('.ws-start-hint')).toHaveAttribute('data-intent', 'idea');
+  await expect(panel.locator('.ws-start-hint')).toContainText(/reads like an idea/i);
+  await expect(panel.locator('[data-act="start"]')).toHaveText(/check this draft/i);
+  await expect(panel.locator('.ws-status')).not.toContainText(/analyzing/i);
+  await panel.locator('[data-act="pick-elaborate"]').click();
+  await expect(panel.locator('.ws-pick[data-check="elaborate"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('[data-act="start"]')).toHaveText(/build the skeleton/i);
+  await expect(panel.locator('.ws-stage.now')).toHaveText(/elaborate/i);
+  await panel.locator('[data-act="start"]').click();
+  await expect(overlay.locator('.ws-compare')).toHaveAttribute('data-kind', 'outline', { timeout: 15_000 });
+  // Back to Structure for the next test: the pick is remembered per browser.
+  await page.close();
+});
+
+test('a real draft reads as one: the hint points at Structure and nothing is sent before Start', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(FIXTURE);
+  const overlay = await openPicks(page);
+  const panel = overlay.locator('.ws-panel');
+  await expect(panel.locator('.ws-start-hint')).toHaveAttribute('data-intent', 'draft');
+  await expect(panel.locator('.ws-start-hint')).toContainText(/reads like a draft/i);
+  await expect(panel.locator('[data-act="pick-structure"]')).toHaveCount(0); // Structure is already picked
+  await page.waitForTimeout(800);
+  await expect(panel.locator('.ws-status')).not.toContainText(/analyzing|checked/i);
+  await expect(panel.locator('.ws-summary')).toHaveCount(0);
+  await expect(overlay.locator('.ws-hl-layer [role="button"]')).toHaveCount(0);
 });
 
 test('Rewrite lets the user type their own wording; Apply edits the draft and the span is re-checked', async ({ context }) => {

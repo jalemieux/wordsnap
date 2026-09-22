@@ -139,15 +139,17 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
       },
       onOpenChange(open) {
         if (!open) return;
-        if (!armed) log.info(`composer ${handle.key}: analysis armed by the user`);
-        armed = true;
+        // The panel opens on the picks: nothing is sent until the user presses Start (onAnalyze) or auto-analyze is on.
+        // After the first run, opening again just catches the background up on the text.
+        if (!sentInitial) return;
         if (debounce) clearTimeout(debounce);
-        send(handle.getSnapshot(), sentInitial ? 'edit' : 'initial');
+        send(handle.getSnapshot(), 'edit');
       },
       onAnalyze() {
         // Flush whatever is in the editor right now, then ask. Port messages are ordered.
         if (debounce) clearTimeout(debounce);
         debounce = null;
+        if (!armed) log.info(`composer ${handle.key}: analysis started by the user`);
         armed = true;
         const snapshot = handle.getSnapshot();
         if (!sentInitial) {
@@ -179,6 +181,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
   });
   const unsubConfig = client.onConfig((c) => {
     autoAnalyze = c.autoAnalyze;
+    overlay.setAutoAnalyze?.(autoAnalyze);
     if (autoAnalyze && !sentInitial) send(handle.getSnapshot(), 'initial');
   });
   const unsubDisabled = client.onDisabled((reason) => {

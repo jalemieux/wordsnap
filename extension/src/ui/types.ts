@@ -33,6 +33,8 @@ export interface OverlayController {
   relayout(): void;
   /** Show or collapse the panel and highlights. The launcher badge is always visible. */
   setOpen(open: boolean): void;
+  /** Auto mode runs on its own, so the panel drops its Start block. */
+  setAutoAnalyze?(on: boolean): void;
   isOpen(): boolean;
   destroy(): void;
 }

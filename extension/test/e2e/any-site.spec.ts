@@ -50,6 +50,7 @@ test('Use WordSnap here: nothing runs until asked, then the badge appears on the
   await overlay.locator('.ws-launcher').click();
   const panel = overlay.locator('.ws-panel');
   await expect(panel).toBeVisible({ timeout: 15_000 });
+  await panel.locator('[data-act="start"]').click();
   const highlights = overlay.locator('.ws-hl-layer [role="button"]');
   await expect(highlights.first()).toBeVisible({ timeout: 15_000 });
   expect(await highlights.count()).toBeGreaterThanOrEqual(3);

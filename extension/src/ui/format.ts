@@ -1,5 +1,6 @@
 // Pure helpers for the overlay: text shaping for share targets, counts, relative time.
-import { ALL_CHECKS, sameChecks, type CheckId, type Checks, SessionState } from '../shared/types';
+import { splitSentences } from '../shared/structure-map';
+import { ALL_CHECKS, sameChecks, type CheckId, type Checks, SessionState, structureMode } from '../shared/types';
 
 export function paragraphsOf(text: string): string[] {
   return text
@@ -150,6 +151,33 @@ export const CHECK_HINT: Record<CheckId, string> = {
   facts: 'Every factual claim verified with sources.',
   challenge: 'The strongest counterargument, the blind spots, the gaps.',
 };
+
+/**
+ * What the text reads like, before anything runs: a few lines or fragments are an idea, running prose is a draft.
+ * A heuristic on the text alone, no model call, so the hint is instant and nothing leaves the page until Start.
+ */
+export type Intent = 'idea' | 'draft';
+export function intentOf(text: string): { intent: Intent; words: number; sentences: number; paragraphs: number; fragments: number } {
+  const words = wordCount(text);
+  const parts = splitSentences(text);
+  const sentences = parts.length;
+  const paragraphs = paragraphsOf(text).length;
+  const fragments = parts.filter((s) => wordCount(s.text) < 9 || !/[.!?…]["')\]]*$/.test(s.text)).length;
+  const idea = words < 40 || (sentences <= 3 && paragraphs <= 1) || (sentences > 0 && fragments / sentences > 0.5);
+  return { intent: idea ? 'idea' : 'draft', words, sentences, paragraphs, fragments };
+}
+
+/** The hint line under the picks: what the text reads like, and which job fits it. */
+export function intentHint(text: string, checks: Checks): { intent: Intent; text: string; suggest: 'structure' | 'elaborate' | null } {
+  const i = intentOf(text);
+  const mode = structureMode(checks);
+  if (i.intent === 'idea') {
+    const shape = i.sentences <= 1 ? 'one line' : `${i.sentences} ${i.fragments / Math.max(1, i.sentences) > 0.5 ? 'fragments' : 'lines'}`;
+    return { intent: 'idea', text: `Reads like an idea: ${shape}, ${i.words} words. Elaborate builds a skeleton for it.`, suggest: mode === 'elaborate' ? null : 'elaborate' };
+  }
+  const shape = `${i.sentences} sentences in ${i.paragraphs} ${i.paragraphs === 1 ? 'paragraph' : 'paragraphs'}`;
+  return { intent: 'draft', text: `Reads like a draft: ${shape}. Structure regroups them.`, suggest: mode === 'organize' ? null : 'structure' };
+}
 
 /** Something on screen is waiting for a fresh run: a finding whose text changed, or a proposal the draft moved past. */
 export function staleFindings(state: SessionState): boolean {

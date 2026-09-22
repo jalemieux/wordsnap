@@ -42,6 +42,8 @@ interface Store {
   text: string;
   open: boolean;
   minWords: number;
+  /** Auto mode starts on its own; the panel then has no Start block. */
+  autoAnalyze: boolean;
 }
 
 type Listener = () => void;
@@ -361,6 +363,8 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         outlineGuide={guiding && !showPane && fills ? { slots, fills, onDone: outlineDone } : undefined}
         wordCount={text.split(/\s+/).filter(Boolean).length}
         minWords={store.minWords}
+        draftText={text}
+        onStart={callbacks.onAnalyze && !store.autoAnalyze ? () => callbacks.onAnalyze?.() : undefined}
       />
       <Toast text={toast} />
     </div>
@@ -380,7 +384,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
   document.documentElement.appendChild(host);
 
   const state0 = initial ?? emptySession(handle.key, 'generic');
-  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0, !!startOpen), open: !!startOpen, minWords: minWords ?? 8 };
+  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0, !!startOpen), open: !!startOpen, minWords: minWords ?? 8, autoAnalyze: false };
   const listeners = new Set<Listener>();
   const subscribe = (l: Listener) => {
     listeners.add(l);
@@ -423,6 +427,11 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     },
     relayout,
     setOpen,
+    setAutoAnalyze(on) {
+      if (store.autoAnalyze === on) return;
+      store.autoAnalyze = on;
+      notify();
+    },
     isOpen: () => store.open,
     destroy() {
       if (raf) cancelAnimationFrame(raf);
