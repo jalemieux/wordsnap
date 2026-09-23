@@ -53,9 +53,14 @@ extension/               the extension (TypeScript strict, Preact, Zod 4, esbuil
   src/providers/         LLMProvider implementations: openrouter (the only one wired), claude (dormant), mock (dev builds only)
   src/options/           settings page with one-click OpenRouter connect and guided key fallback, and the always-on sites list
   src/popup/             the toolbar popup: Use WordSnap here / Always on <origin> / Settings (dev builds take ?tab=<id> so tests can open it as a page)
+  src/playground/        the playground: an in-page chrome.* shim (ports, storage, no-op tabs/scripting/permissions) so the background
+                         and the content script run together in an ordinary web page; toolbar strip (fixture, provider, sample drafts,
+                         state inspector). Never bundled into dist/.
   test/unit/             vitest; files under test/unit/dom carry `// @vitest-environment happy-dom`
   test/fixtures/         saved composer DOMs (gmail-compose.html doubles as the e2e target)
   test/e2e/              Playwright loads the dev build into Chromium against the fixture with the mock provider
+  scripts/playground.mjs builds src/playground to .playground/ (gitignored), serves the fixture composers with it appended at
+                         http://127.0.0.1:8765/ and reloads open pages on every rebuild
   scripts/build.mjs      esbuild; --dev adds sourcemaps, the mock provider, local fixture hosts, and an open shadow root;
                          --safari writes dist-safari/ with the manifest from scripts/manifest.mjs (event page, no identity)
   scripts/safari-xcode.sh macOS only: wraps dist-safari/ in the Xcode project Safari loads (docs/SAFARI.md)
@@ -76,7 +81,14 @@ npm run test:e2e     # dev build + Playwright (needs the Playwright Chromium: np
 npm run build        # production build to dist/; load dist/ unpacked at chrome://extensions
 npm run build:safari # Safari build to dist-safari/; scripts/safari-xcode.sh wraps it on a Mac
 npm run watch        # dev rebuild on change
+npm run playground   # no extension load: fixtures + overlay + background in one page at http://127.0.0.1:8765/, live reload
 ```
+
+The playground is the short loop for UX and behaviour work: `/gmail`, `/x`, `/linkedin`, `/any-site` are the e2e fixtures with the
+real adapters, overlay and orchestrator; `/options` is the settings page. The strip at the bottom left switches between the mock
+provider and a pasted OpenRouter key (kept in that browser's localStorage), loads the sample drafts, and shows the port traffic and
+the latest `SessionState`. Not covered there: the toolbar popup, one-click sign-in, per-site permissions, service-worker restarts.
+Load `dist/` in Chrome for those.
 
 `dist/` is gitignored and is whatever the last build produced. `test:e2e` leaves a **dev** build there; run `npm run build` again before handing a build to a person. A production manifest contains no `(dev)` suffix.
 

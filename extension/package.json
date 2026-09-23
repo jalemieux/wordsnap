@@ -12,6 +12,7 @@
     "package": "node scripts/package.mjs",
     "package:safari": "node scripts/package.mjs --safari",
     "watch": "node scripts/build.mjs --dev --watch",
+    "playground": "node scripts/playground.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
