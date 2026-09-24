@@ -7,7 +7,8 @@
     The fourth stage in Tune · Shape · Tweak · Check, shown as "soon" in the co-writer release. Facts runs pass A
     in a claims-only mode (new PassClaims schema, low effort, no clarity notes) and then pass B per claim; Challenge is
     pass C, which also takes over unsupported leaps from the dropped clarity notes. Each runs only on its own button.
-    The passes, prompts and UI are already in the tree, unwired.
+    The old passes are deleted by the co-writer's clean slate; this gets its own design, and git history (before the
+    co-writer lands) has passes A, B and C if they are worth mining.
   depends_on: cowriter
   refs: [docs/cowriter-design.md]
 
@@ -19,11 +20,11 @@
 
 - id: shape-demoted-note
   title: A demoted structure proposal keeps a note describing the change it no longer shows
-  status: idea
+  status: dropped
   summary: >
     Seen September 23 2026: "Your order holds. Joined the final fragment…" on a keeps verdict. Either the voice gate
     demoted a reorder and kept its note (validate.ts keeps `note` as is) or the model's note contradicts its verdict.
-    Moot once Shape replaces pass S; fix only if the co-writer slips.
+    Moot: pass S is deleted by the co-writer's clean slate.
 
 - id: panel-rail
   title: Docked rail for the panel

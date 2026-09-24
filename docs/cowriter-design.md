@@ -33,13 +33,54 @@ Recorded here so CLAUDE.md can be updated when the build lands:
 - Pass A clarity notes (fuzzy, hedge, grammar, structure, unsupported leap): dropped. Grammar and structure are
   Shape's job, fuzzy wording and hedges are the dials' and Tweak's, unsupported leaps belong to Challenge.
 - Rewrite on a hover card: replaced by Tweak on any selection.
-- Automatic runs after Apply structure and after Apply change: gone. Nothing runs without a click.
-- Facts (pass B) and Challenge (pass C): out of this release, shown as "soon". The code stays in the tree unwired,
-  like the Claude provider and the Preview modal.
+- Automatic runs (auto-start at 40 words, silent re-runs on edits, the recheck after an Apply): gone. Nothing runs
+  without a click.
+- Facts (pass B) and Challenge (pass C): out of this release, shown as "soon". Their code is deleted with the rest;
+  the Check stage gets its own design when it comes, and git history has the old passes if they are worth mining.
 
 Unchanged: nothing is written into the host editor except on Apply, every Apply goes through
 `execCommand('insertText')` (host undo works), quotes never offsets, the API key stays in the background, the draft
 is data and never instructions, OpenRouter serving `z-ai/glm-5.2` is the only model.
+
+## Clean slate
+
+The co-writer is built fresh on the foundation, not adapted from the critique UI. Nothing from the old passes or
+panel is kept "unwired" and no compatibility shims are written for old stored data.
+
+**Delete** (files and their tests):
+
+| Area | Files |
+|---|---|
+| Old passes | `src/passes/prompts.ts`, `build.ts`, `validate.ts` (contents; the files are rewritten for Shape and Tweak), `PassS`, `PassA`, `PassB`, `PassC`, `PassCThesis` in `src/shared/schemas.ts` |
+| Claims | `src/background/cache.ts` (claim cache), `sample/run` in `options-handler.ts` |
+| Findings state | the findings, anchors-for-findings and stale logic in `src/background/session.ts` (rewritten small) |
+| Old panel | `src/ui/components/ChallengesPanel.tsx`, `CompareView.tsx`, `HoverCard.tsx`, `HighlightLayer.tsx`, `StatusPill.tsx`, `src/ui/format.ts` (checks, counts, intent hint, share text) |
+| Structure | `src/shared/structure-map.ts`, the reorder and outline edits in `src/shared/anchoring.ts` (`minimalParagraphEdit`, `skeletonEdit`) |
+| Unwired | `src/ui/components/PreviewModal.tsx`, `src/content/share.ts`, `src/providers/claude.ts` and the `@anthropic-ai/sdk` dependency |
+| Samples | `src/shared/sample.ts` (replaced by canned Shape and Tweak for the mock provider) |
+| Types | `Checks`, `CHECK_IDS`, `StructureResult`, clarity, claim, verdict and challenge types, `Settings.checks`, `Settings.effort.{S,A,B,C}` |
+| Tests | `checks`, `claude-provider`, `outline`, `structure-map`, `structure`, `validate` (rewritten), `dom/share`, `dom/ui-hovercard`, `dom/ui-panel`, `dom/ui-preview`, `dom/ui-format`; `orchestrator`, `session` and `e2e/extension.spec.ts` are rewritten |
+
+**Keep** (the foundation):
+
+| Area | Files |
+|---|---|
+| Hosts | `src/adapters/*`, `src/content/text-snapshot.ts`, `src/content/session-client.ts`, `src/content/panel-pos.ts` |
+| Text | `src/shared/anchoring.ts` (quote location, span shifting, `insertText` edits) |
+| Background | `index.ts`, `port.ts`, `queue.ts`, `settings.ts`, `storage.ts`, `sites.ts`, `auth-tab.ts`, the orchestrator's cancellation, backoff and tracing (the file is rewritten around Shape and Tweak) |
+| Model | `src/providers/openrouter.ts`, `lenient.ts`, `types.ts`, `index.ts`, `mock.ts` (new canned data) |
+| Shared | `messages.ts` (rewritten message set, same port pattern), `pkce.ts`, `cost.ts`, `log.ts`, `trace.ts`, `globals.d.ts` |
+| UI shell | `src/ui/overlay.tsx` (mount, layout, drag), `Launcher.tsx`, `Toast.tsx`, `bits.tsx`, `styles.css` (tokens and shell rules) |
+| Pages | `src/options/*`, `src/popup/*`, `src/playground/*` |
+| Tests | adapters, text-snapshot, session-client, anchoring, lenient, openrouter-provider, pkce, cost, connect, provider-test, queue, settings, sites, auth-tab, safari-manifest, playground-shim, panel-place, trace; `e2e/any-site.spec.ts` |
+
+**Stored data.** `Settings` is rebuilt: the key and account, `sites`, `autoAnalyze` goes (nothing runs on its own),
+the new `tune` map. `mergeSettings` drops every other field it finds. Saved sessions carry a format version; any
+session saved by an older build is discarded on load.
+
+**Docs.** `CLAUDE.md` (decisions, layout, invariants), `docs/SPEC.md` and `README.md` are rewritten for the
+co-writer when it lands, not patched; `mocks/structure-*.html` and `mocks/wordsnap-mocks.*` move out of `mocks/`
+since they no longer describe the product (git history keeps them).
 
 ## The flow
 
@@ -77,20 +118,22 @@ The badge opens the panel on Tune:
 
 ### Shape
 
-**Shape my draft** runs one pass over the whole draft. The result opens in the compare pane that exists today: the
-dump on the left, untouched in the host editor; the shaped draft on the right, with **Apply** and **Keep mine**.
+**Shape my draft** runs one pass over the whole draft. The result opens in a compare pane (built fresh, in the place
+the old one used): the dump on the left, untouched in the host editor; the shaped draft on the right, with **Apply**
+and **Keep mine**. The editor makes room with the same `ComposerHandle.setInset` padding, restored on close.
 
-- Hovering a shaped sentence lights its source fragments on the left (the sentence map in
-  `src/shared/structure-map.ts` does this today for reorders).
+- Hovering a shaped sentence lights its source fragments on the left, and hovering the dump lights the sentences
+  that use it. The sources are the `from` quotes, located in the snapshot with `src/shared/anchoring.ts`; no sentence
+  map is needed.
 - Bridge sentences, the ones WordSnap wrote, are drawn in a distinct style so the writer sees what is not theirs.
 - **Choices.** Where the dump goes back and forth, Shape picks a side and says so: "You went back and forth on X;
   I kept X." Each choice has a flip switch that swaps in the other side at once (no model call; see `alt` below).
 - **Left out.** Fragments Shape dropped are listed with one line on why.
 - **Missing.** On a sparse dump, Shape lists what the argument lacks ("Missing: why this matters"), each with
   **Fill this**, which asks for bridge sentences for that one gap. This is what Elaborate did.
-- Apply writes the shaped draft into the editor through `insertText` (the `minimalParagraphEdit` path used by Apply
-  structure). Nothing runs afterwards. Keep closes the pane. Either moves the stage to Tweak.
-- Below 720px of editor width the pane sits over the draft, as today.
+- Apply replaces the draft through `insertText` over the whole text (one undo step in the host). Nothing runs
+  afterwards. Keep closes the pane. Either moves the stage to Tweak.
+- Below 720px of editor width the pane sits over the draft instead of beside it.
 
 ### Tweak
 
@@ -189,8 +232,7 @@ These replace the structure voice gate for Shape and Tweak.
 
 ### State, settings, messages
 
-This breaks the additive-only rule for the panel contract, with the founder's agreement. Old fields stay readable so
-stored settings and saved sessions still load; nothing new reads them.
+Written fresh (see Clean slate); the additive-only rule starts again from this contract.
 
 - `SessionState.shape?: { result: PassShape; status: 'open' | 'applied' | 'kept' | 'stale'; forVersion: number; flips: number[] }`
 - `SessionState.tweak?: { quote: string; instruction: string; result?: PassTweak; status: 'running' | 'open' | 'stale' | 'error' }`
@@ -198,8 +240,7 @@ stored settings and saved sessions still load; nothing new reads them.
 - `Settings.tune: Record<origin, Tune>`, `Tune = { length: 'tight'|'balanced'|'full'; tone: 'casual'|'neutral'|'formal'; for: 'email'|'post'|'thread'|'doc' }`
 - Messages: `shape/run`, `shape/action` (`apply | keep | flip | fill`), `tweak/run` (`quote, instruction`),
   `tweak/action` (`apply | again | refine | keep`), `tune/set`.
-- `Checks`, `PassS`, the Structure/Elaborate UI and the A/B/C wiring stay in the tree unwired. `PassId` gains
-  `'shape' | 'tweak'`; the single letters stay for the dormant passes.
+- `PassId` is `'shape' | 'tweak'`.
 - Timing traces (`src/shared/trace.ts`) cover the new passes with no change.
 
 ## Risk and the gate
@@ -214,7 +255,8 @@ The only validated model is GLM-5.2 and these are new prompts. Before any UI:
 
 - Unit: `validateShape` (sources, bridge caps, unseen names and numbers, choices, the half-survives floor),
   `validateTweak`, flip substitution, `tune` merge in settings, the `Tune:` line in the prompt builders.
-- Mock provider: canned Shape and Tweak for the dictated sample, so the playground and e2e run without a key.
+- Mock provider: canned Shape and Tweak for the agents.md dump in `mocks/cowriter.html`, so the playground and e2e
+  run without a key. The playground strip loses its auto-analyze box and gains that dump as its sample.
 - e2e: dump, tune, Shape, Apply, select, Tweak, Apply; the provider sees exactly the requests the clicks asked for
   and nothing else.
 
