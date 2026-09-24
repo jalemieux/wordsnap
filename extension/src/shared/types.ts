@@ -1,3 +1,4 @@
+import type { RunTrace } from './trace';
 // Runtime types shared by background, content script, UI and options page.
 import type { Challenge, Claim, ClarityFinding, StructureSlot, Verdict } from './schemas';
 
@@ -136,6 +137,8 @@ export interface SessionState {
   challenges: AnchoredChallenge[];
   passes: Record<PassId, PassStatus>;
   usage: Usage;
+  /** Timing of the last runs, per pass request. Dev builds and the playground only; never saved. */
+  trace?: RunTrace[];
 }
 
 export type ProviderId = 'openrouter' | 'claude' | 'mock';

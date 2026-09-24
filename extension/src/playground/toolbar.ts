@@ -1,7 +1,8 @@
 // The playground's floating strip: switch fixture, pick a provider, load a sample draft, inspect the session state
 // the background is sending. Plain DOM in its own shadow root so fixture CSS and the overlay never touch it.
 import { SAMPLE_DICTATED_TEXT, SAMPLE_IDEA_TEXT, SAMPLE_TEXT } from '../shared/sample';
-import type { Settings } from '../shared/types';
+import { phasesOf, type PhaseName, type RunTrace } from '../shared/trace';
+import type { SessionState, Settings } from '../shared/types';
 import type { ChromeShim, Traffic } from './chrome-shim';
 
 export const FIXTURES: { slug: string; label: string; file: string }[] = [
@@ -38,7 +39,33 @@ button.quiet { background: #fff; color: #0b7285; }
 pre { margin: 0; padding: 8px 10px; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
 .traffic { padding: 6px 10px; border-bottom: 1px solid #eceff1; color: #455a64; font: 11px/1.4 ui-monospace, monospace; }
 .traffic div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timings { display: none; max-height: 45vh; overflow: auto; border-top: 1px solid #eceff1; padding: 6px 10px 8px; }
+.timings.open { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; color: #607d8b; }
+.legend i, .seg { display: inline-block; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.run { margin-top: 8px; }
+.run h4 { margin: 0 0 3px; font: 600 11px/1.4 system-ui, sans-serif; color: #455a64; }
+.lane { display: grid; grid-template-columns: 58px 1fr 46px; gap: 6px; align-items: center; font: 11px/1.4 ui-monospace, monospace; }
+.track { position: relative; height: 12px; background: #f5f7f8; border-radius: 2px; }
+.seg { position: absolute; top: 0; bottom: 0; }
+.seg + .seg { border-left: 1px solid #fff; }
+.lane .dur { text-align: right; color: #455a64; }
+.lane.aborted .track, .lane.error .track { opacity: .45; }
+.p-prep { background: #cfd8dc; } .p-wait { background: #f0b429; } .p-reasoning { background: #9b8ad0; }
+.p-writing { background: #0b7285; } .p-repair { background: #d9480f; } .p-client { background: #78909c; }
 `;
+
+const PHASES: PhaseName[] = ['prep', 'wait', 'reasoning', 'writing', 'repair', 'client'];
+const PHASE_HINT: Record<PhaseName, string> = {
+  prep: 'before the request left',
+  wait: 'request sent to first token: queue, prefill, web search',
+  reasoning: 'first reasoning token to first content token',
+  writing: 'answer streaming',
+  repair: 'the repair round, whole',
+  client: 'after the last byte: parse',
+};
+const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 interface ToolbarDeps {
   shim: ChromeShim;
@@ -117,6 +144,7 @@ export function mountToolbar(deps: ToolbarDeps): void {
   DRAFTS.forEach((d, i) => draft.append(el('option', { value: String(i) }, [d.label])));
   const reset = el('button', { class: 'quiet', title: 'Clear the playground storage (settings, key, claim cache) and reload' }, ['Reset']);
   const inspect = el('button', { class: 'quiet' }, ['Inspect']);
+  const timingsBtn = el('button', { class: 'quiet', title: 'Where each run spent its time, per pass request' }, ['Timings']);
   controls.append(
     el('label', {}, ['Provider ', provider]),
     key,
@@ -125,6 +153,7 @@ export function mountToolbar(deps: ToolbarDeps): void {
     draft,
     reset,
     inspect,
+    timingsBtn,
   );
   bar.append(controls);
 
@@ -135,6 +164,26 @@ export function mountToolbar(deps: ToolbarDeps): void {
   pane.append(traffic, state);
   bar.append(pane);
   inspect.addEventListener('click', () => pane.classList.toggle('open'));
+
+  // Timings: a waterfall per run, newest first, from the trace the background sends with the state.
+  const timings = el('div', { class: 'timings' });
+  const copy = el('span', { class: 'link', title: 'Copy the runs as JSON' }, ['copy JSON']);
+  const legend = el('div', { class: 'legend' }, [
+    ...PHASES.map((ph) => el('span', { title: PHASE_HINT[ph] }, [el('i', { class: `p-${ph}` }), ph])),
+    copy,
+  ]);
+  copy.style.marginLeft = 'auto';
+  const runsBox = el('div', {}, ['No runs yet. Start an analysis.']);
+  timings.append(legend, runsBox);
+  bar.append(timings);
+  timingsBtn.addEventListener('click', () => timings.classList.toggle('open'));
+  let lastTrace: RunTrace[] = [];
+  copy.addEventListener('click', () => void navigator.clipboard.writeText(JSON.stringify(lastTrace, null, 2)));
+  const renderTimings = (trace: RunTrace[]) => {
+    lastTrace = trace;
+    if (!trace.length) return;
+    runsBox.replaceChildren(...[...trace].reverse().map(renderRun));
+  };
 
   const recent: Traffic[] = [];
   deps.shim.onTraffic((t) => {
@@ -150,7 +199,11 @@ export function mountToolbar(deps: ToolbarDeps): void {
         return el('div', {}, [`${new Date(r.at).toLocaleTimeString()} ${arrow}${rm.type ?? '?'} ${extra}`]);
       }),
     );
-    if (m.type === 'session/state' && m.state) state.textContent = JSON.stringify(m.state, null, 2);
+    if (m.type === 'session/state' && m.state) {
+      const { trace, ...rest } = m.state as SessionState;
+      state.textContent = JSON.stringify(rest, null, 2);
+      if (trace) renderTimings(trace);
+    }
   });
 
   // Fill from storage.
@@ -180,4 +233,30 @@ export function mountToolbar(deps: ToolbarDeps): void {
   reset.addEventListener('click', () => {
     void chrome.storage.local.clear().then(() => location.reload());
   });
+}
+
+function renderRun(run: RunTrace): HTMLElement {
+  const end = run.end ?? Math.max(run.start, ...run.passes.map((p) => p.end ?? p.marks.at(-1)?.at ?? p.start));
+  const total = Math.max(1, end - run.start);
+  const box = el('div', { class: 'run' }, [el('h4', {}, [`run ${run.id} · ${run.trigger} · ${run.end === undefined ? 'running' : secs(total)}`])]);
+  for (const p of run.passes) {
+    const track = el('div', { class: 'track' });
+    let at = p.start - run.start;
+    for (const ph of phasesOf(p)) {
+      const seg = el('span', { class: `seg p-${ph.name}`, title: `${ph.name} ${secs(ph.ms)}: ${PHASE_HINT[ph.name]}` });
+      seg.style.left = `${(at / total) * 100}%`;
+      seg.style.width = `${(ph.ms / total) * 100}%`;
+      track.append(seg);
+      at += ph.ms;
+    }
+    const tokens = [p.inputTokens ? `${p.inputTokens} in` : '', p.outputTokens ? `${p.outputTokens} out` : '', p.searches ? `${p.searches} results` : ''].filter(Boolean).join(', ');
+    track.title = [p.outcome ?? 'running', tokens].filter(Boolean).join(' · ');
+    const name = el('span', { title: p.label ?? '' }, [p.label ? `${p.pass} ${p.label}` : p.pass]);
+    name.style.overflow = 'hidden';
+    name.style.textOverflow = 'ellipsis';
+    name.style.whiteSpace = 'nowrap';
+    const dur = el('span', { class: 'dur' }, [p.end === undefined ? '…' : secs(p.end - p.start)]);
+    box.append(el('div', { class: `lane ${p.outcome ?? ''}` }, [name, track, dur]));
+  }
+  return box;
 }

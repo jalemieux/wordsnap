@@ -105,6 +105,7 @@ export function registerPortHandler(store: SettingsStore, cache: ClaimCache): vo
               provider: () => holder.get(),
               settings: () => settings!,
               cache,
+              trace: __WORDSNAP_DEV__,
               persistChecks: (checks) => {
                 void store.set({ checks }).then((s) => {
                   settings = s;

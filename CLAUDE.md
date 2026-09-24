@@ -30,13 +30,14 @@ The maintainer is a senior engineer. Speak as a peer. Prefer artifacts (a diff, 
 - **Any site, from the toolbar (September 2026).** The toolbar button opens a popup (`src/popup/`). On Gmail, X and LinkedIn it says WordSnap is already on. Anywhere else it offers **Use WordSnap here** (inject `content.js` into the active tab under `activeTab`, then `generic/activate` over `tabs.sendMessage`; nothing kept) and **Always on <origin>** (the popup requests `origin/*` from `optional_host_permissions` inside the click, the background registers a content script for that origin with `persistAcrossSessions` and records it in `settings.sites`; on later loads the script asks `site/registered` and starts itself). Settings lists the always-on sites with Remove (unregister plus revoke); install and browser start re-sync registrations with the setting (`src/background/sites.ts`). "Other sites (on click)" in Settings is the master switch for both entries and is now on by default. The manifest never gains `<all_urls>`; `content_scripts.matches` stays the three sites; the generic adapter still starts only when told to.
 - **Quiet by default, pick then Start (September 2026).** Only a small launcher badge shows on a compose window. Clicking it opens the panel on the picks: the Structure | Elaborate pair and the other chips, a one-line hint saying what the text reads like (`intentOf` in `src/ui/format.ts`: a few lines or fragments are an idea, running prose is a draft; a heuristic, no model call) with a link to the job that fits, and a **Start** button labelled for the pick. Nothing is sent anywhere until Start. A setting (off by default) restores auto-start at 40 words. On any site beyond the three, nothing is even injected until the toolbar button says so.
 - **Setup is connect, check, done.** After a key lands (OAuth or paste) the options page runs one short completion through the configured route on its own, then shows "Setup complete" with a drawing of the badge to look for and an Open Gmail button. No model picker and no sample analysis in setup (both were removed September 2026; the model lives in settings, and `sample/run` stays in the background unused).
+- **Movable panel (September 2026).** The panel drags by its header, is clamped to the viewport and snaps to an edge; the spot is saved per origin under its own storage key (`panelPos`) and a double-click on the header resets it. Drag only: a docked rail that narrows the editor was deferred.
 - **Voice preservation is a hard constraint.** A suggestion may only replace the quoted span, must stay within 1.3x its length, and must keep the writer's register. Prefer "here is the gap" over "here is your new sentence." Enforced in code (`src/passes/validate.ts`), not just in prompts.
 
 ## Layout
 
 ```
 extension/               the extension (TypeScript strict, Preact, Zod 4, esbuild, vitest, Playwright)
-  src/shared/            contracts: schemas.ts (Zod, source of truth: PassA, PassB, PassC, PassCThesis, PassS), types.ts (PassId 'S'|'A'|'B'|'C',
+  src/shared/            trace.ts (dev timing traces: runs, pass spans, phases); contracts: schemas.ts (Zod, source of truth: PassA, PassB, PassC, PassCThesis, PassS), types.ts (PassId 'S'|'A'|'B'|'C',
                          SessionState.structure, Settings.effort.S), messages.ts (port + sendMessage protocol, incl. session/recheck and structure/action),
                          anchoring.ts (quote location, span shifting), structure-map.ts (which draft sentence lands where in a proposal; outline fill check), cost.ts, pkce.ts, sample.ts (the one sample draft), log.ts
   src/adapters/          HostAdapter + ComposerHandle per site: gmail, x, linkedin, generic. Select on ARIA/data-testid, never class names.
@@ -86,8 +87,9 @@ npm run playground   # no extension load: fixtures + overlay + background in one
 
 The playground is the short loop for UX and behaviour work: `/gmail`, `/x`, `/linkedin`, `/any-site` are the e2e fixtures with the
 real adapters, overlay and orchestrator; `/options` is the settings page. The strip at the bottom left switches between the mock
-provider and a pasted OpenRouter key (kept in that browser's localStorage), loads the sample drafts, and shows the port traffic and
-the latest `SessionState`. Not covered there: the toolbar popup, one-click sign-in, per-site permissions, service-worker restarts.
+provider and a pasted OpenRouter key (kept in that browser's localStorage), loads the sample drafts, shows the port traffic and
+the latest `SessionState`, and under **Timings** draws a waterfall per run from `SessionState.trace` (dev builds only; the service
+worker console gets the same as one `timing run` line per run). Not covered there: the toolbar popup, one-click sign-in, per-site permissions, service-worker restarts.
 Load `dist/` in Chrome for those.
 
 `dist/` is gitignored and is whatever the last build produced. `test:e2e` leaves a **dev** build there; run `npm run build` again before handing a build to a person. A production manifest contains no `(dev)` suffix.

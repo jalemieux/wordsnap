@@ -45,7 +45,12 @@ npm test               # unit tests (vitest)
 npm run test:e2e       # dev build + Playwright against test/fixtures/gmail-compose.html with the mock provider
 npm run check          # typecheck + unit tests + production build
 npm run package        # production build, dev-leak checks, wordsnap-<version>.zip for the store
+npm run playground     # no extension load: fixtures + overlay + background in one page at http://127.0.0.1:8765/
 ```
+
+The playground is the short loop: paste your own draft into a fixture composer, switch between the mock provider and your OpenRouter key, and open **Timings** in its strip for a waterfall of each run (per pass request: wait for the first token, reasoning, writing, repair, parse). Dev builds record the same traces and log one `[wordsnap] … timing run` line per run in the service worker console.
+
+The panel can be dragged by its header; it remembers the spot per site, and a double-click on the header puts it back.
 
 Dev builds add a mock provider (settings page) that returns canned findings for the sample draft, so the UI can be exercised without a key. Dev builds also open the overlay's shadow root so tests can reach it; production builds keep it closed.
 

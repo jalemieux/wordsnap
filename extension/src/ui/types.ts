@@ -24,6 +24,8 @@ export interface OverlayCallbacks {
   onAnalyze?(): void;
   /** The user flipped a check chip in the panel. */
   onChecks?(checks: Checks): void;
+  /** The user dropped the panel somewhere (viewport pixels), or double-clicked its header to put it back (null). */
+  onPanelMove?(pos: { left: number; top: number } | null): void;
 }
 
 export interface OverlayController {
@@ -35,6 +37,8 @@ export interface OverlayController {
   setOpen(open: boolean): void;
   /** Auto mode runs on its own, so the panel drops its Start block. */
   setAutoAnalyze?(on: boolean): void;
+  /** Place the panel where the user left it last time on this site (null: the default place). */
+  setPanelPos?(pos: { left: number; top: number } | null): void;
   isOpen(): boolean;
   destroy(): void;
 }

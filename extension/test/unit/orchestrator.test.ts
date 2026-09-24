@@ -1,5 +1,5 @@
 import { ClaimCache } from '../../src/background/cache';
-import { C_THROTTLE_MS, DEBOUNCE_MS, SessionOrchestrator, type Timers } from '../../src/background/orchestrator';
+import { C_THROTTLE_MS, DEBOUNCE_MS, SessionOrchestrator, type OrchestratorDeps, type Timers } from '../../src/background/orchestrator';
 import { MemoryStorage } from '../../src/background/storage';
 import { MockProvider } from '../../src/providers/mock';
 import type { LLMProvider, PassRequest } from '../../src/providers/types';
@@ -41,7 +41,7 @@ const flush = async () => {
   for (let i = 0; i < 60; i++) await Promise.resolve();
 };
 
-function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof DEFAULT_SETTINGS> = {}) {
+function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof DEFAULT_SETTINGS> = {}, depsOverride: Partial<OrchestratorDeps> = {}) {
   const clock = new FakeClock();
   const provider = providerOverride ?? new MockProvider({ delayMs: 0 });
   const storage = new MemoryStorage();
@@ -59,6 +59,7 @@ function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof 
     onCost: (usd) => costs.push(usd),
     now: () => clock.now,
     timers: clock,
+    ...depsOverride,
   });
   return { orch, clock, provider: provider as MockProvider, states, costs, cache };
 }
@@ -66,6 +67,37 @@ function setup(providerOverride?: LLMProvider, settingsOverride: Partial<typeof 
 const last = (states: SessionState[]) => states[states.length - 1]!;
 
 describe('SessionOrchestrator', () => {
+  it('traces each run with a span per pass request when tracing is on', async () => {
+    const { orch, clock, states } = setup(undefined, {}, { trace: true });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
+    await clock.advance(DEBOUNCE_MS);
+    const trace = last(states).trace!;
+    expect(trace).toHaveLength(1);
+    expect(trace[0]).toMatchObject({ id: 1, trigger: 'auto' });
+    expect(trace[0]!.end).toBeDefined();
+    expect(trace[0]!.passes.map((p) => p.pass).sort()).toEqual(['A', 'B', 'C', 'S']);
+    const s = trace[0]!.passes.find((p) => p.pass === 'S')!;
+    expect(s).toMatchObject({ outcome: 'ok' });
+    expect(s.marks.map((m) => m.name)).toEqual(['sent', 'firstContent', 'end']);
+    orch.analyzeNow();
+    await clock.advance(0);
+    expect(last(states).trace!.map((r) => r.trigger)).toEqual(['auto', 'reanalyze']);
+  });
+
+  it('traces a run the user asked for (Start sends an immediate snapshot) as reanalyze', async () => {
+    const { orch, clock, states } = setup(undefined, { autoAnalyze: false }, { trace: true });
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1), true);
+    await clock.advance(0);
+    expect(last(states).trace!.map((r) => r.trigger)).toEqual(['reanalyze']);
+  });
+
+  it('sends no trace when tracing is off', async () => {
+    const { orch, clock, states } = setup();
+    orch.handleSnapshot(snapshotFromText(SAMPLE_TEXT, 1));
+    await clock.advance(DEBOUNCE_MS);
+    expect(states.some((st) => 'trace' in st)).toBe(false);
+  });
+
   it('debounces snapshots and runs A, B and C once for the first draft', async () => {
     const { orch, clock, provider, states, costs } = setup();
     orch.handleSnapshot(snapshotFromText('Hi', 1));

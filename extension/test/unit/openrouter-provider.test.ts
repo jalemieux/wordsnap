@@ -116,6 +116,23 @@ describe('OpenRouterProvider', () => {
     expect(res.usage.inputTokens).toBe(200);
   });
 
+  it('marks when the request leaves, the first reasoning and content tokens arrive, and the stream ends', async () => {
+    const chunks = [{ choices: [{ delta: { reasoning: 'hmm' } }] }, { choices: [{ delta: { reasoning: ' ok' } }] }, ...textChunks('{"a":1,"b":"ok"}')];
+    const { fetchImpl } = fakeFetch([sse(chunks)]);
+    const p = new OpenRouterProvider({ apiKey: 'k', model: 'm/x', fetchImpl });
+    const marks: string[] = [];
+    await p.runPass(baseReq(false), new AbortController().signal, (e) => e.type === 'mark' && marks.push(e.mark));
+    expect(marks).toEqual(['sent', 'firstReasoning', 'firstContent', 'end']);
+  });
+
+  it('marks the repair round before its own request', async () => {
+    const { fetchImpl } = fakeFetch([sse(textChunks('{"a":"bad","b":"r"}')), sse(textChunks('{"a":5,"b":"fixed"}'))]);
+    const p = new OpenRouterProvider({ apiKey: 'k', model: 'm/x', fetchImpl });
+    const marks: string[] = [];
+    await p.runPass(baseReq(false), new AbortController().signal, (e) => e.type === 'mark' && marks.push(e.mark));
+    expect(marks).toEqual(['sent', 'firstContent', 'end', 'repair', 'sent', 'firstContent', 'end']);
+  });
+
   it('throws invalid after a failed repair', async () => {
     const { fetchImpl } = fakeFetch([sse(textChunks('nonsense')), sse(textChunks('still nonsense'))]);
     const p = new OpenRouterProvider({ apiKey: 'k', model: 'm/x', fetchImpl });

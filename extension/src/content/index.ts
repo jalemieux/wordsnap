@@ -8,6 +8,7 @@ import type { TextSnapshot } from '../shared/types';
 import { minimalParagraphEdit, skeletonEdit } from '../shared/anchoring';
 import { sendToBackground, type ContentRequest, type ContentResponse } from '../shared/messages';
 import { SessionClient } from './session-client';
+import { loadPanelPos, savePanelPos } from './panel-pos';
 import { log } from '../shared/log';
 
 const MIN_WORDS = 40; // auto mode
@@ -164,10 +165,14 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
         log.info(`composer ${handle.key}: checks ${Object.entries(checks).filter(([, on]) => on).map(([k]) => k).join(', ') || 'none'}`);
         client.setChecks(checks);
       },
+      onPanelMove(pos) {
+        void savePanelPos(location.origin, pos);
+      },
     },
     minWords: MIN_WORDS_MANUAL,
     startOpen: carry?.open ?? false,
   });
+  void loadPanelPos(location.origin).then((pos) => pos && overlay.setPanelPos?.(pos));
 
   const unsubState = client.onState((state) => {
     const p = state.passes;

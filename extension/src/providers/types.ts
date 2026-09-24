@@ -1,5 +1,6 @@
 // LLM provider abstraction. The passes call `runPass`; providers own transport, streaming, tools and parsing.
 import type { ZodType } from 'zod';
+import type { TraceMarkName } from '../shared/trace';
 import type { Effort, PassId } from '../shared/types';
 
 export interface ProviderCapabilities {
@@ -50,7 +51,9 @@ export interface PassResult<T> {
 export type PassEvent =
   | { type: 'status'; text: string }
   | { type: 'search'; query: string }
-  | { type: 'usage'; usage: Partial<PassUsage> };
+  | { type: 'usage'; usage: Partial<PassUsage> }
+  /** Timing marks for traces; the receiver stamps the time. */
+  | { type: 'mark'; mark: TraceMarkName };
 
 export interface LLMProvider {
   id: 'openrouter' | 'claude' | 'mock';

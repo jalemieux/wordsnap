@@ -6,6 +6,28 @@ import { CHALLENGE_LABEL, CHECK_HINT, CHECK_LABEL, checksChanged, checksOf, draf
 import { Mark, Sources } from './bits';
 import { StatusPill } from './StatusPill';
 
+/** Width of the panel; matches `.ws-panel` in styles.css. */
+export const PANEL_W = 336;
+const EDGE = 8;
+const SNAP = 24;
+const MIN_VISIBLE_H = 160;
+
+/**
+ * Where a panel the user dragged sits: the whole width and at least 160px of height on screen, snapped to an edge
+ * dropped within 24px of it, as tall as the room below allows up to 80% of the viewport.
+ */
+export function placePanel(pos: { left: number; top: number }, viewport: { width: number; height: number }) {
+  const maxLeft = viewport.width - PANEL_W - EDGE;
+  const maxTop = viewport.height - MIN_VISIBLE_H - EDGE;
+  let left = Math.round(Math.min(Math.max(pos.left, EDGE), Math.max(EDGE, maxLeft)));
+  let top = Math.round(Math.min(Math.max(pos.top, EDGE), Math.max(EDGE, maxTop)));
+  if (left - EDGE < SNAP) left = EDGE;
+  else if (maxLeft - left < SNAP) left = maxLeft;
+  if (top - EDGE < SNAP) top = EDGE;
+  const maxHeight = Math.min(viewport.height - top - EDGE, Math.round(viewport.height * 0.8));
+  return { left, top, maxHeight };
+}
+
 export interface ChallengesPanelProps {
   state: SessionState;
   style?: Record<string, string>;
@@ -30,10 +52,14 @@ export interface ChallengesPanelProps {
   draftText?: string;
   /** Start the first run with the picks as they are. Absent (auto mode, or already running): no Start block. */
   onStart?: () => void;
+  /** A press on the header outside its buttons: the overlay drags the panel from there. */
+  onDragStart?: (e: PointerEvent) => void;
+  /** Double-click on the header: back to the default place. */
+  onResetPlace?: () => void;
   now?: number;
 }
 
-export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, outlineGuide, wordCount, minWords, draftText, onStart }: ChallengesPanelProps) {
+export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, onChecks, onApplyStructure, onKeepStructure, compare, outlineGuide, wordCount, minWords, draftText, onStart, onDragStart, onResetPlace }: ChallengesPanelProps) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const c = summaryCounts(state);
   const list = sortChallenges(state.challenges);
@@ -74,7 +100,12 @@ export function ChallengesPanel({ state, style, onHot, now, onClose, onAnalyze, 
 
   return (
     <aside class="ws-panel" style={style} aria-label="WordSnap">
-      <div class="ws-head">
+      <div
+        class={`ws-head${onDragStart ? ' ws-drag' : ''}`}
+        title={onDragStart ? 'Drag to move. Double-click to put it back.' : undefined}
+        onPointerDown={onDragStart ? (e) => !(e.target as Element).closest('button') && e.button === 0 && onDragStart(e as unknown as PointerEvent) : undefined}
+        onDblClick={onResetPlace ? (e) => !(e.target as Element).closest('button') && onResetPlace() : undefined}
+      >
         <Mark />
         <span class="ws-name">WordSnap</span>
         <StatusPill state={state} now={now} />

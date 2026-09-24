@@ -105,6 +105,7 @@ export class OpenRouterProvider implements LLMProvider {
       log.warn(`pass ${req.pass}: answer did not parse (finish_reason ${first.finishReason ?? 'none'}, ${first.text.length} chars): ${parsed.error}`, tail(first.text));
       // One repair round: no research, low effort, the broken output and the validation errors.
       onEvent({ type: 'status', text: 'Tidying the response…' });
+      onEvent({ type: 'mark', mark: 'repair' });
       const cutOff = first.finishReason === 'length';
       const repair = this.body({ ...req, research: undefined, effort: 'low' }, schema, first.text, cutOff ? `the answer was cut off before it ended (${parsed.error})` : parsed.error);
       const second = await this.stream(repair, signal, onEvent);
@@ -151,6 +152,7 @@ export class OpenRouterProvider implements LLMProvider {
 
   private async stream(body: Record<string, unknown>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<{ text: string; sources: string[]; usage: PassUsage; finishReason?: string }> {
     let res: Response;
+    onEvent({ type: 'mark', mark: 'sent' });
     try {
       res = await this.fetchImpl(`${OPENROUTER_BASE}/chat/completions`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal });
     } catch (e) {
@@ -164,16 +166,22 @@ export class OpenRouterProvider implements LLMProvider {
     const sources = new Set<string>();
     const usage: PassUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, searches: 0 };
     let sawContent = false;
+    let sawReasoning = false;
     let finishReason: string | undefined;
     for await (const chunk of sseChunks(res.body, signal)) {
       if (chunk.error) throw new ProviderError(chunk.error.message ?? 'OpenRouter error', kindFromCode(chunk.error.code));
       const choice = chunk.choices?.[0];
       if (choice?.finish_reason) finishReason = choice.finish_reason;
       const delta = choice?.delta ?? choice?.message;
+      if (!sawReasoning && !sawContent && choice?.delta?.reasoning) {
+        sawReasoning = true;
+        onEvent({ type: 'mark', mark: 'firstReasoning' });
+      }
       if (delta?.content) {
         text += delta.content;
         if (!sawContent) {
           sawContent = true;
+          onEvent({ type: 'mark', mark: 'firstContent' });
           onEvent({ type: 'status', text: 'Writing findings…' });
         }
       }
@@ -184,6 +192,7 @@ export class OpenRouterProvider implements LLMProvider {
         usage.cacheReadTokens = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0;
       }
     }
+    onEvent({ type: 'mark', mark: 'end' });
     if (body.plugins) usage.searches = sources.size || (this.opts.webResults ?? 5);
     return { text, sources: [...sources], usage, finishReason };
   }

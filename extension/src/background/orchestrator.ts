@@ -2,10 +2,11 @@
 import { log } from '../shared/log';
 import { buildPassA, buildPassB, buildPassC, buildPassS, type DraftContext } from '../passes/build';
 import { validatePassA, validatePassB, validatePassC, validatePassS } from '../passes/validate';
-import type { LLMProvider, PassRequest, PassResult } from '../providers/types';
+import type { LLMProvider, PassRequest, PassResult, PassUsage } from '../providers/types';
 import { ProviderError } from '../providers/types';
 import { changedParagraphs, normalizeText } from '../shared/anchoring';
 import { estimateCostUsd } from '../shared/cost';
+import { TraceLog, formatRun, type PassTrace, type TraceTrigger } from '../shared/trace';
 import type { Claim, PassA, PassB, PassC, PassS, Verdict } from '../shared/schemas';
 import { activeModel, clarityKindFilter, sameChecks, structureMode, type Checks, type HostId, type PassId, type SessionState, type Settings, type TextSnapshot } from '../shared/types';
 import type { ClaimCache } from './cache';
@@ -32,6 +33,8 @@ export interface OrchestratorDeps {
   now?: () => number;
   timers?: Timers;
   context?: DraftContext;
+  /** Record timing traces, send them with the state and log one line per run (dev builds and the playground). */
+  trace?: boolean;
 }
 
 export class SessionOrchestrator {
@@ -48,6 +51,7 @@ export class SessionOrchestrator {
   private retryHandle: unknown = null;
   private closed = false;
   private pendingSnapshot: TextSnapshot | null = null;
+  private readonly traces: TraceLog | null;
 
   constructor(
     sessionKey: string,
@@ -58,6 +62,7 @@ export class SessionOrchestrator {
     this.session.state.checks = { ...deps.settings().checks };
     this.now = deps.now ?? (() => Date.now());
     this.timers = deps.timers ?? { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>) };
+    this.traces = deps.trace ? new TraceLog() : null;
   }
 
   get state(): SessionState {
@@ -93,7 +98,7 @@ export class SessionOrchestrator {
     this.emit();
     this.clearScheduled();
     if (immediate) {
-      void this.run();
+      void this.run({}, 'reanalyze');
       return;
     }
     this.debounceHandle = this.timers.setTimeout(() => {
@@ -178,7 +183,21 @@ export class SessionOrchestrator {
    * `force` is an explicit request: unchanged text gets a full run instead of nothing, and C runs past its throttle.
    * `recheck` follows an applied change: A (and B for new claims) on the changed paragraphs only, no S, no C.
    */
-  async run(opts: { force?: boolean; recheck?: boolean } = {}): Promise<void> {
+  async run(opts: { force?: boolean; recheck?: boolean } = {}, trigger?: TraceTrigger): Promise<void> {
+    if (!this.traces) return this.runPasses(opts);
+    const run = this.traces.beginRun(trigger ?? (opts.recheck ? 'recheck' : opts.force ? 'reanalyze' : 'auto'), this.now());
+    try {
+      await this.runPasses(opts);
+    } finally {
+      this.traces.endRun(run, this.now());
+      if (run.passes.length) {
+        log.info(`${this.session.state.sessionKey}: ${formatRun(run)}`);
+        this.emit();
+      }
+    }
+  }
+
+  private async runPasses(opts: { force?: boolean; recheck?: boolean }): Promise<void> {
     const snapshot = this.pendingSnapshot ?? this.session.snapshot;
     if (!snapshot || this.closed) return;
     this.pendingSnapshot = null;
@@ -312,7 +331,7 @@ export class SessionOrchestrator {
       // Sequential on purpose: `execute` keeps one controller per pass so an edit cancels the whole batch.
       verdicts = [];
       for (const claim of misses) {
-        const res = await this.execute('B', buildPassB([claim], snapshot, opts), { keepRunning: true });
+        const res = await this.execute('B', buildPassB([claim], snapshot, opts), { keepRunning: true, label: claim.id });
         if (!res) return;
         verdicts.push(...validatePassB(res.data, [claim], text0(), res.sourcesSeen));
         this.session.attachVerdicts(verdicts);
@@ -392,15 +411,34 @@ export class SessionOrchestrator {
     }
   }
 
-  private async execute<T extends PassA | PassB | PassC | PassS>(pass: PassId, req: PassRequest<T>, opts: { keepRunning?: boolean } = {}): Promise<PassResult<T> | null> {
+  private async execute<T extends PassA | PassB | PassC | PassS>(pass: PassId, req: PassRequest<T>, opts: { keepRunning?: boolean; label?: string } = {}): Promise<PassResult<T> | null> {
     this.abort(pass);
     const controller = new AbortController();
     this.controllers[pass] = controller;
+    const span = this.traces?.beginPass(pass, this.now(), opts.label);
     this.session.setPass(pass, { state: 'running', error: undefined, detail: undefined });
     this.emit();
     log.info(`${this.session.state.sessionKey}: pass ${pass} start (${req.user.length} chars, effort ${req.effort}${req.research ? ', research' : ''})`);
+    let usage: PassUsage | undefined;
+    const res = await this.request(pass, req, controller, opts, span, (u) => (usage = u));
+    if (span) this.traces!.endPass(span, this.outcome[pass] ?? 'error', this.now(), usage);
+    return res;
+  }
+
+  private async request<T extends PassA | PassB | PassC | PassS>(
+    pass: PassId,
+    req: PassRequest<T>,
+    controller: AbortController,
+    opts: { keepRunning?: boolean },
+    span: PassTrace | undefined,
+    onUsage: (u: PassUsage) => void,
+  ): Promise<PassResult<T> | null> {
     try {
       const res = await this.deps.provider().runPass(req, controller.signal, (e) => {
+        if (e.type === 'mark') {
+          if (span) this.traces!.mark(span, e.mark, this.now());
+          return;
+        }
         if (controller.signal.aborted) return;
         if (e.type === 'search') this.session.setPass(pass, { detail: `Searching: ${e.query}` });
         else if (e.type === 'status') this.session.setPass(pass, { detail: e.text });
@@ -412,6 +450,7 @@ export class SessionOrchestrator {
         return null;
       }
       this.outcome[pass] = res.refused ? 'refused' : 'ok';
+      onUsage(res.usage);
       log.info(`${this.session.state.sessionKey}: pass ${pass} done (${res.usage.inputTokens} in, ${res.usage.outputTokens} out, ${res.usage.searches} search results${res.refused ? ', refused' : ''})`);
       this.accountUsage(res);
       this.backoffMs = BACKOFF_MIN_MS;
@@ -479,7 +518,9 @@ export class SessionOrchestrator {
 
   private emit(): void {
     if (this.closed) return;
-    this.deps.emit(structuredClone(this.session.state));
+    const state = structuredClone(this.session.state);
+    if (this.traces) state.trace = this.traces.snapshot();
+    this.deps.emit(state);
   }
 }
 

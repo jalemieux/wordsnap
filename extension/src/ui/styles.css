@@ -85,6 +85,8 @@ h3,h4,p{margin:0}
 /* panel */
 .ws-panel{position:absolute;width:336px;background:var(--card);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;font-size:13px}
 .ws-head{display:flex;align-items:center;gap:8px;padding:12px 14px 10px}
+.ws-head.ws-drag{cursor:grab;user-select:none;touch-action:none}
+.ws-panel.ws-dragging .ws-head{cursor:grabbing}
 .ws-mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;font-size:12px;display:grid;place-items:center;flex:none;font-family:var(--ui)}
 .ws-mark.sm{width:18px;height:18px;border-radius:4px;font-size:11px}
 .ws-name{font-weight:600;font-size:14px;letter-spacing:-.01em}

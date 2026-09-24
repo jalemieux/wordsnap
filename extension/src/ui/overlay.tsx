@@ -7,7 +7,7 @@ import { emptySession } from '../shared/types';
 import css from './styles.css';
 import { bodyText, structureGuiding, structureOpen } from './format';
 import { mapStructure, outlineFill, type SlotFill, type StructureMap } from '../shared/structure-map';
-import { ChallengesPanel } from './components/ChallengesPanel';
+import { ChallengesPanel, PANEL_W, placePanel } from './components/ChallengesPanel';
 import { CompareView, outlineParagraphs, type CompareGeometry } from './components/CompareView';
 import { HighlightLayer, type HighlightItem, type HighlightStatus, type RectLike } from './components/HighlightLayer';
 import { HoverCard, type CardFinding } from './components/HoverCard';
@@ -15,7 +15,6 @@ import { Launcher } from './components/Launcher';
 import { Toast } from './components/Toast';
 import type { MountOverlay, OverlayCallbacks, OverlayController } from './types';
 
-const PANEL_W = 336;
 const PANEL_GAP = 14;
 /** The compare pane sits beside the draft from this editor width; narrower, it sits over it. */
 const COMPARE_MIN_WIDE = 720;
@@ -44,7 +43,11 @@ interface Store {
   minWords: number;
   /** Auto mode starts on its own; the panel then has no Start block. */
   autoAnalyze: boolean;
+  /** Where the user dragged the panel to, in viewport pixels; null is the default place. */
+  panelPos: PanelPos | null;
 }
+
+type PanelPos = { left: number; top: number };
 
 type Listener = () => void;
 
@@ -136,7 +139,7 @@ function computeCompare(handle: ComposerHandle, map: StructureMap, viewport: { w
   return { box, wide, font, sentences, trims };
 }
 
-function computeLayout(handle: ComposerHandle, state: SessionState, open: boolean): Layout {
+function computeLayout(handle: ComposerHandle, state: SessionState, open: boolean, panelPos: PanelPos | null): Layout {
   const viewport = { width: window.innerWidth, height: window.innerHeight };
   // The compare pane first: it changes the editor's width, and every other rect is measured after that.
   let compare: CompareGeometry | undefined;
@@ -158,7 +161,11 @@ function computeLayout(handle: ComposerHandle, state: SessionState, open: boolea
   const docked = roomRight >= PANEL_W + PANEL_GAP + 8 && anchor.height >= 240;
   let panel: Record<string, string>;
   let panelBox: RectLike;
-  if (docked) {
+  if (panelPos) {
+    const at = placePanel(panelPos, viewport);
+    panel = { left: `${at.left}px`, top: `${at.top}px`, maxHeight: `${at.maxHeight}px` };
+    panelBox = { left: at.left, top: at.top, width: PANEL_W, height: at.maxHeight };
+  } else if (docked) {
     const top = Math.max(8, anchor.top);
     const maxH = Math.min(anchor.height, viewport.height - top - 16);
     panel = { left: `${anchor.left + anchor.width + PANEL_GAP}px`, top: `${top}px`, maxHeight: `${maxH}px` };
@@ -169,7 +176,7 @@ function computeLayout(handle: ComposerHandle, state: SessionState, open: boolea
     panelBox = { left: viewport.width - 16 - PANEL_W, top: viewport.height - 16 - maxH, width: PANEL_W, height: maxH };
   }
 
-  return { anchor, viewport, rects, panel, panelBox, docked, compare, map };
+  return { anchor, viewport, rects, panel, panelBox, docked: docked && !panelPos, compare, map };
 }
 
 /** Index of the draft sentence under a point, from the compare geometry's rects. */
@@ -182,7 +189,7 @@ function sentenceAt(geo: CompareGeometry, x: number, y: number): number | null {
   return null;
 }
 
-function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void }) {
+function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { store: Store; subscribe: (l: Listener) => () => void; handle: ComposerHandle; callbacks: OverlayCallbacks; setOpen: (o: boolean) => void; movePanel: (pos: PanelPos | null, done: boolean) => void }) {
   const [, tick] = useState(0);
   useEffect(() => subscribe(() => tick((n) => n + 1)), [subscribe]);
   const { state, layout, text, open } = store;
@@ -300,6 +307,30 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
       }
     : undefined;
 
+  // Drag the panel by its header. The pointer is captured on the header, so the host page sees none of the moves.
+  const dragPanel = (e: PointerEvent) => {
+    const head = e.currentTarget as HTMLElement | null;
+    const panelEl = head?.closest('.ws-panel') as HTMLElement | null;
+    if (!head || !panelEl) return;
+    e.preventDefault();
+    const box = panelEl.getBoundingClientRect();
+    const dx = e.clientX - box.left;
+    const dy = e.clientY - box.top;
+    head.setPointerCapture?.(e.pointerId);
+    panelEl.classList.add('ws-dragging');
+    const move = (ev: PointerEvent) => movePanel({ left: ev.clientX - dx, top: ev.clientY - dy }, false);
+    const up = () => {
+      head.removeEventListener('pointermove', move);
+      head.removeEventListener('pointerup', up);
+      head.removeEventListener('pointercancel', up);
+      panelEl.classList.remove('ws-dragging');
+      movePanel(store.panelPos, true);
+    };
+    head.addEventListener('pointermove', move);
+    head.addEventListener('pointerup', up);
+    head.addEventListener('pointercancel', up);
+  };
+
   return (
     <div class="ws-root">
       {launcher}
@@ -326,6 +357,26 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
         onHover={(id) => setHoverId(id)}
         onPin={(id) => setPinnedId((cur) => (cur === id ? null : id))}
       />
+      <ChallengesPanel
+        state={state}
+        style={layout.panel}
+        onHot={(ids) => setHot(new Set(ids))}
+        now={now}
+        onClose={() => setOpen(false)}
+        onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
+        onChecks={callbacks.onChecks ? (c) => callbacks.onChecks?.(c) : undefined}
+        onApplyStructure={applyStructure}
+        onKeepStructure={keepStructure}
+        compare={!!compare}
+        outlineGuide={guiding && !showPane && fills ? { slots, fills, onDone: outlineDone } : undefined}
+        wordCount={text.split(/\s+/).filter(Boolean).length}
+        minWords={store.minWords}
+        draftText={text}
+        onStart={callbacks.onAnalyze && !store.autoAnalyze ? () => callbacks.onAnalyze?.() : undefined}
+        onDragStart={dragPanel}
+        onResetPlace={store.panelPos ? () => movePanel(null, true) : undefined}
+      />
+      {/* After the panel so a card over it is drawn on top. */}
       {active && anchorRect ? (
         <HoverCard
           finding={active}
@@ -349,23 +400,6 @@ function App({ store, subscribe, handle, callbacks, setOpen }: { store: Store; s
           }}
         />
       ) : null}
-      <ChallengesPanel
-        state={state}
-        style={layout.panel}
-        onHot={(ids) => setHot(new Set(ids))}
-        now={now}
-        onClose={() => setOpen(false)}
-        onAnalyze={callbacks.onAnalyze ? () => callbacks.onAnalyze?.() : undefined}
-        onChecks={callbacks.onChecks ? (c) => callbacks.onChecks?.(c) : undefined}
-        onApplyStructure={applyStructure}
-        onKeepStructure={keepStructure}
-        compare={!!compare}
-        outlineGuide={guiding && !showPane && fills ? { slots, fills, onDone: outlineDone } : undefined}
-        wordCount={text.split(/\s+/).filter(Boolean).length}
-        minWords={store.minWords}
-        draftText={text}
-        onStart={callbacks.onAnalyze && !store.autoAnalyze ? () => callbacks.onAnalyze?.() : undefined}
-      />
       <Toast text={toast} />
     </div>
   );
@@ -384,7 +418,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
   document.documentElement.appendChild(host);
 
   const state0 = initial ?? emptySession(handle.key, 'generic');
-  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0, !!startOpen), open: !!startOpen, minWords: minWords ?? 8, autoAnalyze: false };
+  const store: Store = { state: state0, text: safeText(handle), layout: computeLayout(handle, state0, !!startOpen, null), open: !!startOpen, minWords: minWords ?? 8, autoAnalyze: false, panelPos: null };
   const listeners = new Set<Listener>();
   const subscribe = (l: Listener) => {
     listeners.add(l);
@@ -395,12 +429,21 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     if (store.open === open) return;
     store.open = open;
     store.text = safeText(handle);
-    store.layout = computeLayout(handle, store.state, open);
+    store.layout = computeLayout(handle, store.state, open, store.panelPos);
     notify();
     callbacks.onOpenChange?.(open);
   };
 
-  render(<App store={store} subscribe={subscribe} handle={handle} callbacks={callbacks} setOpen={setOpen} />, mount);
+  // A drop is saved where it landed after clamping and snapping, so a reload puts the panel exactly there.
+  const movePanel = (pos: PanelPos | null, done: boolean) => {
+    store.panelPos = pos;
+    store.layout = computeLayout(handle, store.state, store.open, pos);
+    if (pos) store.panelPos = { left: store.layout.panelBox.left, top: store.layout.panelBox.top };
+    notify();
+    if (done) callbacks.onPanelMove?.(store.panelPos);
+  };
+
+  render(<App store={store} subscribe={subscribe} handle={handle} callbacks={callbacks} setOpen={setOpen} movePanel={movePanel} />, mount);
 
   let raf = 0;
   const relayout = () => {
@@ -408,7 +451,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     raf = requestAnimationFrame(() => {
       raf = 0;
       store.text = safeText(handle);
-      store.layout = computeLayout(handle, store.state, store.open);
+      store.layout = computeLayout(handle, store.state, store.open, store.panelPos);
       notify();
     });
   };
@@ -422,7 +465,7 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     update(state) {
       store.state = state;
       store.text = safeText(handle);
-      store.layout = computeLayout(handle, state, store.open);
+      store.layout = computeLayout(handle, state, store.open, store.panelPos);
       notify();
     },
     relayout,
@@ -430,6 +473,11 @@ export const mountOverlay: MountOverlay = ({ handle, callbacks, initial, startOp
     setAutoAnalyze(on) {
       if (store.autoAnalyze === on) return;
       store.autoAnalyze = on;
+      notify();
+    },
+    setPanelPos(pos) {
+      store.panelPos = pos;
+      store.layout = computeLayout(handle, store.state, store.open, pos);
       notify();
     },
     isOpen: () => store.open,

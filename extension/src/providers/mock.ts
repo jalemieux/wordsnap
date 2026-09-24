@@ -66,8 +66,11 @@ export class MockProvider implements LLMProvider {
   async runPass<T>(req: PassRequest<T>, signal: AbortSignal, onEvent: (e: PassEvent) => void): Promise<PassResult<T>> {
     this.calls.push(req as PassRequest<unknown>);
     onEvent({ type: 'status', text: req.research ? 'Researching…' : 'Reading…' });
+    onEvent({ type: 'mark', mark: 'sent' });
     if (this.delayMs > 0) await this.sleep(this.delayMs, signal);
     if (signal.aborted) throw abortError();
+    onEvent({ type: 'mark', mark: 'firstContent' });
+    onEvent({ type: 'mark', mark: 'end' });
     const usage = MOCK_USAGE[req.pass];
 
     if (req.pass === 'S') {
