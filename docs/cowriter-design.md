@@ -109,7 +109,9 @@ dump on the left, untouched in the host editor; the shaped draft on the right, w
 - Any selection inside the composer shows a small **✎ Tweak** pill, drawn in the overlay. It does nothing until
   clicked.
 - The pill opens an instruction box with presets (Shorter, Clearer, Punchier, Warmer, More formal) and free text.
-  The dials go along as defaults; the instruction can override them for this passage.
+  The dials go along as defaults; the instruction can override them for this passage. The box has a send button
+  (**Tweak ↵**, and **Refine ↵** on a result), disabled while the box is empty; Enter does the same. A preset sends
+  at once.
 - The result card shows the change as a diff. **Apply** writes it through `insertText`. **Again** asks for a
   different version. **Refine** takes a new instruction on top of the last result without touching the draft.
   **Keep** closes the card. Nothing runs after an Apply.

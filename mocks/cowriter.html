@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Co-writer mock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEC; --ground-ink:#1F2A2A; --ground-muted:#5F6E6E;
+  --mock-bg:#1B2424; --mock-ink:#E6ECEB; --mock-muted:#8FA0A0; --mock-accent:#7FD1C8; --mock-line:#2C3838;
+  --ws-accent:#0E7C7B; --ws-accent-ink:#0A5E5D; --ws-accent-bg:#E6F3F2; --ws-accent-line:#B7DAD7;
+  --ws-ink:#1B2A2A; --ws-muted:#5C6B6B; --ws-faint:#8C9A9A; --ws-line:#DCE4E3; --ws-bg:#F6F8F8; --ws-card:#FFFFFF;
+  --amber:#A8690F; --amber-bg:#FBF1DF; --del:#B3261E; --del-bg:#FCE8E6; --ins-bg:#E3F4EA; --ins:#1E6B3F;
+  --ui:"Instrument Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --serif:Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; } }
+:root[data-theme="dark"]{ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ground-ink);font-family:var(--ui);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+button:disabled{cursor:default}
+p{margin:0}
+
+.mockbar{background:var(--mock-bg);color:var(--mock-ink);padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;position:sticky;top:0;z-index:50}
+.mockbar .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mock-muted)}
+.mockbar .hint{font-size:12.5px;color:var(--mock-muted);flex:1;min-width:240px}
+.mockbar .hint b{color:var(--mock-ink);font-weight:500}
+.mbtn{border:1px solid var(--mock-line);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--mock-accent)}
+
+.stagewrap{padding:16px;overflow-x:auto}
+.browser{width:1360px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 40px rgba(0,0,0,.14);overflow:hidden;position:relative;color:#1F1F1F}
+.chrome{background:#E8E8EA;padding:8px 12px;display:flex;align-items:center;gap:12px;font-size:12px;color:#3C4043}
+.lights{display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;background:#C9CDD2;display:block}
+.url{flex:0 1 420px;margin:0 auto;background:#fff;border-radius:6px;padding:4px 12px;text-align:center}
+.page{position:relative;height:800px;background:#FAFAF7;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wikibar{display:flex;gap:18px;align-items:center;padding:12px 40px;border-bottom:1px solid #E6E6E0;font-size:13px;color:#555}
+.wikibar b{color:#222}
+.doc{padding:22px 40px 0}
+.doc h1{margin:0 0 14px;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.work{display:flex;gap:0;height:660px;border:1px solid #E3E3DC;border-radius:6px;background:#fff;position:relative}
+.editor{flex:1;min-width:0;overflow:auto;padding:26px 44px 40px 34px;font-family:var(--serif);font-size:17px;line-height:1.62;color:#222;outline:none}
+.editor p{margin:0 0 18px}
+.editor h4{font-family:var(--ui);font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#666;margin:18px 0 6px}
+.src{border-radius:2px;transition:background .12s}
+.src.hot{background:var(--ws-accent-bg);box-shadow:0 0 0 2px var(--ws-accent-bg)}
+.src.dropped{text-decoration:line-through;text-decoration-color:var(--amber);color:#8a7a60}
+.src.unused{color:#9aa}
+
+.launcher{position:absolute;top:0;right:-42px;width:32px;height:32px;border-radius:10px;background:var(--ws-accent);color:#fff;font:600 15px var(--ui);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:6}
+.launcher .dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#F0B429;border:2px solid #fff;display:none}
+.launcher.busy .dot{display:block}
+
+/* compare pane */
+.pane{flex:1;min-width:0;border-left:1px solid var(--ws-line);overflow:auto;padding:18px 30px 170px 26px;background:#FCFDFD;display:none}
+.work.comparing .pane{display:block}
+.pane-head{display:flex;align-items:center;gap:8px;font-family:var(--ui);font-size:12.5px;color:var(--ws-muted);flex-wrap:wrap;position:sticky;top:-18px;background:#FCFDFD;padding:6px 0 10px;z-index:2;border-bottom:1px solid var(--ws-line);margin-bottom:14px}
+.pane-head .w{width:20px;height:20px;border-radius:5px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:11px}
+.pane-head b{color:var(--ws-ink);font-weight:600}
+.pane-head .acts{margin-left:auto;display:flex;gap:6px}
+.btn{border:1px solid var(--ws-line);background:#fff;color:var(--ws-ink);border-radius:6px;padding:5px 11px;font-size:12.5px;font-family:var(--ui);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--ws-accent-line)}
+.btn.primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.btn.primary:hover{background:var(--ws-accent-ink)}
+.btn.small{padding:3px 8px;font-size:12px}
+.btn:disabled{opacity:.45}
+.note{font-family:var(--ui);font-size:13px;color:var(--ws-muted);margin-bottom:14px;line-height:1.5}
+.stalebar{font-family:var(--ui);font-size:12.5px;background:var(--amber-bg);color:var(--amber);border-radius:6px;padding:7px 10px;margin-bottom:12px;display:none;align-items:center;gap:10px}
+.stalebar.on{display:flex}
+.sec{margin-bottom:16px}
+.role{font-family:var(--ui);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-accent-ink);margin-bottom:3px}
+.shaped{font-family:var(--serif);font-size:16.5px;line-height:1.62;color:#1d1d1d}
+.sn{border-radius:2px;cursor:default;transition:background .12s}
+.sn:hover,.sn.hot{background:var(--ws-accent-bg)}
+.sn.bridge{border-bottom:1.5px dashed var(--ws-accent);color:#3c4a4a}
+.sn.flipped{background:var(--amber-bg)}
+.greet{font-family:var(--serif);font-size:16.5px;margin-bottom:10px}
+.tnum{font-family:var(--mono);font-size:12px;color:var(--ws-faint);margin-right:6px}
+.box{font-family:var(--ui);border:1px solid var(--ws-line);border-radius:8px;padding:10px 12px;margin-top:14px;background:#fff}
+.box h5{margin:0 0 6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:600}
+.box .row{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13px;color:var(--ws-ink);border-top:1px solid #EEF2F2}
+.box .row:first-of-type{border-top:0}
+.box .row .grow{flex:1}
+.box q{font-style:italic;color:var(--ws-muted)}
+.switch{position:relative;width:34px;height:19px;border-radius:10px;background:#CBD5D4;flex:none;transition:background .15s;margin-top:1px}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch.on{background:var(--amber)}
+.switch.on::after{left:17px}
+.legend{font-family:var(--ui);font-size:11.5px;color:var(--ws-faint);display:flex;gap:14px;margin:-4px 0 12px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:18px;border-bottom:1.5px dashed var(--ws-accent)}
+.legend i.src{border:0;height:10px;background:var(--ws-accent-bg);border-radius:2px}
+
+/* panel */
+.panel{position:absolute;right:20px;bottom:20px;width:340px;background:#fff;border-radius:12px;box-shadow:0 6px 28px rgba(0,0,0,.16),0 1px 2px rgba(0,0,0,.08);font-family:var(--ui);font-size:13px;color:var(--ws-ink);z-index:20;display:none;overflow:hidden}
+.panel.open{display:block}
+.panel.compact .p-body{display:none}
+.panel.compact .stages{border-bottom:0}
+.p-head{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
+.p-head .w{width:22px;height:22px;border-radius:6px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px}
+.p-head .name{font-weight:600;font-size:14px}
+.p-head .status{font-size:12px;color:var(--ws-muted);display:flex;align-items:center;gap:5px}
+.p-head .status i{width:7px;height:7px;border-radius:50%;background:#3AA36B;display:inline-block}
+.p-head .status.busy i{background:#F0B429;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.p-head .x{margin-left:auto;color:var(--ws-faint);font-size:15px;padding:2px 4px}
+.stages{display:flex;gap:2px;padding:0 10px 10px;border-bottom:1px solid var(--ws-line)}
+.stages button{flex:1;padding:6px 4px;border-radius:6px;font-size:12.5px;color:var(--ws-muted);display:flex;align-items:center;justify-content:center;gap:5px}
+.stages button .n{font-family:var(--mono);font-size:10px;width:16px;height:16px;border-radius:50%;border:1px solid var(--ws-line);display:grid;place-items:center}
+.stages button.on{background:var(--ws-accent-bg);color:var(--ws-accent-ink);font-weight:600}
+.stages button.on .n{border-color:var(--ws-accent);background:var(--ws-accent);color:#fff}
+.stages button.done .n{border-color:var(--ws-accent);color:var(--ws-accent)}
+.stages button.soon{color:var(--ws-faint)}
+.stages .soon-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--ws-line);border-radius:3px;padding:0 3px}
+.p-body{padding:14px}
+.dial{margin-bottom:14px}
+.dial label{display:flex;justify-content:space-between;font-size:12px;color:var(--ws-muted);margin-bottom:5px}
+.dial label b{color:var(--ws-ink);font-weight:600}
+.seg{display:flex;border:1px solid var(--ws-line);border-radius:7px;overflow:hidden}
+.seg button{flex:1;padding:6px 4px;font-size:12.5px;color:var(--ws-muted);border-right:1px solid var(--ws-line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--ws-accent-bg);color:var(--ws-accent-ink);font-weight:600}
+.p-hint{font-size:12px;color:var(--ws-muted);margin:4px 0 12px;line-height:1.45}
+.p-cta{width:100%;justify-content:center;padding:9px}
+.p-line{font-size:12.5px;color:var(--ws-muted);line-height:1.5}
+.p-line b{color:var(--ws-ink)}
+.tweaks{margin-top:10px;border-top:1px solid var(--ws-line);padding-top:10px}
+.tweaks h5{margin:0 0 6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:600}
+.tw{font-size:12.5px;padding:5px 0;border-top:1px solid #EEF2F2;color:var(--ws-ink)}
+.tw:first-of-type{border-top:0}
+.tw span{color:var(--ws-faint)}
+.mini-dials{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.mini-dials span{font-size:11.5px;border:1px solid var(--ws-line);border-radius:10px;padding:2px 8px;color:var(--ws-muted)}
+.soonbox{font-size:12.5px;color:var(--ws-muted);line-height:1.5}
+.soonbox b{color:var(--ws-ink)}
+.progress{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.progress div{font-size:12.5px;color:var(--ws-muted);display:flex;gap:8px;align-items:center}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--ws-accent-line);border-top-color:var(--ws-accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* tweak */
+.pill{position:absolute;z-index:30;display:none;background:var(--ws-accent);color:#fff;border-radius:14px;padding:4px 10px;font:600 12px var(--ui);box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.pill.on{display:inline-flex;gap:5px;align-items:center}
+.pop{position:absolute;z-index:31;display:none;width:380px;background:#fff;border:1px solid var(--ws-line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.18);font-family:var(--ui);font-size:13px;color:var(--ws-ink);padding:10px 12px 12px}
+.pop.on{display:block}
+.pop .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-faint);margin-bottom:6px;display:flex;justify-content:space-between}
+.askrow{display:flex;gap:6px}
+.askrow .btn{flex:none}
+.pop input{flex:1;min-width:0;width:100%;border:1px solid var(--ws-line);border-radius:7px;padding:8px 10px;font:inherit;outline:none}
+.pop input:focus{border-color:var(--ws-accent)}
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.presets button{border:1px solid var(--ws-line);border-radius:12px;padding:3px 9px;font-size:12px;color:var(--ws-muted)}
+.presets button:hover{border-color:var(--ws-accent-line);color:var(--ws-accent-ink)}
+.diff{font-family:var(--serif);font-size:15px;line-height:1.55;background:var(--ws-bg);border-radius:7px;padding:9px 11px;margin:4px 0 10px}
+.diff del{color:var(--del);background:var(--del-bg);text-decoration-color:var(--del)}
+.diff ins{color:var(--ins);background:var(--ins-bg);text-decoration:none}
+.pop .acts{display:flex;gap:6px;margin-bottom:10px}
+.pop .why{font-size:12px;color:var(--ws-muted);margin-bottom:8px}
+.pop .warn{font-size:12.5px;color:var(--amber);background:var(--amber-bg);border-radius:6px;padding:7px 9px}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#1F2A2A;color:#fff;font:13px var(--ui);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="mockbar">
+  <span class="tag">Co-writer mock</span>
+  <span class="hint"><b>W</b> opens the panel. Set the dials, <b>Shape my draft</b>, hover sentences, flip the choice, <b>Apply</b>. Then select any passage for <b>✎ Tweak</b>. Everything is canned: no model calls.</span>
+  <button class="mbtn" id="reset">Reset</button>
+</div>
+
+<div class="stagewrap">
+<div class="browser" id="browser">
+  <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><div class="url">wiki.example.com/edit/agents-on-a-board</div></div>
+  <div class="page">
+    <div class="wikibar"><b>Team wiki</b><span>Posts</span><span>Editing: draft</span></div>
+    <div class="doc">
+      <h1>Letting a few Claude sessions run a board</h1>
+      <div class="work" id="work">
+        <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+        <div class="pane" id="pane"></div>
+        <button class="launcher" id="launcher" title="WordSnap">W<span class="dot"></span></button>
+      </div>
+    </div>
+    <aside class="panel" id="panel" aria-label="WordSnap"></aside>
+    <button class="pill" id="pill">✎ Tweak</button>
+    <div class="pop" id="pop"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ---------- the dump (the writer's stream of consciousness) ---------- */
+const DUMP = [
+  `<span class="src" data-k="a">ok so the idea came from that story about agents coordinating on their own, wanted to see if a few claude sessions could organize themselves without me micromanaging</span>. <span class="src" data-k="b">not sure it would work honestly, maybe they need a lot of structure to get anywhere</span>. <span class="src" data-k="c">actually no i think less structure is the point</span>.`,
+  `<span class="src" data-k="d">i was careful no to enforce toop much structure in the harness or in prompts</span> <span class="src" data-k="e">(link to podcast from darkesh)</span>_, <span class="src" data-k="f">actually did very little</span> and <span class="src" data-k="g">simply instructed the bot to go fetch the latest instructions from the board whenever they start</span>.`,
+  `<span class="src" data-k="h">These instruction were amde availabel on the board, so the bot would only need a refrence to the board /agents.md file</span> and would not need anymore details. <span class="src" data-k="i">the agents.md could be changed as neede don the board, as the board eveolved</span>.`,
+  `<span class="src" data-k="j">The first iteration was a very simple board with very simple inprompt to bot, instructing them to introudce themselve and look up the board every now and then</span>. <span class="src" data-k="k">Then i had them work on a siomple git history cleaning task</span>. <span class="src" data-k="l">I immediatly notice how the bot would pick work and delegate and eventually orgnzie and break downt he worl</span>.`,
+  `<span class="src" data-k="m">with hthse encouraging results, i improve the board to be more reactive, where bopts would be notified when a message direct or in channel would be poseted. or that another bot would tag tham</span>, and <span class="src" data-k="n">ended up with a board that is much like a simple version of slack, with webstockets to ensure prompt notification</span>.`,
+  `<span class="src" data-k="o">then set off to have them work on on a side project of my (wordsnap.ai)</span>.`,
+];
+
+/* ---------- canned Shape result: sentences carry their sources, a length tier and three tones ---------- */
+// len: core (tight and up), bal (balanced and up), full (full only)
+const T = (casual, neutral, formal) => ({ casual, neutral, formal });
+const SHAPE = [
+  { role: 'Why I tried it', s: [
+    { id: 's1', from: ['a'], len: 'core', t: T("I wanted to see if a few Claude sessions could organize themselves without me micromanaging them.", "I wanted to see whether a few Claude sessions could organize themselves without me directing them.", "I set out to test whether several Claude sessions could organize their own work without direction from me.") },
+    { id: 's3', from: ['b'], len: 'full', t: T("I wasn't sure it would work.", "I was not sure it would work.", "I was uncertain it would succeed.") },
+    { id: 's2', from: ['c'], len: 'core', choice: 0, t: T("My bet: they need less structure, not more.", "My bet was that they need less structure, not more.", "My hypothesis was that they would need less structure rather than more.") },
+  ]},
+  { role: 'The setup', s: [
+    { id: 's4', from: ['d', 'f'], len: 'core', t: T("So I kept the harness and the prompts thin and did very little myself.", "So I kept the harness and the prompts thin, and did very little myself.", "Accordingly, I kept the harness and the prompts minimal and intervened very little.") },
+    { id: 's5', from: ['g'], len: 'core', t: T("Each bot got one instruction: grab the latest instructions from the board when it starts.", "Each bot had one instruction: fetch the latest instructions from the board when it starts.", "Each agent received a single instruction: retrieve the latest instructions from the board at startup.") },
+    { id: 's6', from: ['h', 'i'], len: 'bal', t: T("Those live in the board's /agents.md, which I could change as the board grew.", "Those instructions live in the board's /agents.md, which I could change as the board evolved.", "Those instructions reside in the board's /agents.md, which I revised as the board evolved.") },
+  ]},
+  { role: 'First run', s: [
+    { id: 's7', from: ['j'], len: 'core', t: T("The first board was bare bones: bots introduced themselves and checked in now and then.", "The first board was minimal: the bots introduced themselves and checked in now and then.", "The first iteration was minimal: the agents introduced themselves and consulted the board periodically.") },
+    { id: 's8', from: ['k'], len: 'bal', t: T("Then I gave them a simple git-history cleanup.", "Then I gave them a simple git-history cleanup task.", "I then assigned them a simple git-history cleanup task.") },
+    { id: 's9', from: ['l'], len: 'core', t: T("Right away they picked up work, handed pieces off, and broke the job down on their own.", "Almost at once they picked up work, delegated, and broke the task down on their own.", "Almost immediately they claimed work, delegated, and decomposed the task without my involvement.") },
+    { id: 's10', from: [], bridge: true, len: 'full', t: T("That's when it clicked.", "That was the moment it clicked.", "That observation was decisive.") },
+  ]},
+  { role: 'Making it reactive', s: [
+    { id: 's11', from: ['m'], len: 'core', t: T("So I made the board reactive: a bot gets pinged when someone posts to it, in a channel, or tags it.", "Encouraged, I made the board reactive: a bot is notified when a message is posted to it directly, in a channel, or when another bot tags it.", "Encouraged by this, I made the board reactive: an agent is notified of direct messages, channel posts, and mentions by other agents.") },
+    { id: 's12', from: ['n'], len: 'bal', t: T("It ended up as a tiny Slack, with websockets so the pings are instant.", "It ended up as a simple version of Slack, with websockets for prompt notification.", "The result resembles a simplified Slack, with websockets for timely notification.") },
+  ]},
+  { role: 'Next', s: [
+    { id: 's13', from: ['o'], len: 'core', t: T("Then I put them to work on a side project of mine, wordsnap.ai.", "Then I set them to work on a side project of mine, wordsnap.ai.", "I then assigned them to a side project of mine, wordsnap.ai.") },
+  ]},
+];
+const CHOICES = [{
+  topic: 'how much structure the bots need',
+  kept: 'less structure is the point', other: 'maybe they need a lot of structure to get anywhere',
+  keptK: 'c', otherK: 'b', at: 's2',
+  alt: { from: ['b'], t: T("Honestly, I worried they'd need a lot of structure to get anywhere.", "My worry was that they would need a lot of structure to get anywhere.", "My concern was that they would require substantial structure to make progress.") },
+}];
+const DROPPED = [{ k: 'e', quote: '(link to podcast from darkesh)', why: 'A link with no URL. Add it back when you have it.' }];
+const MISSING = [{ what: 'What happened on the side project', after: 4,
+  fill: T("What they did with it is next.", "What they did with it is the next part.", "What followed is described below.") }];
+
+/* ---------- state ---------- */
+const DEFAULT_TUNE = { length: 'balanced', tone: 'neutral', for: 'post' };
+let S;
+function fresh() {
+  return { open: false, stage: 'tune', tune: { ...DEFAULT_TUNE }, shapedWith: null, shape: null /* 'running'|'open'|'applied'|'kept' */,
+    flips: new Set(), filled: new Set(), tweaks: [], tweak: null };
+}
+const $ = (id) => document.getElementById(id);
+const editor = $('editor'), pane = $('pane'), panel = $('panel'), work = $('work'), pill = $('pill'), pop = $('pop'), page = document.querySelector('.page');
+
+function reset() {
+  S = fresh();
+  editor.innerHTML = DUMP.map((p) => `<p>${p}</p>`).join('');
+  work.classList.remove('comparing');
+  hideTweak();
+  render();
+}
+
+/* ---------- shaping ---------- */
+const LEN_ORDER = { tight: 0, balanced: 1, full: 2 };
+const TIER = { core: 0, bal: 1, full: 2 };
+function shapedParagraphs(tune) {
+  const out = [];
+  SHAPE.forEach((p, pi) => {
+    const sents = [];
+    for (const s of p.s) {
+      if (TIER[s.len] > LEN_ORDER[tune.length]) continue;
+      let text = s.t[tune.tone], from = s.from, flipped = false;
+      const ci = CHOICES.findIndex((c) => c.at === s.id);
+      if (ci !== -1 && S.flips.has(ci)) { text = CHOICES[ci].alt.t[tune.tone]; from = CHOICES[ci].alt.from; flipped = true; }
+      // with the choice flipped, the "not sure it would work" line would repeat the worry
+      if (s.id === 's3' && S.flips.has(0)) continue;
+      sents.push({ id: s.id, text, from, bridge: !!s.bridge, flipped });
+    }
+    MISSING.forEach((m, mi) => { if (m.after === pi && S.filled.has(mi)) sents.push({ id: 'fill' + mi, text: m.fill[tune.tone], from: [], bridge: true }); });
+    if (sents.length) out.push({ role: p.role, sents });
+  });
+  return out;
+}
+
+function usedKeys(paras) {
+  const used = new Set();
+  paras.forEach((p) => p.sents.forEach((s) => s.from.forEach((k) => used.add(k))));
+  return used;
+}
+
+function greeting(tune) { return tune.for === 'email' ? (tune.tone === 'formal' ? 'Hello all,' : 'Hi all,') : null; }
+
+function renderPane() {
+  const tune = S.shapedWith;
+  const paras = shapedParagraphs(tune);
+  const stale = JSON.stringify(tune) !== JSON.stringify(S.tune);
+  const nBridge = paras.reduce((n, p) => n + p.sents.filter((s) => s.bridge).length, 0);
+  const nAll = paras.reduce((n, p) => n + p.sents.length, 0);
+  const g = greeting(tune);
+  pane.innerHTML = `
+    <div class="pane-head"><span class="w">W</span><b>Shaped</b><span>${LABEL.length[tune.length]} · ${LABEL.tone[tune.tone]} · ${LABEL.for[tune.for]}</span>
+      <span class="acts"><button class="btn" data-act="keep">Keep mine</button><button class="btn primary" data-act="apply">Apply</button></span></div>
+    <div class="stalebar ${stale ? 'on' : ''}">The dials changed since this was shaped.<button class="btn small" data-act="reshape">Re-shape</button></div>
+    <p class="note">Put in order: why, setup, first run, the reactive board, what is next. Spelling and grammar fixed. ${nBridge ? `${nBridge} of ${nAll} sentences are mine (dashed); the rest say what you wrote.` : 'Every sentence says something you wrote.'}</p>
+    <div class="legend"><span><i class="src"></i>hover: where it came from</span><span><i></i>written by WordSnap</span></div>
+    ${g ? `<div class="greet"><span class="sn bridge">${g}</span></div>` : ''}
+    ${paras.map((p, i) => `
+      <div class="sec">
+        ${tune.for === 'doc' ? `<div class="role" style="font-size:12px">${p.role}</div>` : `<div class="role">${p.role}</div>`}
+        <p class="shaped">${tune.for === 'thread' ? `<span class="tnum">${i + 1}/${paras.length}</span>` : ''}${p.sents.map((s) => `<span class="sn${s.bridge ? ' bridge' : ''}${s.flipped ? ' flipped' : ''}" data-from="${s.from.join(',')}" title="${s.bridge ? 'Written by WordSnap to connect. No new facts.' : 'Says: ' + s.from.map((k) => '“' + srcText(k) + '”').join(' + ')}">${s.text}</span>`).join(' ')}</p>
+      </div>`).join('')}
+    <div class="box"><h5>Where you went back and forth</h5>
+      ${CHOICES.map((c, i) => `<div class="row"><div class="grow">On ${c.topic}, I kept <q>${S.flips.has(i) ? c.other : c.kept}</q> over <q>${S.flips.has(i) ? c.kept : c.other}</q>.</div><button class="switch ${S.flips.has(i) ? 'on' : ''}" data-flip="${i}" title="Flip to the other side"></button></div>`).join('')}
+    </div>
+    <div class="box"><h5>Left out</h5>
+      ${DROPPED.map((d) => `<div class="row"><div class="grow"><q>${d.quote}</q>: ${d.why}</div></div>`).join('')}
+    </div>
+    <div class="box"><h5>Missing</h5>
+      ${MISSING.map((m, i) => `<div class="row"><div class="grow">${m.what}.</div>${S.filled.has(i) ? '<span style="font-size:12px;color:var(--ws-faint)">bridged</span>' : `<button class="btn small" data-fill="${i}">Fill this</button>`}</div>`).join('')}
+    </div>`;
+  // Mark the dump: what was left out, what the shaped draft does not use.
+  const used = usedKeys(paras);
+  editor.querySelectorAll('.src').forEach((el) => {
+    const k = el.dataset.k;
+    el.classList.toggle('dropped', DROPPED.some((d) => d.k === k));
+    el.classList.toggle('unused', !used.has(k) && !DROPPED.some((d) => d.k === k));
+  });
+}
+
+function srcText(k) { const el = editor.querySelector(`.src[data-k="${k}"]`); return el ? el.textContent.slice(0, 60) + (el.textContent.length > 60 ? '…' : '') : k; }
+
+function runShape() {
+  S.shape = 'running';
+  S.stage = 'shape';
+  render();
+  setTimeout(() => {
+    S.shape = 'open';
+    S.shapedWith = { ...S.tune };
+    work.classList.add('comparing');
+    render();
+  }, 1400);
+}
+
+function applyShape() {
+  const tune = S.shapedWith;
+  const paras = shapedParagraphs(tune);
+  const g = greeting(tune);
+  let html = g ? `<p>${g}</p>` : '';
+  html += paras.map((p, i) => (tune.for === 'doc' ? `<h4>${p.role}</h4>` : '') + `<p>${tune.for === 'thread' ? `${i + 1}/${paras.length} ` : ''}${p.sents.map((s) => s.text).join(' ')}</p>`).join('');
+  editor.innerHTML = html;
+  S.shape = 'applied';
+  S.stage = 'tweak';
+  work.classList.remove('comparing');
+  toast('Applied. Select any passage to tweak it. (In the build this goes through insertText, so ⌘Z brings the dump back.)');
+  render();
+}
+
+function keepShape() {
+  S.shape = 'kept';
+  S.stage = 'tweak';
+  work.classList.remove('comparing');
+  editor.querySelectorAll('.src').forEach((el) => el.classList.remove('dropped', 'unused', 'hot'));
+  render();
+}
+
+/* ---------- panel ---------- */
+const LABEL = {
+  length: { tight: 'Tight', balanced: 'Balanced', full: 'Full' },
+  tone: { casual: 'Casual', neutral: 'Neutral', formal: 'Formal' },
+  for: { email: 'Email', post: 'Post', thread: 'Thread', doc: 'Doc' },
+};
+const DIAL_HINT = {
+  length: { tight: 'Only the core of each point.', balanced: 'Each point with its support.', full: 'Everything you said, with connecting lines.' },
+  tone: { casual: 'Contractions, plain words.', neutral: 'Plain and direct.', formal: 'No contractions, fuller words.' },
+  for: { email: 'Greeting line, short paragraphs.', post: 'Paragraphs, no headings.', thread: 'Numbered parts.', doc: 'Section headings.' },
+};
+
+function dial(key, title) {
+  return `<div class="dial"><label>${title}<b>${DIAL_HINT[key][S.tune[key]]}</b></label><div class="seg">${Object.keys(LABEL[key]).map((v) => `<button class="${S.tune[key] === v ? 'on' : ''}" data-dial="${key}" data-v="${v}">${LABEL[key][v]}</button>`).join('')}</div></div>`;
+}
+
+function render() {
+  $('launcher').classList.toggle('busy', S.shape === 'running' || S.tweak?.status === 'running');
+  panel.classList.toggle('open', S.open);
+  // While the shaped draft is beside the dump the pane carries the buttons; the panel shrinks to its header.
+  panel.classList.toggle('compact', S.shape === 'open' && S.stage === 'shape');
+  if (S.shape === 'open') renderPane();
+  const busy = S.shape === 'running' || S.tweak?.status === 'running';
+  const stageBtn = (id, n, label) => {
+    const done = (id === 'tune' && S.shapedWith) || (id === 'shape' && (S.shape === 'applied' || S.shape === 'kept'));
+    return `<button class="${S.stage === id ? 'on' : ''}${done ? ' done' : ''}" data-stage="${id}"><span class="n">${n}</span>${label}</button>`;
+  };
+  let body = '';
+  if (S.stage === 'tune') {
+    body = `${dial('length', 'Length')}${dial('tone', 'Tone')}${dial('for', 'For')}
+      <p class="p-hint">Set these once for this site. Shape uses them; Tweak starts from them.</p>
+      <button class="btn primary p-cta" data-act="shape" ${busy ? 'disabled' : ''}>${S.shapedWith ? 'Re-shape my draft' : 'Shape my draft'}</button>`;
+  } else if (S.stage === 'shape') {
+    if (S.shape === 'running') body = `<div class="p-line"><b>Shaping your draft</b></div><div class="progress"><div><span class="spin"></span>Finding your points and where they repeat</div><div><span class="spin"></span>Putting them in order, fixing the words</div></div>`;
+    else if (S.shape === 'open') body = `<div class="p-line">The shaped draft is beside yours. Hover a sentence to see what it came from. <b>Apply</b> or <b>Keep mine</b> in the pane.</div>`;
+    else if (S.shape === 'applied') body = `<div class="p-line">Applied. <button class="btn small" data-stage="tweak">Go to Tweak</button> <button class="btn small" data-act="shape">Shape again</button></div>`;
+    else if (S.shape === 'kept') body = `<div class="p-line">You kept your draft. <button class="btn small" data-act="shape">Shape again</button></div>`;
+    else body = `<div class="p-line">Nothing shaped yet. <button class="btn small" data-stage="tune">Set the dials</button></div>`;
+  } else if (S.stage === 'tweak') {
+    body = `<div class="mini-dials"><span>${LABEL.length[S.tune.length]}</span><span>${LABEL.tone[S.tune.tone]}</span><span>${LABEL.for[S.tune.for]}</span></div>
+      <div class="p-line">Select any passage in your draft and press <b>✎ Tweak</b>. Say what you want, or pick a preset.</div>
+      <div class="tweaks"><h5>Applied tweaks</h5>${S.tweaks.length ? S.tweaks.map((t) => `<div class="tw">${t.instruction} <span>on “${t.quote.slice(0, 38)}${t.quote.length > 38 ? '…' : ''}”</span></div>`).join('') : '<div class="tw"><span>None yet.</span></div>'}</div>`;
+  } else if (S.stage === 'check') {
+    body = `<div class="soonbox"><b>Check is coming next.</b><br>Facts verifies each claim in your draft with a web search and cites what it found. Challenge states your argument and argues back: the strongest rebuttal, blind spots, gaps. Each runs only when you press it.</div>`;
+  }
+  panel.innerHTML = `
+    <div class="p-head"><span class="w">W</span><span class="name">WordSnap</span><span class="status ${busy ? 'busy' : ''}"><i></i>${busy ? 'Working…' : 'Ready'}</span><button class="x" data-act="close" title="Hide">✕</button></div>
+    <div class="stages">${stageBtn('tune', 1, 'Tune')}${stageBtn('shape', 2, 'Shape')}${stageBtn('tweak', 3, 'Tweak')}<button class="soon ${S.stage === 'check' ? 'on' : ''}" data-stage="check"><span class="n">4</span>Check <span class="soon-tag">soon</span></button></div>
+    <div class="p-body">${body}</div>`;
+}
+
+/* ---------- tweak ---------- */
+let savedRange = null;
+function hideTweak() { pill.classList.remove('on'); pop.classList.remove('on'); }
+function place(el, rect, dy = 6) {
+  const pr = page.getBoundingClientRect();
+  el.style.left = Math.min(rect.left - pr.left, pr.width - (el.offsetWidth || 380) - 16) + 'px';
+  el.style.top = rect.bottom - pr.top + dy + 'px';
+}
+function selectionInEditor() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!editor.contains(r.commonAncestorContainer)) return null;
+  if (r.toString().trim().length < 3) return null;
+  return r;
+}
+function onSelect() {
+  if (S.shape === 'open' || S.shape === 'running' || pop.classList.contains('on')) return;
+  const r = selectionInEditor();
+  if (!r) { pill.classList.remove('on'); return; }
+  savedRange = r.cloneRange();
+  const rects = r.getClientRects();
+  const last = rects[rects.length - 1] || r.getBoundingClientRect();
+  pill.classList.add('on');
+  place(pill, { left: last.right - 20, bottom: last.bottom });
+}
+editor.addEventListener('mouseup', () => setTimeout(onSelect, 0));
+editor.addEventListener('keyup', (e) => { if (e.shiftKey) onSelect(); });
+
+const PRESETS = ['Shorter', 'Clearer', 'Punchier', 'Warmer', 'More formal'];
+function openPop() {
+  if (!savedRange) return;
+  const quote = savedRange.toString();
+  S.tweak = { quote, status: 'ask', steps: [] };
+  pill.classList.remove('on');
+  pop.classList.add('on');
+  drawPop();
+  const rect = savedRange.getBoundingClientRect();
+  place(pop, rect);
+  pop.querySelector('input')?.focus();
+}
+function drawPop() {
+  const t = S.tweak;
+  const current = t.steps.length ? t.steps[t.steps.length - 1].text : null;
+  const presetRow = `<div class="presets">${PRESETS.map((p) => `<button data-preset="${p}">${p}</button>`).join('')}</div>`;
+  if (t.status === 'ask') {
+    pop.innerHTML = `<div class="k"><span>Tweak this passage</span><span>${LABEL.length[S.tune.length]} · ${LABEL.tone[S.tune.tone]}</span></div>
+      <div class="askrow"><input placeholder="Say what you want: “make it say why it matters”" data-ask><button class="btn primary" data-submit disabled title="Send (Enter)">Tweak ↵</button></div>${presetRow}`;
+  } else if (t.status === 'running') {
+    pop.innerHTML = `<div class="k"><span>${t.steps.length ? 'Refining' : 'Tweaking'}</span></div><div class="progress"><div><span class="spin"></span>${t.pending}</div></div>`;
+  } else if (t.status === 'open') {
+    const last = t.steps[t.steps.length - 1];
+    pop.innerHTML = `<div class="k"><span>${t.steps.map((s) => s.instruction).join(' → ')}</span><span>${Math.round((current.length / t.quote.length) * 100)}% of the length</span></div>
+      <div class="diff">${diffHtml(t.quote, current)}</div>
+      ${last.why ? `<p class="why">${last.why}</p>` : ''}
+      <div class="acts"><button class="btn primary" data-tw="apply">Apply</button><button class="btn" data-tw="again">Again</button><button class="btn" data-tw="keep">Keep mine</button></div>
+      <div class="askrow"><input placeholder="Refine: “less formal”, “keep the first half”…" data-ask><button class="btn" data-submit disabled title="Send (Enter)">Refine ↵</button></div>${presetRow}`;
+  } else if (t.status === 'stale') {
+    pop.innerHTML = `<div class="warn">This passage changed while I was working on it. Select it again.</div><div class="acts" style="margin:10px 0 0"><button class="btn" data-tw="keep">Close</button></div>`;
+  }
+}
+
+/* Canned transforms. In the build this is one Tweak request with the instruction and the dials. */
+const FILLER = /\b(very|really|actually|just|simply|honestly|basically|quite|eventually)\s+/gi;
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const CONTRACT = [[/\bdo not\b/g, "don't"], [/\bdid not\b/g, "didn't"], [/\bwas not\b/g, "wasn't"], [/\bit is\b/gi, "it's"], [/\bI am\b/g, "I'm"], [/\bthey would\b/g, "they'd"], [/\bcould not\b/g, "couldn't"]];
+const EXPAND = [[/\bdon't\b/g, 'do not'], [/\bdidn't\b/g, 'did not'], [/\bwasn't\b/g, 'was not'], [/\bit's\b/gi, 'it is'], [/\bI'm\b/g, 'I am'], [/\bthey'd\b/g, 'they would'], [/\bcouldn't\b/g, 'could not'], [/\bbots?\b/g, (m) => (m === 'bots' ? 'agents' : 'agent')], [/\bgrab\b/g, 'retrieve'], [/\bso\b/gi, 'therefore'], [/\bkind of\b/g, 'somewhat']];
+const LEADIN = /^(accordingly|so|then|and|also|basically|honestly),?\s+/i;
+const sentences = (s) => s.match(/[^.!?]+[.!?]*\s*/g) || [s];
+const perSentence = (s, fn) => sentences(s).map((x) => fn(x.trim())).filter(Boolean).join(' ');
+// Drop the last clause of a long sentence only when most of the sentence survives.
+function trimSentence(x) {
+  let o = x.replace(FILLER, '').replace(/\s*\([^)]*\)/g, '').replace(LEADIN, '');
+  const end = /[.!?]$/.test(o) ? o.slice(-1) : '';
+  const body = end ? o.slice(0, -1) : o;
+  const cut = Math.max(body.lastIndexOf(', '), body.lastIndexOf(' and '));
+  if (body.length > 60 && cut > body.length * 0.55) o = body.slice(0, cut) + (end || '.');
+  return cap(o.replace(/\s{2,}/g, ' ').trim());
+}
+const TRANSFORMS = {
+  Shorter: (s) => ({ text: perSentence(s, trimSentence), why: 'Cut the filler, lead-ins and trailing clauses; each point stays.' }),
+  Clearer: (s) => ({
+    text: perSentence(s, (x) => cap(x.replace(FILLER, '').replace(/,\s+and\s+(?=\w+\s+\w+)/i, '. ').replace(/\.\s+([a-z])/g, (m, c) => '. ' + c.toUpperCase()))),
+    why: 'One idea per sentence.',
+  }),
+  Punchier: (s) => {
+    const first = sentences(s)[0].trim();
+    let o = trimSentence(first);
+    const rest = s.slice(s.indexOf(first) + first.length).trim();
+    if (rest) o += ' ' + perSentence(rest, trimSentence);
+    return { text: o.replace(/:\s+/, ': '), why: 'Lead-ins and qualifiers gone; each sentence ends on its point.' };
+  },
+  Warmer: (s) => {
+    let o = s;
+    CONTRACT.forEach(([re, v]) => (o = o.replace(re, v)));
+    o = o.replace(/\bthe (bots|agents)\b/g, 'my $1').replace(/\bI set out to test\b/g, 'I wanted to see').replace(/\bintervened\b/g, 'stepped in').replace(/\bretrieve\b/g, 'grab');
+    return { text: o, why: 'Contractions, first person, plainer verbs. Nothing added you did not say.' };
+  },
+  'More formal': (s) => {
+    let o = s;
+    EXPAND.forEach(([re, v]) => (o = o.replace(re, v)));
+    return { text: cap(o), why: 'No contractions, fuller words.' };
+  },
+};
+function pickTransform(instruction) {
+  const i = instruction.toLowerCase();
+  if (TRANSFORMS[instruction]) return instruction;
+  if (/short|trim|cut|concise|tight/.test(i)) return 'Shorter';
+  if (/punch|hit|land|strong|bold/.test(i)) return 'Punchier';
+  if (/warm|friendly|casual|less formal/.test(i)) return 'Warmer';
+  if (/formal|serious|professional/.test(i)) return 'More formal';
+  return 'Clearer';
+}
+function runTweak(instruction, again = false) {
+  const t = S.tweak;
+  const base = t.steps.length && !again ? t.steps[t.steps.length - 1].text : t.quote;
+  const name = pickTransform(instruction);
+  t.status = 'running';
+  t.pending = again ? 'Trying another version' : `${instruction}`;
+  render(); drawPop();
+  setTimeout(() => {
+    if (!savedRange || savedRange.toString() !== t.quote) { t.status = 'stale'; drawPop(); render(); return; }
+    let r = TRANSFORMS[name](base);
+    if (again) {
+      // another version: stack a second transform so the result differs
+      const other = name === 'Shorter' ? 'Punchier' : 'Shorter';
+      r = TRANSFORMS[other](TRANSFORMS[name](t.quote).text);
+      r.why = 'Another take: ' + r.why.charAt(0).toLowerCase() + r.why.slice(1);
+    }
+    if (r.text === base) r.why = 'It already reads that way at these dials. (Mock: the model would still offer a version.)';
+    const note = name !== instruction && !again ? ` (Mock: free text maps to “${name}” here; the build sends your words to the model.)` : '';
+    if (again) t.steps = [{ instruction: t.steps[0]?.instruction || instruction, text: r.text, why: r.why }];
+    else t.steps.push({ instruction, text: r.text, why: r.why + note });
+    t.status = 'open';
+    render(); drawPop();
+  }, 800);
+}
+function applyTweak() {
+  const t = S.tweak;
+  const text = t.steps[t.steps.length - 1].text;
+  if (!savedRange || savedRange.toString() !== t.quote) { t.status = 'stale'; drawPop(); return; }
+  editor.focus();
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  // same path as the extension: insertText over the selection, so the host's undo stack has it
+  if (!document.execCommand('insertText', false, text)) { savedRange.deleteContents(); savedRange.insertNode(document.createTextNode(text)); }
+  S.tweaks.unshift({ instruction: t.steps.map((s) => s.instruction).join(' → '), quote: t.quote });
+  S.tweak = null;
+  savedRange = null;
+  if (S.stage !== 'tweak') S.stage = 'tweak';
+  hideTweak();
+  render();
+  toast('Applied. ⌘Z in the editor undoes it.');
+}
+
+/* word diff (LCS) */
+function diffHtml(a, b) {
+  const A = a.split(/(\s+)/), B = b.split(/(\s+)/);
+  const n = A.length, m = B.length;
+  const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0, out = '';
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { out += esc(A[i]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) { out += `<del>${esc(A[i])}</del>`; i++; }
+    else { out += `<ins>${esc(B[j])}</ins>`; j++; }
+  }
+  while (i < n) out += `<del>${esc(A[i++])}</del>`;
+  while (j < m) out += `<ins>${esc(B[j++])}</ins>`;
+  return out.replace(/<\/del><del>/g, '').replace(/<\/ins><ins>/g, '');
+}
+
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* ---------- events ---------- */
+$('launcher').addEventListener('click', () => { S.open = !S.open; render(); });
+$('reset').addEventListener('click', reset);
+pill.addEventListener('mousedown', (e) => e.preventDefault());
+pill.addEventListener('click', openPop);
+
+panel.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.dial) {
+    S.tune[b.dataset.dial] = b.dataset.v;
+  } else if (b.dataset.stage) {
+    S.stage = b.dataset.stage;
+  } else if (b.dataset.act === 'shape') { runShape(); return; }
+  else if (b.dataset.act === 'close') { S.open = false; }
+  render();
+});
+
+pane.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.act === 'apply') applyShape();
+  else if (b.dataset.act === 'keep') keepShape();
+  else if (b.dataset.act === 'reshape') { S.stage = 'shape'; runShape(); }
+  else if (b.dataset.flip !== undefined) { const i = +b.dataset.flip; S.flips.has(i) ? S.flips.delete(i) : S.flips.add(i); render(); }
+  else if (b.dataset.fill !== undefined) { S.filled.add(+b.dataset.fill); render(); toast('Bridged the gap. Dashed: written by WordSnap, no new facts.'); }
+});
+pane.addEventListener('mouseover', (e) => {
+  const sn = e.target.closest('.sn');
+  editor.querySelectorAll('.src.hot').forEach((el) => el.classList.remove('hot'));
+  if (!sn) return;
+  const keys = (sn.dataset.from || '').split(',').filter(Boolean);
+  keys.forEach((k) => editor.querySelector(`.src[data-k="${k}"]`)?.classList.add('hot'));
+  editor.querySelector(`.src[data-k="${keys[0]}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+pane.addEventListener('mouseleave', () => editor.querySelectorAll('.src.hot').forEach((el) => el.classList.remove('hot')));
+editor.addEventListener('mouseover', (e) => {
+  if (S.shape !== 'open') return;
+  const src = e.target.closest('.src');
+  pane.querySelectorAll('.sn.hot').forEach((el) => el.classList.remove('hot'));
+  if (!src) return;
+  pane.querySelectorAll('.sn').forEach((sn) => { if ((sn.dataset.from || '').split(',').includes(src.dataset.k)) sn.classList.add('hot'); });
+});
+
+pop.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.submit !== undefined) { const v = pop.querySelector('[data-ask]')?.value.trim(); if (v) runTweak(v); }
+  else if (b.dataset.preset) runTweak(b.dataset.preset);
+  else if (b.dataset.tw === 'apply') applyTweak();
+  else if (b.dataset.tw === 'again') runTweak(S.tweak.steps[0]?.instruction || 'Clearer', true);
+  else if (b.dataset.tw === 'keep') { S.tweak = null; savedRange = null; hideTweak(); render(); }
+});
+pop.addEventListener('input', (e) => {
+  if (!e.target.matches('[data-ask]')) return;
+  const btn = pop.querySelector('[data-submit]');
+  if (btn) btn.disabled = !e.target.value.trim();
+});
+pop.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('[data-ask]') && e.target.value.trim()) runTweak(e.target.value.trim());
+  if (e.key === 'Escape') { S.tweak = null; hideTweak(); render(); }
+});
+document.addEventListener('mousedown', (e) => {
+  if (!pop.contains(e.target) && !pill.contains(e.target) && !editor.contains(e.target) && pop.classList.contains('on') && S.tweak?.status !== 'running') { S.tweak = null; hideTweak(); render(); }
+});
+editor.addEventListener('scroll', hideTweak);
+
+reset();
+</script>
+</body>
+</html>
