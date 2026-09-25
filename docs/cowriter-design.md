@@ -251,6 +251,13 @@ The only validated model is GLM-5.2 and these are new prompts. Before any UI:
 2. Read the output with the founder and look at the Timings waterfall for cost and latency.
 3. If the source quotes do not hold, change the schema before building on it.
 
+**Gate result, 2026-09-24: passed.** GLM-5.2 on the three dumps at two tunes: 6/6 Shape results kept by validation,
+all read as the writer's message, no invented numbers, names or links; 7 to 66 s per Shape. Carried into the build:
+(a) a non-bridge sentence whose sources do not locate gets one re-quote request before it is dropped, and the raw
+quotes go in the notes (one real idea was lost this way in the agents dump at balanced); (b) the Tweak prompt limits
+"why" and "add" instructions to reasons already in the draft (one tweak added "without restarting anything").
+Deferred to tuning with the UI: Tight barely tightens; long reasoning on formal email (66 s).
+
 ## Testing
 
 - Unit: `validateShape` (sources, bridge caps, unseen names and numbers, choices, the half-survives floor),
