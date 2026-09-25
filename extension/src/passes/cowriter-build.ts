@@ -1,9 +1,9 @@
 // Turn a draft, the dials and an instruction into provider requests. Pure; no I/O.
 import type { PassRequest } from '../providers/types';
 import type { Tune } from '../shared/cowriter';
-import { PassFill, PassShape, PassTweak } from '../shared/schemas';
+import { PassFill, PassRequote, PassShape, PassTweak } from '../shared/schemas';
 import type { TextSnapshot } from '../shared/types';
-import { FILL_SYSTEM, SHAPE_SYSTEM, TWEAK_SYSTEM } from './cowriter-prompts';
+import { FILL_SYSTEM, REQUOTE_SYSTEM, SHAPE_SYSTEM, TWEAK_SYSTEM } from './cowriter-prompts';
 
 export function tuneLine(t: Tune): string {
   return `Tune: length=${t.length}; tone=${t.tone}; for=${t.for}`;
@@ -11,6 +11,12 @@ export function tuneLine(t: Tune): string {
 
 export function buildShape(snapshot: TextSnapshot, tune: Tune): PassRequest<PassShape> {
   return { pass: 'shape', system: SHAPE_SYSTEM, user: `${tuneLine(tune)}\n\n<dump>\n${snapshot.text}\n</dump>`, schema: PassShape, effort: 'medium' };
+}
+
+export function buildRequote(input: { dump: string; sentences: { text: string; from: string[] }[] }): PassRequest<PassRequote> {
+  const list = input.sentences.map((s, i) => `${i + 1}. ${s.text}`).join('\n');
+  const user = `<dump>\n${input.dump}\n</dump>\n\n<sentences>\n${list}\n</sentences>`;
+  return { pass: 'shape', system: REQUOTE_SYSTEM, user, schema: PassRequote, effort: 'low' };
 }
 
 export function buildFill(input: { dump: string; shaped: string; gap: { what: string; after: number }; tune: Tune }): PassRequest<PassFill> {

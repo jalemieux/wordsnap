@@ -45,8 +45,20 @@ export function unseenTokens(text: string, source: string): string[] {
 
 type Kept = { text: string; from: string[]; bridge: boolean; key: string };
 
-export function validateShape(raw: PassShape, dump: string): { ok: true; view: ShapeView; notes: string[] } | { ok: false; reason: string; notes: string[] } {
+/** A sentence Shape wrote whose `from` quotes did not locate in the dump: a candidate for the re-quote pass. Indexes into the raw PassShape. */
+export interface UnsourcedSentence {
+  paragraph: number;
+  sentence: number;
+  text: string;
+  from: string[];
+}
+
+export function validateShape(
+  raw: PassShape,
+  dump: string,
+): { ok: true; view: ShapeView; notes: string[]; unsourced: UnsourcedSentence[] } | { ok: false; reason: string; notes: string[]; unsourced: UnsourcedSentence[] } {
   const notes: string[] = [];
+  const unsourced: UnsourcedSentence[] = [];
   const locates = (q: string) => !!q.trim() && locateQuote(dump, q) !== null;
   let total = 0;
   const paras: { role?: string; sentences: Kept[] }[] = [];
@@ -56,13 +68,18 @@ export function validateShape(raw: PassShape, dump: string): { ok: true; view: S
     p.sentences.forEach((s, si) => {
       total += 1;
       const text = clean(s.text);
-      const from = s.from.map(clean).filter(locates);
+      const rawFrom = s.from.map(clean);
+      const from = rawFrom.filter(locates);
       const bridge = !!s.bridge;
       const unseen = unseenTokens(text, dump);
       if (!text) return;
       if (unseen.length) return void notes.push(`new fact (${unseen.join(', ')}): ${text}`);
       if (bridge && words(text) > BRIDGE_MAX_WORDS) return void notes.push(`bridge over ${BRIDGE_MAX_WORDS} words: ${text}`);
-      if (!bridge && !from.length) return void notes.push(`no source in the dump: ${text}`);
+      if (!bridge && !from.length) {
+        unsourced.push({ paragraph: pi, sentence: si, text, from: rawFrom });
+        const cited = rawFrom.length ? ` [from: ${rawFrom.map((q) => `"${q}"`).join(' | ')}]` : '';
+        return void notes.push(`no source in the dump: ${text}${cited}`);
+      }
       kept.push({ text, from, bridge, key: `${pi}:${si}` });
     });
     paras.push({ role: p.role?.trim() || undefined, sentences: kept });
@@ -76,7 +93,7 @@ export function validateShape(raw: PassShape, dump: string): { ok: true; view: S
   for (const p of paras) p.sentences = p.sentences.filter((s) => !over.has(s.key) || void notes.push(`bridge over the one-in-four share: ${s.text}`));
 
   const surviving = paras.reduce((n, p) => n + p.sentences.length, 0);
-  if (surviving < total * SHAPE_MIN_SURVIVING || surviving === 0) return { ok: false, reason: `${surviving} of ${total} sentences survived`, notes };
+  if (surviving < total * SHAPE_MIN_SURVIVING || surviving === 0) return { ok: false, reason: `${surviving} of ${total} sentences survived`, notes, unsourced };
 
   const nonEmpty = paras.filter((p) => p.sentences.length);
   const where = new Map<string, [number, number]>();
@@ -97,7 +114,7 @@ export function validateShape(raw: PassShape, dump: string): { ok: true; view: S
 
   const dropped = raw.dropped.filter((d) => locates(d.quote)).map((d) => ({ quote: clean(d.quote), why: clean(d.why) }));
   const missing = raw.missing.filter((m) => clean(m.what)).map((m) => ({ what: clean(m.what), after: Math.min(m.after, paragraphs.length - 1) }));
-  return { ok: true, view: { note: clean(raw.note), paragraphs, choices, dropped, missing }, notes };
+  return { ok: true, view: { note: clean(raw.note), paragraphs, choices, dropped, missing }, notes, unsourced };
 }
 
 export function validateFill(raw: PassFill, dump: string): string[] {

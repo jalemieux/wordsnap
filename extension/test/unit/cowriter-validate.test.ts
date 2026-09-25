@@ -54,6 +54,19 @@ describe('validateShape', () => {
     expect(r).toMatchObject({ ok: false });
   });
 
+  it('reports sentences dropped for unlocatable sources, with their raw quotes, for a requote pass to fix', () => {
+    const r = validateShape(shape([[s('We move the offsite to March.', ['we should move the offsite to march']), s('I was careful not to rush it.', ['i was carefull not to enforce too much']), s('Bring laptops.', ['bring laptops'])]]), DUMP);
+    expect(r.ok).toBe(true);
+    expect(r.unsourced).toEqual([{ paragraph: 0, sentence: 1, text: 'I was careful not to rush it.', from: ['i was carefull not to enforce too much'] }]);
+    expect(r.notes).toContain('no source in the dump: I was careful not to rush it. [from: "i was carefull not to enforce too much"]');
+  });
+
+  it('returns unsourced sentences even when the whole result is rejected', () => {
+    const r = validateShape(shape([[s('One.', ['not in the dump']), s('Two.', ['nor this']), s('Three.', ['bring laptops'])]]), DUMP);
+    expect(r.ok).toBe(false);
+    expect(r.unsourced.map((u) => u.text)).toEqual(['One.', 'Two.']);
+  });
+
   it('keeps a choice only when both sides locate and it points at a surviving sentence; re-indexes after drops', () => {
     const raw = shape([[s('Gone.', ['nowhere']), s('We move the offsite to March.', ['no, march']), s('Bring laptops.', ['bring laptops'])]], {
       choices: [

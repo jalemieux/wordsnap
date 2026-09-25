@@ -13,6 +13,15 @@ const SHAPE = {
   dropped: [],
   missing: [{ what: 'Who books the venue', after: 1 }],
 };
+// One sentence cites corrected wording ("bring the laptops along") instead of the dump's own words: dropped as
+// unsourced by the first validation, recoverable by a requote.
+const SHAPE_MISQUOTE = {
+  note: 'Decision first.',
+  paragraphs: [{ role: 'Decision', sentences: [{ text: 'We move the offsite to March.', from: ['we should move the offsite to march'] }, { text: 'The budget closes in Q1.', from: ['the budget closes in q1'] }] }, { role: 'Ask', sentences: [{ text: 'Bring laptops.', from: ['bring the laptops along'] }] }],
+  choices: [],
+  dropped: [],
+  missing: [],
+};
 
 class Fake implements LLMProvider {
   readonly id = 'mock' as const;
@@ -157,5 +166,37 @@ describe('CowriterSession', () => {
     fake.answers.shape!.push(SHAPE);
     await s.shape();
     expect(states[states.length - 1]!.trace![0]).toMatchObject({ trigger: 'shape', passes: [{ pass: 'shape', outcome: 'ok' }] });
+  });
+
+  it('recovers a sentence whose corrected quote does not locate by asking the model to re-quote it', async () => {
+    const { s, fake, last } = setup();
+    fake.answers.shape!.push(SHAPE_MISQUOTE, { quotes: [['also bring laptops']] });
+    await s.shape();
+    expect(fake.calls.map((c) => c.pass)).toEqual(['shape', 'shape']);
+    expect(last().shape!.status).toBe('open');
+    const sentences = last().shape!.view!.paragraphs.flatMap((p) => p.sentences.map((x) => x.text));
+    expect(sentences).toContain('Bring laptops.');
+  });
+
+  it('falls back to the first validation, without an error, when the requote request fails', async () => {
+    const { s, fake, last } = setup();
+    fake.answers.shape!.push(SHAPE_MISQUOTE, new Error('boom'));
+    await s.shape();
+    expect(last().shape!.status).toBe('open');
+    const sentences = last().shape!.view!.paragraphs.flatMap((p) => p.sentences.map((x) => x.text));
+    expect(sentences).not.toContain('Bring laptops.');
+  });
+
+  it('keeps the requote span in the same trace run as the shape it followed', async () => {
+    const fake = new Fake();
+    const states: CowriterState[] = [];
+    const s = new CowriterSession('k', 'gmail', { provider: () => fake, settings: () => DEFAULT_SETTINGS, emit: (st) => states.push(st), tune: { length: 'balanced', tone: 'neutral', for: 'post' }, trace: true, now: () => 1000 });
+    s.handleSnapshot(snapshotFromText(DUMP, 1));
+    fake.answers.shape!.push(SHAPE_MISQUOTE, { quotes: [['also bring laptops']] });
+    await s.shape();
+    const runs = states[states.length - 1]!.trace!;
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.trigger).toBe('shape');
+    expect(runs[0]!.passes.map((p) => p.pass)).toEqual(['shape', 'shape']);
   });
 });

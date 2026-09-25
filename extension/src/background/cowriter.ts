@@ -1,7 +1,7 @@
 // One co-writer session per composer: holds the draft, the dials, the shaped result and the open tweak, and runs
 // Shape, Fill and Tweak only when the user asks. Nothing here runs on a timer or on an edit.
-import { buildFill, buildShape, buildTweak } from '../passes/cowriter-build';
-import { SHAPE_REJECTED, TWEAK_REJECTED, validateFill, validateShape, validateTweak } from '../passes/cowriter-validate';
+import { buildFill, buildRequote, buildShape, buildTweak } from '../passes/cowriter-build';
+import { SHAPE_REJECTED, TWEAK_REJECTED, validateFill, validateShape, validateTweak, type UnsourcedSentence } from '../passes/cowriter-validate';
 import type { LLMProvider, PassRequest, PassResult, PassUsage } from '../providers/types';
 import { ProviderError } from '../providers/types';
 import { locateQuote } from '../shared/anchoring';
@@ -9,8 +9,12 @@ import { emptyCowriterState, shapedText, type CowriterPassId, type CowriterState
 import { estimateCostUsd } from '../shared/cost';
 import { log } from '../shared/log';
 import type { PassFill, PassShape, PassTweak } from '../shared/schemas';
-import { TraceLog, formatRun, type TraceTrigger } from '../shared/trace';
+import { TraceLog, formatRun, type RunTrace } from '../shared/trace';
 import { activeModel, type HostId, type Settings, type Span, type TextSnapshot } from '../shared/types';
+
+/** Re-quote runs at most once per shape and only when the loss is small enough to be worth a request. */
+const REQUOTE_MIN = 1;
+const REQUOTE_MAX = 6;
 
 export interface CowriterDeps {
   provider: () => LLMProvider;
@@ -112,15 +116,29 @@ export class CowriterSession {
     const tune = { ...this.st.tune };
     this.st.shape = { status: 'running', tune, forVersion: snap.version, stale: false, flips: [], fills: {} };
     this.emit();
-    const res = await this.execute('shape', buildShape(snap, tune), 'shape');
+    const run = this.traces?.beginRun('shape', this.now());
+    const res = await this.execute('shape', buildShape(snap, tune), run);
     const sh = this.st.shape;
-    if (!sh || sh.status !== 'running') return; // replaced meanwhile
+    if (!sh || sh.status !== 'running') {
+      this.finishRun(run);
+      return; // replaced meanwhile
+    }
     if (!res.ok) {
+      this.finishRun(run);
       if (res.aborted) return;
       this.st.shape = { ...sh, status: 'error', error: res.error };
       return this.emit();
     }
-    const v = validateShape(res.result.data, snap.text);
+    let raw: PassShape = res.result.data;
+    let v = validateShape(raw, snap.text);
+    if (v.unsourced.length >= REQUOTE_MIN && v.unsourced.length <= REQUOTE_MAX) {
+      const patched = await this.requote(snap.text, raw, v.unsourced, run);
+      if (patched) {
+        raw = patched;
+        v = validateShape(raw, snap.text);
+      }
+    }
+    this.finishRun(run);
     if (!v.ok) {
       log.warn(`${this.st.sessionKey}: shape rejected (${v.reason})`, v.notes);
       this.st.shape = { ...sh, status: 'error', error: SHAPE_REJECTED };
@@ -147,7 +165,9 @@ export class CowriterSession {
     delete sh.error;
     this.emit();
     const req = buildFill({ dump: this.shapedFrom, shaped: shapedText(sh.view, sh.flips, sh.fills), gap: m, tune: sh.tune });
-    const res = await this.execute('fill', req, 'fill');
+    const run = this.traces?.beginRun('fill', this.now());
+    const res = await this.execute('fill', req, run);
+    this.finishRun(run);
     const now = this.st.shape;
     if (!now || now !== sh) return;
     delete now.filling;
@@ -179,7 +199,9 @@ export class CowriterSession {
     this.emit();
     const passage = current ?? req.quote;
     const request = buildTweak({ draft: snap.text, passage: req.quote, instruction: req.instruction, tune: this.st.tune, current, again: req.mode === 'again' });
-    const res = await this.execute('tweak', request, 'tweak');
+    const run = this.traces?.beginRun('tweak', this.now());
+    const res = await this.execute('tweak', request, run);
+    this.finishRun(run);
     const tw = this.st.tweak;
     if (!tw || tw.id !== req.id) return;
     if (tw.status === 'stale') return this.emit();
@@ -222,12 +244,39 @@ export class CowriterSession {
     delete this.controllers[pass];
   }
 
-  private async execute<T>(pass: CowriterPassId, req: PassRequest<T>, trigger: TraceTrigger): Promise<{ ok: true; result: PassResult<T> } | { ok: false; aborted: boolean; error: string }> {
+  /**
+   * One extra request after a validated shape dropped sentences only because their `from` quotes did not locate
+   * (the model cited corrected wording instead of the dump's own): ask it to re-quote just those sentences, patch
+   * the raw PassShape's `from` with what locates, and let the caller revalidate. Runs at most once per shape call,
+   * shares that shape's trace run, and returns null (fall back to the first validation, not an error) on any failure.
+   */
+  private async requote(dump: string, raw: PassShape, unsourced: UnsourcedSentence[], run: RunTrace | undefined): Promise<PassShape | null> {
+    const req = buildRequote({ dump, sentences: unsourced.map((u) => ({ text: u.text, from: u.from })) });
+    const res = await this.execute('shape', req, run);
+    if (!res.ok) return null;
+    const quotes = res.result.data.quotes;
+    const patched: PassShape = structuredClone(raw);
+    let recovered = 0;
+    unsourced.forEach((u, i) => {
+      const q = quotes[i];
+      if (!q?.length) return;
+      const s = patched.paragraphs[u.paragraph]?.sentences[u.sentence];
+      if (!s) return;
+      const located = q.filter((x) => locateQuote(dump, x) !== null);
+      if (located.length) {
+        s.from = located;
+        recovered += 1;
+      }
+    });
+    log.info(`${this.st.sessionKey}: shape: re-quoted ${unsourced.length} sentence(s), ${recovered} recovered`);
+    return patched;
+  }
+
+  private async execute<T>(pass: CowriterPassId, req: PassRequest<T>, run: RunTrace | undefined): Promise<{ ok: true; result: PassResult<T> } | { ok: false; aborted: boolean; error: string }> {
     this.abort(pass);
     const controller = new AbortController();
     this.controllers[pass] = controller;
-    const run = this.traces?.beginRun(trigger, this.now());
-    const span = this.traces?.beginPass(pass, this.now());
+    const span = run ? this.traces?.beginPass(pass, this.now()) : undefined;
     log.info(`${this.st.sessionKey}: ${pass} start (${req.user.length} chars, effort ${req.effort})`);
     let usage: PassUsage | undefined;
     let outcome: 'ok' | 'aborted' | 'error' = 'error';
@@ -255,12 +304,15 @@ export class CowriterSession {
       return { ok: false, aborted: false, error };
     } finally {
       if (this.controllers[pass] === controller) delete this.controllers[pass];
-      if (span && run) {
-        this.traces!.endPass(span, outcome, this.now(), usage);
-        this.traces!.endRun(run, this.now());
-        log.info(`${this.st.sessionKey}: ${formatRun(run)}`);
-      }
+      if (span && run) this.traces!.endPass(span, outcome, this.now(), usage);
     }
+  }
+
+  /** Ends and logs a trace run this action opened. A no-op when tracing is off. */
+  private finishRun(run: RunTrace | undefined): void {
+    if (!run || !this.traces) return;
+    this.traces.endRun(run, this.now());
+    log.info(`${this.st.sessionKey}: ${formatRun(run)}`);
   }
 
   private account(u: PassUsage): void {

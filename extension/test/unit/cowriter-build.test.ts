@@ -1,5 +1,5 @@
-import { buildFill, buildShape, buildTweak, tuneLine } from '../../src/passes/cowriter-build';
-import { SHAPE_SYSTEM, TWEAK_SYSTEM } from '../../src/passes/cowriter-prompts';
+import { buildFill, buildRequote, buildShape, buildTweak, tuneLine } from '../../src/passes/cowriter-build';
+import { REQUOTE_SYSTEM, SHAPE_SYSTEM, TWEAK_SYSTEM } from '../../src/passes/cowriter-prompts';
 import { snapshotFromText } from '../../src/shared/anchoring';
 
 const tune = { length: 'tight', tone: 'formal', for: 'email' } as const;
@@ -32,5 +32,17 @@ describe('co-writer requests', () => {
     const again = buildTweak({ draft: 'D', passage: 'P', instruction: 'Shorter', tune, current: 'C', again: true });
     expect(again.user).toContain('Instruction: Another version of this, clearly different from <current>: Shorter');
     expect(again.user).toContain('<current>\nC\n</current>');
+  });
+
+  it('asks the model to re-quote sentences whose sources did not locate', () => {
+    const r = buildRequote({ dump: 'd', sentences: [{ text: 'One.', from: ['x'] }, { text: 'Two.', from: [] }] });
+    expect(r.pass).toBe('shape');
+    expect(r.effort).toBe('low');
+    expect(r.system).toBe(REQUOTE_SYSTEM);
+    expect(r.user).toBe('<dump>\nd\n</dump>\n\n<sentences>\n1. One.\n2. Two.\n</sentences>');
+  });
+
+  it('keeps tweaks to reasons the draft actually gives', () => {
+    expect(TWEAK_SYSTEM).toContain('use only what the draft already says');
   });
 });

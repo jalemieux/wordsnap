@@ -132,6 +132,10 @@ export const PassShape = z.object({
 });
 export type PassShape = z.infer<typeof PassShape>;
 
+/** Re-quote pass: recovers a sentence Shape wrote in corrected wording by asking for the dump's own fragments. */
+export const PassRequote = z.object({ quotes: z.array(z.array(Quote).max(6)).max(12) });
+export type PassRequote = z.infer<typeof PassRequote>;
+
 export const PassFill = z.object({
   sentences: z.array(z.object({ text: z.string().min(1).max(400), from: z.array(Quote).max(4) })).min(1).max(3),
 });
