@@ -24,12 +24,12 @@ export function unseenTokens(text: string, source: string): string[] {
   const out: string[] = [];
   let sentenceStart = true;
   for (const raw of text.split(/\s+/).filter(Boolean)) {
-    const w = raw.replace(/^[("'"'[]+/, '').replace(/[)"'"'\].,;:!?]+$/, '');
+    const w = raw.replace(/^[(“‘[]+/, '').replace(/[\)”’\].,;:!?]+$/, '');
     const isUrl = /^(https?:\/\/|www\.)/i.test(w);
     const hasDigit = /\d/.test(w);
-    const isName = !sentenceStart && /^[A-Z][A-Za-z''-]+$/.test(w) && !/^I([''].*)?$/.test(w);
+    const isName = !sentenceStart && /^[A-Z][A-Za-z‘’''-]+$/.test(w) && !/^I([‘’].*)?$/.test(w);
     if (w && (isUrl || hasDigit || isName) && !src.includes(w.toLowerCase())) out.push(w);
-    sentenceStart = /[.!?:]["'"')\]]*$/.test(raw);
+    sentenceStart = /[.!?:][)”’\]]*$/.test(raw);
   }
   return out;
 }
