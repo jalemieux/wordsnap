@@ -23,13 +23,22 @@ export function unseenTokens(text: string, source: string): string[] {
   const src = source.toLowerCase();
   const out: string[] = [];
   let sentenceStart = true;
+  // Regexes using \uXXXX escapes for curly quotes to prevent flattening:
+  // “ = " (left double), ‘ = ' (left single)
+  // ” = " (right double), ’ = ' (right single)
+  const stripLeading = new RegExp('^[(\\u201c\\u2018[]+');
+  const stripTrailing = new RegExp('[)\\u201d\\u2019\\].,;:!?]+$');
+  const checkName = new RegExp('^[A-Z][A-Za-z\\u2018\\u2019\'\'-]+$');
+  const checkI = new RegExp('^I([\\u2018\\u2019].*)?$');
+  const checkSentenceEnd = new RegExp('[.!?:][)\\u201d\\u2019\\]]*$');
+
   for (const raw of text.split(/\s+/).filter(Boolean)) {
-    const w = raw.replace(/^[(“‘[]+/, '').replace(/[\)”’\].,;:!?]+$/, '');
+    const w = raw.replace(stripLeading, '').replace(stripTrailing, '');
     const isUrl = /^(https?:\/\/|www\.)/i.test(w);
     const hasDigit = /\d/.test(w);
-    const isName = !sentenceStart && /^[A-Z][A-Za-z‘’''-]+$/.test(w) && !/^I([‘’].*)?$/.test(w);
+    const isName = !sentenceStart && checkName.test(w) && !checkI.test(w);
     if (w && (isUrl || hasDigit || isName) && !src.includes(w.toLowerCase())) out.push(w);
-    sentenceStart = /[.!?:][)”’\]]*$/.test(raw);
+    sentenceStart = checkSentenceEnd.test(raw);
   }
   return out;
 }

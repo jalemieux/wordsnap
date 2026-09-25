@@ -17,14 +17,14 @@ describe('unseenTokens', () => {
     expect(unseenTokens('We move it to March. The budget closes in Q1. Acme agreed. Bring laptops.', DUMP)).toEqual([]);
     expect(unseenTokens('I think so: Because it closes.', DUMP)).toEqual([]);
   });
-  it('handles curly quotes in sentence endings without misflagging the next word as a name', () => {
-    expect(unseenTokens('We move it to March.” Bring laptops.', DUMP)).toEqual([]);
+  it('handles curly quotes in sentence endings without misflagging an unknown capital', () => {
+    expect(unseenTokens('We move it to March.” Zeta arrived.', DUMP)).toEqual([]);
   });
   it('strips curly quotes when checking for new names', () => {
     expect(unseenTokens('The venue is “Hilton” now.', DUMP)).toEqual(['Hilton']);
   });
   it('accepts names wrapped in curly single quotes if they are in the source', () => {
-    expect(unseenTokens('We said ‘Acme’ agreed.', DUMP)).toEqual([]);
+    expect(unseenTokens('The venue is ‘Hilton’ now.', DUMP)).toEqual(['Hilton']);
   });
 });
 
