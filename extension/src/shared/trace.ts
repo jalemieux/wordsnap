@@ -1,14 +1,15 @@
 // Timing traces for dev builds and the playground: one run per orchestrator run, one span per pass request, marks
 // stamped by the orchestrator as the provider reports them. Pure; the clock is passed in.
+import type { CowriterPassId } from './cowriter';
 import type { PassId } from './types';
 
 export type TraceMarkName = 'sent' | 'firstReasoning' | 'firstContent' | 'end' | 'repair';
 /** reanalyze covers Start, Re-analyze and a structure Keep or Done: every explicit run. */
-export type TraceTrigger = 'reanalyze' | 'recheck' | 'auto' | 'other';
+export type TraceTrigger = 'reanalyze' | 'recheck' | 'auto' | 'other' | 'shape' | 'fill' | 'tweak';
 export type TraceOutcome = 'ok' | 'aborted' | 'error' | 'refused';
 
 export interface PassTrace {
-  pass: PassId;
+  pass: PassId | CowriterPassId;
   /** What the span is for when a pass fans out (one B request per claim). */
   label?: string;
   start: number;
@@ -84,7 +85,7 @@ export class TraceLog {
     if (this.open === run) this.open = null;
   }
 
-  beginPass(pass: PassId, now: number, label?: string): PassTrace {
+  beginPass(pass: PassId | CowriterPassId, now: number, label?: string): PassTrace {
     let run = this.open;
     if (!run) {
       run = this.beginRun('other', now);

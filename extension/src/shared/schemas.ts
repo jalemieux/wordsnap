@@ -99,3 +99,43 @@ export const PassS = z.object({
   gaps: z.array(z.string().max(200)).max(20).optional(),
 });
 export type PassS = z.infer<typeof PassS>;
+
+/* ---------- co-writer ---------- */
+
+const Quote = z.string().max(600);
+
+export const PassShape = z.object({
+  note: z.string().max(400),
+  paragraphs: z
+    .array(
+      z.object({
+        role: z.string().max(40).optional(),
+        sentences: z.array(z.object({ text: z.string().min(1).max(600), from: z.array(Quote).max(6), bridge: z.boolean().optional() })).min(1).max(12),
+      }),
+    )
+    .min(1)
+    .max(12),
+  choices: z
+    .array(
+      z.object({
+        topic: z.string().max(120),
+        kept: Quote,
+        other: Quote,
+        paragraph: z.number().int().min(0),
+        sentence: z.number().int().min(0),
+        alt: z.object({ text: z.string().min(1).max(600), from: z.array(Quote).max(6) }),
+      }),
+    )
+    .max(5),
+  dropped: z.array(z.object({ quote: Quote, why: z.string().max(200) })).max(10),
+  missing: z.array(z.object({ what: z.string().max(160), after: z.number().int().min(0) })).max(5),
+});
+export type PassShape = z.infer<typeof PassShape>;
+
+export const PassFill = z.object({
+  sentences: z.array(z.object({ text: z.string().min(1).max(400), from: z.array(Quote).max(4) })).min(1).max(3),
+});
+export type PassFill = z.infer<typeof PassFill>;
+
+export const PassTweak = z.object({ replacement: z.string().min(1).max(4000), note: z.string().max(200).optional() });
+export type PassTweak = z.infer<typeof PassTweak>;

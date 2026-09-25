@@ -1,6 +1,7 @@
 // LLM provider abstraction. The passes call `runPass`; providers own transport, streaming, tools and parsing.
 import type { ZodType } from 'zod';
 import type { TraceMarkName } from '../shared/trace';
+import type { CowriterPassId } from '../shared/cowriter';
 import type { Effort, PassId } from '../shared/types';
 
 export interface ProviderCapabilities {
@@ -21,7 +22,7 @@ export interface ResearchBudget {
 }
 
 export interface PassRequest<T> {
-  pass: PassId;
+  pass: PassId | CowriterPassId;
   /** Stable byte-for-byte across requests: carries the cache breakpoint. */
   system: string;
   /** Volatile: the draft and any per-run context. */

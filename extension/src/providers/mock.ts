@@ -31,11 +31,14 @@ function abortError(): Error {
   return e;
 }
 
-const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C', PassUsage> = {
+const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C' | 'shape' | 'fill' | 'tweak', PassUsage> = {
   S: { inputTokens: 2400, outputTokens: 700, cacheReadTokens: 1800, searches: 0 },
   A: { inputTokens: 2600, outputTokens: 900, cacheReadTokens: 1800, searches: 0 },
   B: { inputTokens: 18000, outputTokens: 1600, cacheReadTokens: 1800, searches: 4 },
   C: { inputTokens: 14000, outputTokens: 1800, cacheReadTokens: 1800, searches: 3 },
+  shape: { inputTokens: 3000, outputTokens: 1000, cacheReadTokens: 0, searches: 0 },
+  fill: { inputTokens: 1500, outputTokens: 500, cacheReadTokens: 0, searches: 0 },
+  tweak: { inputTokens: 1200, outputTokens: 400, cacheReadTokens: 0, searches: 0 },
 };
 
 export class MockProvider implements LLMProvider {
