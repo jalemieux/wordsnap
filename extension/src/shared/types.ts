@@ -1,6 +1,7 @@
 import type { RunTrace } from './trace';
 // Runtime types shared by background, content script, UI and options page.
 import type { Challenge, Claim, ClarityFinding, StructureSlot, Verdict } from './schemas';
+import type { Tune } from './cowriter';
 
 export type HostId = 'gmail' | 'x' | 'linkedin' | 'generic';
 /** S runs first and proposes an order; A reads clarity and claims; B checks facts; C argues back. */
@@ -184,6 +185,8 @@ export interface Settings {
    * content script and a granted host permission; the generic adapter starts on its own there. Sorted, unique.
    */
   sites: string[];
+  /** The co-writer's dials, per origin ("https://mail.google.com"), as last set in the panel there. */
+  tune: Record<string, Tune>;
 }
 
 export const DEFAULT_OPENROUTER: OpenRouterSettings = {
@@ -208,6 +211,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoAnalyze: false,
   checks: { ...DEFAULT_CHECKS },
   sites: [],
+  tune: {},
 };
 
 export const EMPTY_PASSES: Record<PassId, PassStatus> = {

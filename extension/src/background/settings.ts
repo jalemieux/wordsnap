@@ -1,4 +1,5 @@
 import { DEFAULT_CHECKS, DEFAULT_SETTINGS, SUPPORTED_MODEL, SUPPORTED_PROVIDER_ORDER, type Settings } from '../shared/types';
+import { DEFAULT_TUNE, isTune, type Tune } from '../shared/cowriter';
 import type { KeyValueStorage } from './storage';
 
 export const SETTINGS_KEY = 'settings';
@@ -18,7 +19,7 @@ export class SettingsStore {
 
   async set(patch: Partial<Settings>): Promise<Settings> {
     const current = await this.get();
-    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) }, openrouter: { ...current.openrouter, ...(patch.openrouter ?? {}) }, checks: { ...current.checks, ...(patch.checks ?? {}) } });
+    const next = mergeSettings({ ...current, ...patch, enabledHosts: { ...current.enabledHosts, ...(patch.enabledHosts ?? {}) }, effort: { ...current.effort, ...(patch.effort ?? {}) }, openrouter: { ...current.openrouter, ...(patch.openrouter ?? {}) }, checks: { ...current.checks, ...(patch.checks ?? {}) }, tune: { ...current.tune, ...(patch.tune ?? {}) } });
     this.cache = next;
     await this.storage.set(SETTINGS_KEY, next);
     for (const l of this.listeners) l(next);
@@ -41,6 +42,16 @@ export class SettingsStore {
   }
 }
 
+function cleanTune(raw: unknown): Record<string, Tune> {
+  const out: Record<string, Tune> = {};
+  if (raw && typeof raw === 'object') for (const [origin, t] of Object.entries(raw)) if (typeof origin === 'string' && isTune(t)) out[origin] = { length: t.length, tone: t.tone, for: t.for };
+  return out;
+}
+
+export function tuneFor(settings: Settings, origin: string): Tune {
+  return settings.tune[origin] ?? { ...DEFAULT_TUNE };
+}
+
 /**
  * Fill defaults and pin what this build supports: OpenRouter serving z-ai/glm-5.2 from Z.AI with no fallbacks. A stored
  * 'claude' provider (from an earlier build) becomes OpenRouter; its key stays in `apiKey`, unused. The mock provider is
@@ -58,6 +69,7 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
     sites: Array.isArray(partial.sites) ? [...new Set(partial.sites.filter((o): o is string => typeof o === 'string' && o.length > 0))].sort() : [],
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : '',
     model: partial.model || DEFAULT_SETTINGS.model,
+    tune: cleanTune(partial.tune),
     openrouter: {
       ...DEFAULT_SETTINGS.openrouter,
       ...(partial.openrouter ?? {}),

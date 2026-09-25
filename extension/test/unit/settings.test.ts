@@ -42,3 +42,24 @@ describe('settings/validateKey', () => {
     expect(r.type === 'validateKey' && !r.ok && /OpenRouter/.test(r.error) && r.hint === undefined).toBe(true);
   });
 });
+
+import { tuneFor } from '../../src/background/settings';
+
+describe('tune per site', () => {
+  it('keeps valid dials per origin and drops anything else', () => {
+    const s = mergeSettings({ tune: { 'https://mail.google.com': { length: 'tight', tone: 'formal', for: 'email' }, 'https://x.com': { length: 'huge' } } as never });
+    expect(s.tune).toEqual({ 'https://mail.google.com': { length: 'tight', tone: 'formal', for: 'email' } });
+  });
+
+  it('gives the default dials for a site that has none', () => {
+    const s = mergeSettings({});
+    expect(tuneFor(s, 'https://example.com')).toEqual({ length: 'balanced', tone: 'neutral', for: 'post' });
+  });
+
+  it('merges one site into the map without losing the others', async () => {
+    const store = new SettingsStore(new MemoryStorage());
+    await store.set({ tune: { a: { length: 'tight', tone: 'casual', for: 'post' } } });
+    await store.set({ tune: { b: { length: 'full', tone: 'formal', for: 'doc' } } });
+    expect(Object.keys((await store.get()).tune).sort()).toEqual(['a', 'b']);
+  });
+});
