@@ -1,0 +1,284 @@
+// One co-writer session per composer: holds the draft, the dials, the shaped result and the open tweak, and runs
+// Shape, Fill and Tweak only when the user asks. Nothing here runs on a timer or on an edit.
+import { buildFill, buildShape, buildTweak } from '../passes/cowriter-build';
+import { SHAPE_REJECTED, TWEAK_REJECTED, validateFill, validateShape, validateTweak } from '../passes/cowriter-validate';
+import type { LLMProvider, PassRequest, PassResult, PassUsage } from '../providers/types';
+import { ProviderError } from '../providers/types';
+import { locateQuote } from '../shared/anchoring';
+import { emptyCowriterState, shapedText, type CowriterPassId, type CowriterState, type Tune } from '../shared/cowriter';
+import { estimateCostUsd } from '../shared/cost';
+import { log } from '../shared/log';
+import type { PassFill, PassShape, PassTweak } from '../shared/schemas';
+import { TraceLog, formatRun, type TraceTrigger } from '../shared/trace';
+import { activeModel, type HostId, type Settings, type Span, type TextSnapshot } from '../shared/types';
+
+export interface CowriterDeps {
+  provider: () => LLMProvider;
+  settings: () => Settings;
+  emit: (state: CowriterState) => void;
+  /** The dials this session starts with (the site's). */
+  tune: Tune;
+  /** The user changed the dials: remember them for the site. */
+  onTune?: (tune: Tune) => void;
+  onCost?: (usd: number) => void;
+  now?: () => number;
+  trace?: boolean;
+}
+
+export const SAVED_VERSION = 2;
+export interface SavedCowriter {
+  version: 2;
+  state: CowriterState;
+  snapshot: TextSnapshot | null;
+  shapedFrom: string | null;
+}
+
+export interface TweakRequest {
+  id: string;
+  quote: string;
+  span: Span;
+  instruction: string;
+  mode: 'new' | 'refine' | 'again';
+}
+
+const ERRORS: Record<ProviderError['kind'], string> = {
+  auth: 'API key rejected. Check it in WordSnap settings.',
+  workspace: 'API key rejected. Check it in WordSnap settings.',
+  billing: 'Billing is not set up on this key.',
+  rate_limit: 'Rate limited.',
+  network: 'Could not reach the API. Try again.',
+  invalid: 'The model returned something WordSnap could not read. Try again.',
+  unknown: 'Something went wrong. Try again.',
+};
+
+export class CowriterSession {
+  private st: CowriterState;
+  private snapshot: TextSnapshot | null = null;
+  /** The text the open shape was made from, to tell when the draft moved on. */
+  private shapedFrom: string | null = null;
+  private controllers: Partial<Record<CowriterPassId, AbortController>> = {};
+  private readonly traces: TraceLog | null;
+  private readonly now: () => number;
+  private closed = false;
+
+  constructor(sessionKey: string, host: HostId, private readonly deps: CowriterDeps) {
+    this.st = emptyCowriterState(sessionKey, host, deps.tune);
+    this.now = deps.now ?? (() => Date.now());
+    this.traces = deps.trace ? new TraceLog() : null;
+  }
+
+  get state(): CowriterState {
+    return this.st;
+  }
+
+  dump(): SavedCowriter {
+    return structuredClone({ version: SAVED_VERSION, state: this.st, snapshot: this.snapshot, shapedFrom: this.shapedFrom });
+  }
+
+  restore(saved: unknown): boolean {
+    const s = saved as Partial<SavedCowriter> | null;
+    if (!s || s.version !== SAVED_VERSION || !s.state) return false;
+    this.st = structuredClone(s.state);
+    this.snapshot = s.snapshot ? structuredClone(s.snapshot) : null;
+    this.shapedFrom = s.shapedFrom ?? null;
+    // A request in flight when the worker stopped never finished.
+    if (this.st.shape?.status === 'running') this.st.shape = { ...this.st.shape, status: 'error', error: 'Interrupted. Try again.' };
+    if (this.st.shape) delete this.st.shape.filling;
+    if (this.st.tweak?.status === 'running') this.st.tweak = { ...this.st.tweak, status: 'error', error: 'Interrupted. Try again.' };
+    return true;
+  }
+
+  handleSnapshot(snapshot: TextSnapshot): void {
+    if (this.closed) return;
+    this.snapshot = snapshot;
+    this.st.snapshotVersion = snapshot.version;
+    const sh = this.st.shape;
+    if (sh && sh.status === 'open' && this.shapedFrom !== null && snapshot.text !== this.shapedFrom) sh.stale = true;
+    const tw = this.st.tweak;
+    if (tw && (tw.status === 'open' || tw.status === 'running') && locateQuote(snapshot.text, tw.quote, tw.span.start) === null) tw.status = 'stale';
+    this.emit();
+  }
+
+  setTune(tune: Tune): void {
+    this.st.tune = { ...tune };
+    this.deps.onTune?.({ ...tune });
+    this.emit();
+  }
+
+  async shape(): Promise<void> {
+    const snap = this.snapshot;
+    if (!snap || this.closed) return;
+    this.abort('fill');
+    const tune = { ...this.st.tune };
+    this.st.shape = { status: 'running', tune, forVersion: snap.version, stale: false, flips: [], fills: {} };
+    this.emit();
+    const res = await this.execute('shape', buildShape(snap, tune), 'shape');
+    const sh = this.st.shape;
+    if (!sh || sh.status !== 'running') return; // replaced meanwhile
+    if (!res.ok) {
+      if (res.aborted) return;
+      this.st.shape = { ...sh, status: 'error', error: res.error };
+      return this.emit();
+    }
+    const v = validateShape(res.result.data, snap.text);
+    if (!v.ok) {
+      log.warn(`${this.st.sessionKey}: shape rejected (${v.reason})`, v.notes);
+      this.st.shape = { ...sh, status: 'error', error: SHAPE_REJECTED };
+      return this.emit();
+    }
+    if (v.notes.length) log.info(`${this.st.sessionKey}: shape kept with ${v.notes.length} drop(s): ${v.notes.slice(0, 6).join('; ')}`);
+    this.shapedFrom = snap.text;
+    this.st.shape = { ...sh, status: 'open', view: v.view, stale: this.snapshot?.text !== snap.text };
+    this.emit();
+  }
+
+  flip(choice: number): void {
+    const sh = this.st.shape;
+    if (!sh?.view?.choices[choice]) return;
+    sh.flips = sh.flips.includes(choice) ? sh.flips.filter((i) => i !== choice) : [...sh.flips, choice].sort((a, b) => a - b);
+    this.emit();
+  }
+
+  async fill(gap: number): Promise<void> {
+    const sh = this.st.shape;
+    const m = sh?.view?.missing[gap];
+    if (!sh || !sh.view || !m || sh.filling !== undefined || !this.shapedFrom) return;
+    sh.filling = gap;
+    delete sh.error;
+    this.emit();
+    const req = buildFill({ dump: this.shapedFrom, shaped: shapedText(sh.view, sh.flips, sh.fills), gap: m, tune: sh.tune });
+    const res = await this.execute('fill', req, 'fill');
+    const now = this.st.shape;
+    if (!now || now !== sh) return;
+    delete now.filling;
+    if (res.ok) {
+      const sentences = validateFill(res.result.data, this.shapedFrom);
+      if (sentences.length) now.fills = { ...now.fills, [gap]: sentences };
+      else now.error = 'Nothing WordSnap could write there stayed with your text. Write that part yourself.';
+    } else if (!res.aborted) now.error = res.error;
+    this.emit();
+  }
+
+  shapeAction(action: 'applied' | 'kept'): void {
+    const sh = this.st.shape;
+    if (!sh || (sh.status !== 'open' && sh.status !== 'error')) return;
+    this.abort('fill');
+    sh.status = action;
+    delete sh.filling;
+    this.emit();
+  }
+
+  async tweak(req: TweakRequest): Promise<void> {
+    const snap = this.snapshot;
+    if (!snap || this.closed) return;
+    const prev = this.st.tweak;
+    const current = req.mode !== 'new' && prev?.id === req.id ? prev.steps[prev.steps.length - 1]?.text : undefined;
+    if (req.mode !== 'new' && current === undefined) return;
+    const steps = req.mode === 'new' ? [] : prev!.steps;
+    this.st.tweak = { id: req.id, quote: req.quote, span: req.span, forVersion: snap.version, steps, status: 'running' };
+    this.emit();
+    const passage = current ?? req.quote;
+    const request = buildTweak({ draft: snap.text, passage: req.quote, instruction: req.instruction, tune: this.st.tune, current, again: req.mode === 'again' });
+    const res = await this.execute('tweak', request, 'tweak');
+    const tw = this.st.tweak;
+    if (!tw || tw.id !== req.id) return;
+    if (tw.status === 'stale') return this.emit();
+    if (!res.ok) {
+      if (res.aborted) return;
+      this.st.tweak = { ...tw, status: 'error', error: res.error };
+      return this.emit();
+    }
+    const v = validateTweak(res.result.data, { passage, draft: snap.text, instruction: req.instruction });
+    if (!v.ok) {
+      log.warn(`${this.st.sessionKey}: tweak rejected (${v.reason})`);
+      this.st.tweak = { ...tw, status: 'error', error: TWEAK_REJECTED };
+      return this.emit();
+    }
+    const step = v.note ? { instruction: req.instruction, text: v.text, note: v.note } : { instruction: req.instruction, text: v.text };
+    // Again replaces the last version; refine adds on top of it.
+    const next = req.mode === 'again' ? [...tw.steps.slice(0, -1), { ...step, instruction: tw.steps[tw.steps.length - 1]!.instruction }] : [...tw.steps, step];
+    this.st.tweak = { ...tw, steps: next, status: 'open' };
+    this.emit();
+  }
+
+  tweakAction(id: string, action: 'applied' | 'kept'): void {
+    const tw = this.st.tweak;
+    if (!tw || tw.id !== id) return;
+    this.abort('tweak');
+    if (action === 'applied' && tw.steps.length) this.st.applied = [{ instruction: tw.steps.map((s) => s.instruction).join(' → '), quote: tw.quote }, ...this.st.applied].slice(0, 20);
+    this.st.tweak = undefined;
+    this.emit();
+  }
+
+  close(): void {
+    this.closed = true;
+    for (const p of ['shape', 'fill', 'tweak'] as CowriterPassId[]) this.abort(p);
+  }
+
+  /* ---------------- internals ---------------- */
+
+  private abort(pass: CowriterPassId): void {
+    this.controllers[pass]?.abort();
+    delete this.controllers[pass];
+  }
+
+  private async execute<T>(pass: CowriterPassId, req: PassRequest<T>, trigger: TraceTrigger): Promise<{ ok: true; result: PassResult<T> } | { ok: false; aborted: boolean; error: string }> {
+    this.abort(pass);
+    const controller = new AbortController();
+    this.controllers[pass] = controller;
+    const run = this.traces?.beginRun(trigger, this.now());
+    const span = this.traces?.beginPass(pass, this.now());
+    log.info(`${this.st.sessionKey}: ${pass} start (${req.user.length} chars, effort ${req.effort})`);
+    let usage: PassUsage | undefined;
+    let outcome: 'ok' | 'aborted' | 'error' = 'error';
+    try {
+      const result = await this.deps.provider().runPass(req, controller.signal, (e) => {
+        if (e.type === 'mark' && span) this.traces!.mark(span, e.mark, this.now());
+      });
+      if (controller.signal.aborted) {
+        outcome = 'aborted';
+        return { ok: false, aborted: true, error: '' };
+      }
+      usage = result.usage;
+      outcome = 'ok';
+      this.account(result.usage);
+      log.info(`${this.st.sessionKey}: ${pass} done (${result.usage.inputTokens} in, ${result.usage.outputTokens} out)`);
+      return { ok: true, result };
+    } catch (err) {
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+        outcome = 'aborted';
+        return { ok: false, aborted: true, error: '' };
+      }
+      const pe = err instanceof ProviderError ? err : new ProviderError(err instanceof Error ? err.message : String(err), 'unknown');
+      log.error(`${this.st.sessionKey}: ${pass} failed (${pe.kind}): ${pe.message}`);
+      const error = pe.kind === 'rate_limit' && pe.retryAfterMs ? `Rate limited. Try again in ${Math.ceil(pe.retryAfterMs / 1000)}s.` : ERRORS[pe.kind];
+      return { ok: false, aborted: false, error };
+    } finally {
+      if (this.controllers[pass] === controller) delete this.controllers[pass];
+      if (span && run) {
+        this.traces!.endPass(span, outcome, this.now(), usage);
+        this.traces!.endRun(run, this.now());
+        log.info(`${this.st.sessionKey}: ${formatRun(run)}`);
+      }
+    }
+  }
+
+  private account(u: PassUsage): void {
+    const usd = estimateCostUsd(u, activeModel(this.deps.settings()));
+    const t = this.st.usage;
+    t.inputTokens += u.inputTokens;
+    t.outputTokens += u.outputTokens;
+    t.estCostUsd = Math.round((t.estCostUsd + usd) * 1e6) / 1e6;
+    this.deps.onCost?.(usd);
+  }
+
+  private emit(): void {
+    if (this.closed) return;
+    const state = structuredClone(this.st);
+    if (this.traces) state.trace = this.traces.snapshot();
+    this.deps.emit(state);
+  }
+}
+
+// Types re-used by the port and tests.
+export type { PassFill, PassShape, PassTweak };
