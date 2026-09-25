@@ -227,3 +227,24 @@ export function measureTextareaSpan(el: HTMLTextAreaElement, span: Span): DOMRec
   mirror.remove();
   return rects;
 }
+
+/** The snapshot span a DOM range covers (the user's selection), or null when it touches none of the text. */
+export function spanForRange(snap: SnapshotWithMap, range: Range): Span | null {
+  let start = -1;
+  let end = -1;
+  for (const s of snap.segments) {
+    if (!s.node.isConnected) continue;
+    const segStart = s.nodeOffset;
+    const segEnd = s.nodeOffset + s.length;
+    let a = segStart;
+    let b = segEnd;
+    if (range.startContainer === s.node) a = Math.max(a, range.startOffset);
+    else if (range.comparePoint(s.node, segEnd) < 0) continue; // ends before the range
+    if (range.endContainer === s.node) b = Math.min(b, range.endOffset);
+    else if (range.comparePoint(s.node, segStart) > 0) continue; // starts after the range
+    if (b <= a) continue;
+    if (start === -1) start = s.textOffset + (a - segStart);
+    end = s.textOffset + (b - segStart);
+  }
+  return start === -1 ? null : { start, end };
+}

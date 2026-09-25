@@ -2,7 +2,8 @@
 //  - Content script <-> background: a long-lived chrome.runtime.Port named PORT_NAME, one per composer session.
 //  - Options page, popup and content script -> background: chrome.runtime.sendMessage request/response.
 //  - Background -> content script: chrome.tabs.sendMessage, only to switch the generic adapter on.
-import type { HostId, SessionState, Settings, TextSnapshot, Checks } from './types';
+import type { CowriterState, Tune } from './cowriter';
+import type { HostId, SessionState, Settings, Span, TextSnapshot, Checks } from './types';
 
 export const PORT_NAME = 'wordsnap-session';
 
@@ -13,7 +14,7 @@ export interface PlatformInfo {
 
 /** Content script -> background (over the port). */
 export type ContentToBackground =
-  | { type: 'session/open'; sessionKey: string; host: HostId; platform: PlatformInfo }
+  | { type: 'session/open'; sessionKey: string; host: HostId; platform: PlatformInfo; origin?: string }
   | { type: 'session/snapshot'; sessionKey: string; snapshot: TextSnapshot; reason: 'initial' | 'edit' }
   | { type: 'finding/action'; sessionKey: string; findingId: string; action: 'applied' | 'kept' }
   /**
@@ -31,13 +32,21 @@ export type ContentToBackground =
   | { type: 'session/analyze'; sessionKey: string }
   /** The user flipped a check chip in the panel: remember it and drop findings the new set no longer covers. */
   | { type: 'session/checks'; sessionKey: string; checks: Checks }
+  /* co-writer: nothing runs unless one of these arrives from a click */
+  | { type: 'tune/set'; sessionKey: string; tune: Tune }
+  | { type: 'shape/run'; sessionKey: string }
+  | { type: 'shape/flip'; sessionKey: string; choice: number }
+  | { type: 'shape/fill'; sessionKey: string; gap: number }
+  | { type: 'shape/action'; sessionKey: string; action: 'applied' | 'kept' }
+  | { type: 'tweak/run'; sessionKey: string; id: string; quote: string; span: Span; instruction: string; mode: 'new' | 'refine' | 'again' }
+  | { type: 'tweak/action'; sessionKey: string; id: string; action: 'applied' | 'kept' }
   /** Keepalive while a composer is open: any port message resets the service worker's idle timer. */
   | { type: 'session/ping'; sessionKey: string }
   | { type: 'session/close'; sessionKey: string };
 
 /** Background -> content script (over the port). */
 export type BackgroundToContent =
-  | { type: 'session/state'; sessionKey: string; state: SessionState }
+  | { type: 'session/state'; sessionKey: string; state: CowriterState }
   /** Sent once after session/open: per-session behaviour derived from settings. */
   | { type: 'session/config'; sessionKey: string; autoAnalyze: boolean }
   | { type: 'session/error'; sessionKey: string; message: string }

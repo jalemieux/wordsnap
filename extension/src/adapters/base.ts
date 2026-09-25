@@ -7,6 +7,7 @@ import {
   buildTextareaSnapshot,
   measureTextareaSpan,
   rangeForSpan,
+  spanForRange,
   type SnapshotWithMap,
 } from '../content/text-snapshot';
 import type { ComposerHandle } from './types';
@@ -92,6 +93,14 @@ export class ContenteditableComposer implements ComposerHandle {
   private mapped(): SnapshotWithMap {
     if (!this.snap) this.snap = buildContenteditableSnapshot(this.element);
     return this.snap;
+  }
+
+  selectionSpan(): Span | null {
+    const sel = this.element.ownerDocument.getSelection();
+    if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    if (!this.element.contains(range.commonAncestorContainer)) return null;
+    return spanForRange(this.mapped(), range);
   }
 
   rangeFor(span: Span): Range | null {
@@ -233,6 +242,12 @@ export class TextareaComposer implements ComposerHandle {
   }
 
   /** No DOM ranges in a textarea. Use `rectsFor` for geometry. */
+  selectionSpan(): Span | null {
+    const el = this.element as HTMLTextAreaElement;
+    if (el.ownerDocument.activeElement !== el || el.selectionEnd <= el.selectionStart) return null;
+    return { start: el.selectionStart, end: el.selectionEnd };
+  }
+
   rangeFor(): Range | null {
     return null;
   }

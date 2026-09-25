@@ -1,6 +1,8 @@
 // Mock provider: canned results from the shared sample. Used for development without a key, the options "try it" step
 // when provider=mock, unit tests and the e2e suite. Matches request claims to sample verdicts by quote.
 import { SAMPLE_DICTATED_MARKER, SAMPLE_IDEA_MARKER, SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_PASS_S, SAMPLE_PASS_S_KEEPS, SAMPLE_PASS_S_OUTLINE, SAMPLE_SOURCES_SEEN } from '../shared/sample';
+import { mockShape, mockTweak, SAMPLE_FILL, SAMPLE_SHAPE } from '../shared/cowriter-sample';
+import { AGENTS_DUMP } from '../shared/dumps';
 import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from './types';
 
 export interface MockProviderOptions {
@@ -75,6 +77,17 @@ export class MockProvider implements LLMProvider {
     onEvent({ type: 'mark', mark: 'firstContent' });
     onEvent({ type: 'mark', mark: 'end' });
     const usage = MOCK_USAGE[req.pass];
+
+    if (req.pass === 'shape') {
+      const dump = req.user.slice(req.user.indexOf('<dump>\n') + 7, req.user.lastIndexOf('\n</dump>'));
+      return { data: req.schema.parse(dump === AGENTS_DUMP ? SAMPLE_SHAPE : mockShape(dump)), sourcesSeen: [], usage };
+    }
+    if (req.pass === 'fill') return { data: req.schema.parse(SAMPLE_FILL), sourcesSeen: [], usage };
+    if (req.pass === 'tweak') {
+      const cur = req.user.match(/<current>\n([\s\S]*?)\n<\/current>/)?.[1];
+      const passage = cur ?? req.user.match(/<passage>\n([\s\S]*?)\n<\/passage>/)?.[1] ?? '';
+      return { data: req.schema.parse(mockTweak(passage)), sourcesSeen: [], usage };
+    }
 
     if (req.pass === 'S') {
       // The dictated sample gets the reorder that turns it into SAMPLE_TEXT; anything else already holds.

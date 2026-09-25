@@ -34,4 +34,6 @@ export interface ComposerHandle {
    * style). A layout change on the host element, not an edit: the text reflows, the DOM is untouched.
    */
   setInset?(px: number): void;
+  /** The part of the draft the user has selected right now, or null (nothing selected, or outside this editor). */
+  selectionSpan?(): Span | null;
 }

@@ -1,7 +1,8 @@
 // Typed wrapper over the long-lived port to the background. One instance per composer session.
 import { log } from '../shared/log';
 import { PORT_NAME, type BackgroundToContent, type ContentToBackground } from '../shared/messages';
-import type { SessionState, TextSnapshot, Checks } from '../shared/types';
+import type { CowriterState } from '../shared/cowriter';
+import type { TextSnapshot, Checks } from '../shared/types';
 
 type OpenMessage = Extract<ContentToBackground, { type: 'session/open' }>;
 type DisabledReason = Extract<BackgroundToContent, { type: 'session/disabled' }>['reason'];
@@ -17,7 +18,7 @@ export class SessionClient {
   private reconnects = 0;
   private keepalive: ReturnType<typeof setInterval> | null = null;
   private lastSnapshot: TextSnapshot | null = null;
-  private stateCbs = new Set<(s: SessionState) => void>();
+  private stateCbs = new Set<(s: CowriterState) => void>();
   private disabledCbs = new Set<(r: DisabledReason) => void>();
   private configCbs = new Set<(c: { autoAnalyze: boolean }) => void>();
   private lostCbs = new Set<() => void>();
@@ -85,7 +86,7 @@ export class SessionClient {
     }
   }
 
-  private post(msg: ContentToBackground): void {
+  post(msg: ContentToBackground): void {
     try {
       this.port?.postMessage(msg);
     } catch {
@@ -93,7 +94,7 @@ export class SessionClient {
     }
   }
 
-  onState(cb: (s: SessionState) => void): () => void {
+  onState(cb: (s: CowriterState) => void): () => void {
     this.stateCbs.add(cb);
     return () => this.stateCbs.delete(cb);
   }
@@ -117,7 +118,7 @@ export class SessionClient {
     return () => this.errorCbs.delete(cb);
   }
 
-  sendSnapshot(snapshot: TextSnapshot, reason: 'initial' | 'edit'): void {
+  sendSnapshot(snapshot: TextSnapshot, reason: 'initial' | 'edit' = 'edit'): void {
     this.lastSnapshot = snapshot;
     this.post({ type: 'session/snapshot', sessionKey: this.sessionKey, snapshot, reason });
   }

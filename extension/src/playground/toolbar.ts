@@ -1,6 +1,6 @@
 // The playground's floating strip: switch fixture, pick a provider, load a sample draft, inspect the session state
 // the background is sending. Plain DOM in its own shadow root so fixture CSS and the overlay never touch it.
-import { SAMPLE_DICTATED_TEXT, SAMPLE_IDEA_TEXT, SAMPLE_TEXT } from '../shared/sample';
+import { DUMPS } from '../shared/dumps';
 import { phasesOf, type PhaseName, type RunTrace } from '../shared/trace';
 import type { SessionState, Settings } from '../shared/types';
 import type { ChromeShim, Traffic } from './chrome-shim';
@@ -12,12 +12,7 @@ export const FIXTURES: { slug: string; label: string; file: string }[] = [
   { slug: 'any-site', label: 'Any site', file: 'any-site.html' },
 ];
 
-const DRAFTS: { label: string; text: string }[] = [
-  { label: 'Sample: four-day week (prose)', text: SAMPLE_TEXT },
-  { label: 'Sample: dictated notes', text: SAMPLE_DICTATED_TEXT },
-  { label: 'Sample: idea fragments', text: SAMPLE_IDEA_TEXT },
-  { label: 'Empty', text: '' },
-];
+const DRAFTS: { label: string; text: string }[] = [...DUMPS.map((d) => ({ label: `Dump: ${d.label}`, text: d.text })), { label: 'Empty', text: '' }];
 
 const CSS = `
 :host { all: initial; }

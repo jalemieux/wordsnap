@@ -1,18 +1,16 @@
 // Content script entry. Finds composers on the host page, opens a session per composer, streams snapshots
 // to the background, and mounts the overlay. Nothing here talks to a model or holds a credential.
 import { activateGeneric, adapterFor, genericAdapter, type ComposerHandle, type HostAdapter } from '../adapters';
-import { countWords } from '../adapters/base';
-import { mountOverlay } from '../ui/overlay';
-import type { OverlayController } from '../ui/types';
+import { mountCowriter } from '../ui/cowriter/overlay';
+import type { CowriterOverlay } from '../ui/cowriter/types';
+import { DEFAULT_TUNE, emptyCowriterState } from '../shared/cowriter';
 import type { TextSnapshot } from '../shared/types';
-import { minimalParagraphEdit, skeletonEdit } from '../shared/anchoring';
+import { locateQuote } from '../shared/anchoring';
 import { sendToBackground, type ContentRequest, type ContentResponse } from '../shared/messages';
 import { SessionClient } from './session-client';
 import { loadPanelPos, savePanelPos } from './panel-pos';
 import { log } from '../shared/log';
 
-const MIN_WORDS = 40; // auto mode
-const MIN_WORDS_MANUAL = 8; // after the user clicks the badge
 const EDIT_DEBOUNCE_MS = 800;
 const SCAN_THROTTLE_MS = 250;
 /** A composer must be missing or hidden on this many consecutive scans before its session closes. Hosts re-render. */
@@ -23,13 +21,12 @@ const CARRY_TTL_MS = 15_000;
 /** UI state that survives a session restart on the same composer, so a host re-render does not collapse the panel. */
 interface Carry {
   open: boolean;
-  armed: boolean;
 }
 
 interface Session {
   handle: ComposerHandle;
   client: SessionClient;
-  overlay: OverlayController;
+  overlay: CowriterOverlay;
   hiddenScans: number;
   carry(): Carry;
   teardown(): void;
@@ -45,149 +42,71 @@ function newSessionKey(adapter: HostAdapter, handle: ComposerHandle): string {
 
 function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carry): void {
   const sessionKey = newSessionKey(adapter, handle);
-  const client = new SessionClient({ type: 'session/open', sessionKey, host: adapter.id, platform: handle.platform });
-  let sentInitial = false;
+  const client = new SessionClient({ type: 'session/open', sessionKey, host: adapter.id, platform: handle.platform, origin: location.origin });
   let debounce: ReturnType<typeof setTimeout> | null = null;
-  // Analysis is armed by the user clicking the badge, or by the autoAnalyze setting (delivered via session/config).
-  let armed = carry?.armed ?? false;
-  let autoAnalyze = false;
-
-  let lastSentText: string | null = null;
-  const send = (snapshot: TextSnapshot, reason: 'initial' | 'edit') => {
-    if (!armed && !autoAnalyze) return;
-    // The host fires input after an applied edit; that echo carries the text already sent.
-    if (reason === 'edit' && snapshot.text === lastSentText) return;
-    const words = countWords(snapshot.text);
-    const min = armed ? MIN_WORDS_MANUAL : MIN_WORDS;
-    if (words < min && !sentInitial) {
-      log.info(`composer ${handle.key}: ${words} words, waiting for ${min} before analyzing`);
-      return;
-    }
-    if (!sentInitial) {
-      sentInitial = true;
-      reason = 'initial';
-    }
-    log.info(`composer ${handle.key}: sending snapshot v${snapshot.version} (${words} words, ${reason})`);
-    lastSentText = snapshot.text;
-    client.sendSnapshot(snapshot, reason);
+  let lastSent: string | null = null;
+  // Sending text to the background runs nothing: the co-writer only works on a click.
+  const send = (snapshot: TextSnapshot) => {
+    if (snapshot.text === lastSent) return;
+    lastSent = snapshot.text;
+    client.sendSnapshot(snapshot);
+  };
+  const flush = () => {
+    if (debounce) clearTimeout(debounce);
+    debounce = null;
+    send(handle.getSnapshot());
   };
 
-  const overlay = mountOverlay({
+  const overlay = mountCowriter({
     handle,
-    callbacks: {
-      onApply(findingId, span, replacement) {
-        if (debounce) clearTimeout(debounce);
-        debounce = null;
-        const ok = handle.applyEdit(span, replacement);
-        if (ok) {
-          // Snapshot first, then the re-check request: port messages are ordered, so the run sees the edit.
-          client.sendAction(findingId, 'applied');
-          send(handle.getSnapshot(), 'edit');
-          client.recheck(findingId);
-        } else {
-          log.warn(`composer ${handle.key}: the editor rejected the change to ${findingId}`);
-        }
-        overlay.relayout();
-        return ok;
-      },
-      onApplyStructure(paragraphs) {
-        if (debounce) clearTimeout(debounce);
-        debounce = null;
-        // Only the paragraphs that move are rewritten: a greeting or signature the proposal keeps is never touched,
-        // so images, links and formatting outside the moved block survive.
-        const edit = minimalParagraphEdit(handle.getSnapshot(), paragraphs);
-        const ok = edit ? handle.applyEdit(edit.span, edit.replacement) : true;
-        if (ok) {
-          log.info(`composer ${handle.key}: structure applied (${paragraphs.length} paragraphs${edit ? `, chars ${edit.span.start}-${edit.span.end} replaced` : ', already in that order'})`);
-          client.sendStructureAction('applied');
-          send(handle.getSnapshot(), 'edit');
-          client.analyze();
-        } else {
-          log.warn(`composer ${handle.key}: the editor rejected the whole-draft edit`);
-        }
-        overlay.relayout();
-        return ok;
-      },
-      onKeepStructure() {
-        client.sendStructureAction('kept');
-      },
-      onApplyOutline(paragraphs, fragments) {
-        if (debounce) clearTimeout(debounce);
-        debounce = null;
-        // Only the paragraphs holding the placed fragments are rewritten: a greeting or signature the skeleton did not place stays.
-        const edit = skeletonEdit(handle.getSnapshot(), paragraphs, fragments);
-        const ok = edit ? handle.applyEdit(edit.span, edit.replacement) : true;
-        if (ok) {
-          log.info(`composer ${handle.key}: skeleton applied (${paragraphs.length} paragraphs seeded${edit ? `, chars ${edit.span.start}-${edit.span.end} replaced` : ', already in place'})`);
-          // The snapshot first, so the guide is measured against the seeded text; then the action. No analysis yet.
-          send(handle.getSnapshot(), 'edit');
-          client.sendStructureAction('applied');
-        } else {
-          log.warn(`composer ${handle.key}: the editor rejected the outline edit`);
-        }
-        overlay.relayout();
-        return ok;
-      },
-      onOutlineDone() {
-        if (debounce) clearTimeout(debounce);
-        debounce = null;
-        log.info(`composer ${handle.key}: outline done, analyzing`);
-        client.sendSnapshot(handle.getSnapshot(), 'edit');
-        client.sendStructureAction('done');
-      },
-      onKeep(findingId) {
-        client.sendAction(findingId, 'kept');
-      },
-      onOpenChange(open) {
-        if (!open) return;
-        // The panel opens on the picks: nothing is sent until the user presses Start (onAnalyze) or auto-analyze is on.
-        // After the first run, opening again just catches the background up on the text.
-        if (!sentInitial) return;
-        if (debounce) clearTimeout(debounce);
-        send(handle.getSnapshot(), 'edit');
-      },
-      onAnalyze() {
-        // Flush whatever is in the editor right now, then ask. Port messages are ordered.
-        if (debounce) clearTimeout(debounce);
-        debounce = null;
-        if (!armed) log.info(`composer ${handle.key}: analysis started by the user`);
-        armed = true;
-        const snapshot = handle.getSnapshot();
-        if (!sentInitial) {
-          send(snapshot, 'initial');
-          return;
-        }
-        log.info(`composer ${handle.key}: re-analyze (snapshot v${snapshot.version})`);
-        client.sendSnapshot(snapshot, 'edit');
-        client.analyze();
-      },
-      onChecks(checks) {
-        log.info(`composer ${handle.key}: checks ${Object.entries(checks).filter(([, on]) => on).map(([k]) => k).join(', ') || 'none'}`);
-        client.setChecks(checks);
-      },
-      onPanelMove(pos) {
-        void savePanelPos(location.origin, pos);
-      },
-    },
-    minWords: MIN_WORDS_MANUAL,
+    initial: emptyCowriterState(sessionKey, adapter.id, DEFAULT_TUNE),
     startOpen: carry?.open ?? false,
+    callbacks: {
+      onTune: (tune) => client.post({ type: 'tune/set', sessionKey, tune }),
+      onShape: () => {
+        flush();
+        client.post({ type: 'shape/run', sessionKey });
+      },
+      onFlip: (choice) => client.post({ type: 'shape/flip', sessionKey, choice }),
+      onFill: (gap) => client.post({ type: 'shape/fill', sessionKey, gap }),
+      onApplyShape(text) {
+        const snap = handle.getSnapshot();
+        const ok = handle.applyEdit({ start: 0, end: snap.text.length }, text);
+        if (ok) {
+          client.post({ type: 'shape/action', sessionKey, action: 'applied' });
+          flush();
+          log.info(`composer ${handle.key}: shape applied (${text.length} chars)`);
+        } else log.warn(`composer ${handle.key}: the editor rejected the shaped draft`);
+        overlay.relayout();
+        return ok;
+      },
+      onKeepShape: () => client.post({ type: 'shape/action', sessionKey, action: 'kept' }),
+      onTweak: (req) => {
+        flush();
+        client.post({ type: 'tweak/run', sessionKey, ...req });
+      },
+      onApplyTweak(id, quote, hint, text) {
+        const snap = handle.getSnapshot();
+        const span = locateQuote(snap.text, quote, hint);
+        const ok = !!span && handle.applyEdit(span, text);
+        if (ok) {
+          client.post({ type: 'tweak/action', sessionKey, id, action: 'applied' });
+          flush();
+        } else log.warn(`composer ${handle.key}: tweak ${id} not applied (${span ? 'editor refused' : 'passage moved'})`);
+        overlay.relayout();
+        return ok;
+      },
+      onKeepTweak: (id) => client.post({ type: 'tweak/action', sessionKey, id, action: 'kept' }),
+      onPanelMove: (pos) => void savePanelPos(location.origin, pos),
+    },
   });
-  void loadPanelPos(location.origin).then((pos) => pos && overlay.setPanelPos?.(pos));
+  void loadPanelPos(location.origin).then((pos) => pos && overlay.setPanelPos(pos));
 
-  const unsubState = client.onState((state) => {
-    const p = state.passes;
-    log.info(`state v${state.snapshotVersion}: A=${p.A.state} B=${p.B.state} C=${p.C.state}`, p.A.error ?? p.B.error ?? p.C.error ?? '');
-    overlay.update(state);
-  });
+  const unsubState = client.onState((state) => overlay.update(state));
   const unsubLost = client.onLost(() => {
     log.warn('WordSnap was reloaded or updated; removing this stale overlay. The new version attaches on its own.');
     for (const s of Array.from(sessions.values())) s.teardown();
     stopScanning?.();
-  });
-  const unsubConfig = client.onConfig((c) => {
-    autoAnalyze = c.autoAnalyze;
-    overlay.setAutoAnalyze?.(autoAnalyze);
-    if (autoAnalyze && !sentInitial) send(handle.getSnapshot(), 'initial');
   });
   const unsubDisabled = client.onDisabled((reason) => {
     log.warn(`session disabled (${reason}). ${reason === 'no-key' ? 'Connect a provider in WordSnap settings.' : 'This site is turned off in WordSnap settings.'}`);
@@ -200,7 +119,7 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
     if (debounce) clearTimeout(debounce);
     debounce = setTimeout(() => {
       debounce = null;
-      send(snapshot, 'edit');
+      send(snapshot);
     }, EDIT_DEBOUNCE_MS);
   });
 
@@ -216,7 +135,6 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
     if (debounce) clearTimeout(debounce);
     unsubState();
     unsubLost();
-    unsubConfig();
     unsubDisabled();
     unsubError();
     unsubChange();
@@ -227,9 +145,9 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
     client.close();
   };
 
-  sessions.set(sessionKey, { handle, client, overlay, hiddenScans: 0, carry: () => ({ open: overlay.isOpen(), armed }), teardown });
-  log.info(`session ${sessionKey} opened on ${adapter.id} composer ${handle.key}${carry ? ` (carried: open=${carry.open}, armed=${carry.armed})` : ''}`);
-  send(handle.getSnapshot(), 'initial');
+  sessions.set(sessionKey, { handle, client, overlay, hiddenScans: 0, carry: () => ({ open: overlay.isOpen() }), teardown });
+  log.info(`session ${sessionKey} opened on ${adapter.id} composer ${handle.key}${carry ? ` (carried: open=${carry.open})` : ''}`);
+  send(handle.getSnapshot());
 }
 
 /** One line on why a composer no longer qualifies, for the page console. */
