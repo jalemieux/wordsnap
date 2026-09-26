@@ -162,6 +162,38 @@ and **Keep mine**. The editor makes room with the same `ComposerHandle.setInset`
   "This passage changed; select it again" and applies nothing.
 - Tweak works on the editor text, so an open Shape proposal must be applied or kept first.
 - In the Tweak stage the panel shows the dials and the list of tweaks applied, each with its instruction.
+- **Comments, then Revise** (2026-09-25, founder's call: "highlight, comment like in Word, then send the lot for
+  a rewrite"). The selection card's primary action is now **Comment** (Enter): the instruction is kept as a margin
+  note on that passage (quote and span) and nothing runs. **Tweak now** on the same card is the old immediate path.
+  The panel's third stage, now labelled **Revise**, lists the comments (numbered, amber marks over their passages in
+  the draft, hover lights both), takes a comment on the whole draft, and has one button, **Revise (n comments)**.
+  Comments ride along with edits (`shiftSpans`, then `locateQuote` by quote as a fallback); one whose passage
+  changed is marked stale and stays home. Revise is one request (`REVISE_SYSTEM`, effort medium): the draft plus the
+  numbered comments; the model returns one `change` per passage comment (the passage as it should now read) and
+  `edits` (exact fragment, replacement) for each whole-draft comment, plus `skipped` with why. It never returns the
+  draft, so the output stays small on a long doc. `validateRevise` ties every change to its comment, locates it,
+  drops what brings in a new fact, outgrows its span (2.5x) or overlaps an earlier change, sorts what is left, and
+  reports every comment that got no answer. The result opens in the compare pane (`RevisePane`): one diff per
+  change, each tickable, the skipped comments with their reason, **Apply all** / **Keep mine**. Apply splices the
+  ticked changes into the draft they were made for and writes them as **one** `insertText` over the covering span
+  (`splice`), so host undo takes the whole revision back at once and the text between changes is untouched by
+  construction. Applied comments are cleared; skipped ones stay. Any edit to the draft while the pane is open makes
+  it stale. Mock: `mockRevise` (rename and "say:" on a passage, one edit per sentence for a rename on the whole
+  draft). Mock page: `mocks/revise.html`.
+- **The instruction decides the meaning** (2026-09-25). A tweak is not held to the passage's idea: "say X",
+  "instead of Y, Z" and "make it about W" replace what the passage says; "shorter", "warmer", "why it matters" keep
+  the point and change the words. The guards stay: fits in place, nothing the instruction or the draft does not
+  supply, the dials, the 2.5x cap. The earlier prompt said "keep their ideas" and had the model pad a new point with
+  material from the draft instead of replacing the old one. The instruction boxes have autocorrect off (Safari was
+  rewriting a name in the instruction before it was sent).
+- **Draft-wide tweak** (added 2026-09-25 after the founder asked for "bot instead of persona, across the text" on a
+  selection and got the new-fact refusal). The Tweak stage of the panel has a second box, **Or change the whole
+  draft**. It sends the same `tweak/run` with `scope: 'draft'`, the whole draft as the quote and `{0, length}` as
+  the span, under its own prompt (`TWEAK_DRAFT_SYSTEM`: one change made everywhere it applies, every other sentence
+  word for word, no added sentence). The result opens in the same card, wider, at the top of the draft, with the
+  diff scrolling; Apply writes the whole draft through `insertText` like Apply structure; Refine and Again keep the
+  scope. No presets on a draft-wide tweak: the dials cover tone. Any edit to the draft while it is open makes it
+  stale ("The draft changed; ask again").
 
 ## Passes and contracts
 
@@ -228,7 +260,15 @@ These replace the structure voice gate for Shape and Tweak.
 4. **Dropped and missing** are display-only; a `dropped` quote that does not locate is removed.
 5. **Tweak.** The replacement may not introduce a number, URL or capitalized name that is in neither the draft nor the
    instruction, and stays within 2.5x the span's length unless the instruction asks for more (longer, expand, add).
-   A failing replacement is rejected with "That change added something you did not write; try again."
+   A new fact is rejected with "That change added something you did not write; try again."; an answer that outgrew
+   the span with "That came back far longer than the passage. For a change across the whole draft, use the box in
+   the panel." A draft-wide tweak (`scope: 'draft'`) is checked against the whole draft with a 1.3x cap ("That came
+   back far longer than your draft; try again.").
+6. **Revise.** A `change` must name a passage comment that has not been answered yet, and replaces exactly that
+   passage; an `edit` must name a whole-draft comment and copy a fragment that locates. Each replacement passes the
+   Tweak rules against the draft plus its comment's text. Spans never overlap (first accepted wins, in the order the
+   model gave them); the survivors are sorted by position. A comment that gets nothing back is listed as skipped
+   with a reason. No surviving change at all rejects the run ("Revise could not act on any comment; try again.").
 
 ### State, settings, messages
 
@@ -238,7 +278,10 @@ Written fresh (see Clean slate); the additive-only rule starts again from this c
 - `SessionState.tweak?: { quote: string; instruction: string; result?: PassTweak; status: 'running' | 'open' | 'stale' | 'error' }`
 - `SessionState.tune?: Tune` (the per-draft override)
 - `Settings.tune: Record<origin, Tune>`, `Tune = { length: 'tight'|'balanced'|'full'; tone: 'casual'|'neutral'|'formal'; for: 'email'|'post'|'thread'|'doc' }`
-- Messages: `shape/run`, `shape/action` (`apply | keep | flip | fill`), `tweak/run` (`quote, instruction`),
+- `CowriterState.comments: Comment[]` (`id, text, quote?, span?, stale?`), `CowriterState.revise?: ReviseState`
+  (`status, forVersion, text, comments, changes: ReviseChange[] (comment, span, quote, replacement, note?), skipped, note?, stale`)
+- Messages: `comment/add` (`id, text, quote?, span?`), `comment/edit`, `comment/remove`, `revise/run`, `revise/action` (`applied` with the comment ids written, or `kept`)
+- Messages: `shape/run`, `shape/action` (`apply | keep | flip | fill`), `tweak/run` (`quote, instruction, scope?`),
   `tweak/action` (`apply | again | refine | keep`), `tune/set`.
 - `PassId` is `'shape' | 'tweak'`.
 - Timing traces (`src/shared/trace.ts`) cover the new passes with no change.

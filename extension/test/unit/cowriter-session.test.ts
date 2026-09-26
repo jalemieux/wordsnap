@@ -27,7 +27,7 @@ class Fake implements LLMProvider {
   readonly id = 'mock' as const;
   readonly capabilities = { streaming: true, structuredOutput: true, webSearch: false, researchMode: 'none' as const };
   calls: PassRequest<unknown>[] = [];
-  answers: Record<string, unknown[]> = { shape: [], fill: [], tweak: [] };
+  answers: Record<string, unknown[]> = { shape: [], fill: [], tweak: [], revise: [] };
   async runPass<T>(req: PassRequest<T>, _s: AbortSignal, onEvent: (e: { type: 'mark'; mark: 'sent' | 'end' }) => void) {
     this.calls.push(req as PassRequest<unknown>);
     onEvent({ type: 'mark', mark: 'sent' });
@@ -136,6 +136,84 @@ describe('CowriterSession', () => {
     s.handleSnapshot(snapshotFromText(DUMP.replace(quote, 'bring chargers'), 3));
     await pending;
     expect(last().tweak).toMatchObject({ id: 't3', status: 'stale' });
+  });
+
+  it('changes the whole draft on request, carries the scope through a refine, and says when the answer outgrew it', async () => {
+    const { s, fake, last } = setup();
+    const span = { start: 0, end: DUMP.length };
+    fake.answers.tweak!.push({ replacement: DUMP.replace('offsite', 'retreat') }, { replacement: DUMP.replace('offsite', 'retreat').replace('laptops', 'chargers') });
+    await s.tweak({ id: 'd1', quote: DUMP, span, instruction: 'say retreat instead of offsite', mode: 'new', scope: 'draft' });
+    expect(fake.calls[0]!.system).toContain('across their whole draft');
+    expect(fake.calls[0]!.user).not.toContain('<passage>');
+    expect(last().tweak).toMatchObject({ id: 'd1', scope: 'draft', status: 'open' });
+    await s.tweak({ id: 'd1', quote: DUMP, span, instruction: 'and chargers, not laptops', mode: 'refine' });
+    expect(fake.calls[1]!.system).toContain('across their whole draft');
+    expect(last().tweak).toMatchObject({ scope: 'draft', status: 'open' });
+    expect(last().tweak!.steps).toHaveLength(2);
+    s.tweakAction('d1', 'applied');
+    expect(last().applied).toEqual([{ instruction: 'say retreat instead of offsite → and chargers, not laptops', quote: DUMP, scope: 'draft' }]);
+
+    fake.answers.tweak!.push({ replacement: `${DUMP} ${DUMP}` });
+    await s.tweak({ id: 'd2', quote: DUMP, span, instruction: 'say retreat instead of offsite', mode: 'new', scope: 'draft' });
+    expect(last().tweak).toMatchObject({ id: 'd2', status: 'error', error: 'That came back far longer than your draft; try again.' });
+
+    // A passage tweak that comes back as the whole draft points at the draft-wide box instead of blaming a new fact.
+    const quote = 'also bring laptops';
+    fake.answers.tweak!.push({ replacement: DUMP });
+    await s.tweak({ id: 'p1', quote, span: { start: DUMP.indexOf(quote), end: DUMP.indexOf(quote) + quote.length }, instruction: 'say chargers everywhere', mode: 'new' });
+    expect(last().tweak!.error).toMatch(/whole draft, use the box in the panel/);
+  });
+
+  it('keeps comments in step with edits, revises them in one request, and clears the ones that were applied', async () => {
+    const { s, fake, last } = setup();
+    const q1 = 'maybe april is better actually';
+    const q2 = 'also bring laptops';
+    const at = (q: string, text = DUMP) => ({ start: text.indexOf(q), end: text.indexOf(q) + q.length });
+    s.addComment({ id: 'c1', text: 'say: March it is', quote: q1, span: at(q1) });
+    s.addComment({ id: 'c2', text: 'say retreat instead of offsite' });
+    s.addComment({ id: 'c3', text: 'Clearer', quote: q2, span: at(q2) });
+    s.addComment({ id: 'c3', text: 'twice', quote: q2, span: at(q2) });
+    expect(last().comments.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
+    expect(fake.calls).toHaveLength(0);
+
+    // An edit before the commented passages moves them; an edit inside one marks it stale.
+    const moved = `hello. ${DUMP}`.replace(q2, 'also bring chargers');
+    s.handleSnapshot(snapshotFromText(moved, 2));
+    expect(last().comments[0]).toMatchObject({ id: 'c1', span: at(q1, moved), stale: false });
+    expect(last().comments[2]).toMatchObject({ id: 'c3', stale: true });
+
+    fake.answers.revise!.push({
+      changes: [{ comment: 1, replacement: 'March it is.' }],
+      edits: [{ comment: 2, quote: 'move the offsite to march', replacement: 'move the retreat to march' }],
+      skipped: [],
+    });
+    await s.revise();
+    expect(fake.calls[0]!.pass).toBe('revise');
+    // The stale comment stays home: only the two live ones went.
+    expect(fake.calls[0]!.user).toContain('1. On "maybe april is better actually": say: March it is\n2. On the whole draft: say retreat instead of offsite');
+    expect(fake.calls[0]!.user).not.toContain('Clearer');
+    const rv = last().revise!;
+    expect(rv.status).toBe('open');
+    expect(rv.changes.map((c) => [c.comment, c.replacement])).toEqual([
+      ['c2', 'move the retreat to march'],
+      ['c1', 'March it is.'],
+    ]);
+
+    s.reviseAction('applied', ['c1', 'c2']);
+    expect(last().revise).toBeUndefined();
+    expect(last().comments.map((c) => c.id)).toEqual(['c3']);
+    expect(last().applied.map((a) => a.instruction)).toEqual(['say: March it is', 'say retreat instead of offsite']);
+    s.removeComment('c3');
+    expect(last().comments).toEqual([]);
+  });
+
+  it('says so when no change survives a revise, and keeps the comments', async () => {
+    const { s, fake, last } = setup();
+    s.addComment({ id: 'c1', text: 'Clearer', quote: 'also bring laptops', span: { start: DUMP.indexOf('also'), end: DUMP.indexOf('also') + 18 } });
+    fake.answers.revise!.push({ changes: [{ comment: 1, replacement: 'Bring the Hilton laptops.' }], edits: [], skipped: [] });
+    await s.revise();
+    expect(last().revise).toMatchObject({ status: 'error', error: 'Revise could not act on any comment; try again.' });
+    expect(last().comments).toHaveLength(1);
   });
 
   it('turns a provider error into a plain message and runs nothing on its own after it', async () => {

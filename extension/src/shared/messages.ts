@@ -2,7 +2,7 @@
 //  - Content script <-> background: a long-lived chrome.runtime.Port named PORT_NAME, one per composer session.
 //  - Options page, popup and content script -> background: chrome.runtime.sendMessage request/response.
 //  - Background -> content script: chrome.tabs.sendMessage, only to switch the generic adapter on.
-import type { CowriterState, Tune } from './cowriter';
+import type { CowriterState, Tune, TweakScope } from './cowriter';
 import type { HostId, SessionState, Settings, Span, TextSnapshot, Checks } from './types';
 
 export const PORT_NAME = 'wordsnap-session';
@@ -38,8 +38,16 @@ export type ContentToBackground =
   | { type: 'shape/flip'; sessionKey: string; choice: number }
   | { type: 'shape/fill'; sessionKey: string; gap: number }
   | { type: 'shape/action'; sessionKey: string; action: 'applied' | 'kept' }
-  | { type: 'tweak/run'; sessionKey: string; id: string; quote: string; span: Span; instruction: string; mode: 'new' | 'refine' | 'again' }
+  | { type: 'tweak/run'; sessionKey: string; id: string; quote: string; span: Span; instruction: string; mode: 'new' | 'refine' | 'again'; scope?: TweakScope }
   | { type: 'tweak/action'; sessionKey: string; id: string; action: 'applied' | 'kept' }
+  /** Margin notes: add on a passage (quote and span) or on the whole draft (neither), edit the text, remove one. */
+  | { type: 'comment/add'; sessionKey: string; id: string; text: string; quote?: string; span?: Span }
+  | { type: 'comment/edit'; sessionKey: string; id: string; text: string }
+  | { type: 'comment/remove'; sessionKey: string; id: string }
+  /** Run Revise over every comment that is not stale. */
+  | { type: 'revise/run'; sessionKey: string }
+  /** applied: the ids of the changes written into the editor (their comments are cleared); kept: the result is dropped. */
+  | { type: 'revise/action'; sessionKey: string; action: 'applied' | 'kept'; applied?: string[] }
   /** Keepalive while a composer is open: any port message resets the service worker's idle timer. */
   | { type: 'session/ping'; sessionKey: string }
   | { type: 'session/close'; sessionKey: string };

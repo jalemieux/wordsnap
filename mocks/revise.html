@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Revise mock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEC; --ground-ink:#1F2A2A; --ground-muted:#5F6E6E;
+  --mock-bg:#1B2424; --mock-ink:#E6ECEB; --mock-muted:#8FA0A0; --mock-accent:#7FD1C8; --mock-line:#2C3838;
+  --ws-accent:#0E7C7B; --ws-accent-ink:#0A5E5D; --ws-accent-bg:#E6F3F2; --ws-accent-line:#B7DAD7;
+  --ws-ink:#1B2A2A; --ws-muted:#5C6B6B; --ws-faint:#8C9A9A; --ws-line:#DCE4E3; --ws-bg:#F6F8F8; --ws-card:#FFFFFF;
+  --amber:#A8690F; --amber-bg:#FBF1DF; --amber-hot:#F6E2B8; --del:#B3261E; --del-bg:#FCE8E6; --ins-bg:#E3F4EA; --ins:#1E6B3F;
+  --ui:"Instrument Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --serif:Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; } }
+:root[data-theme="dark"]{ --ground:#121818; --ground-ink:#E6ECEB; --ground-muted:#93A3A3; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ground-ink);font-family:var(--ui);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+button:disabled{cursor:default;opacity:.45}
+p{margin:0}
+
+.mockbar{background:var(--mock-bg);color:var(--mock-ink);padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;position:sticky;top:0;z-index:50}
+.mockbar .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mock-muted)}
+.mockbar .hint{font-size:12.5px;color:var(--mock-muted);flex:1;min-width:240px}
+.mockbar .hint b{color:var(--mock-ink);font-weight:500}
+.mbtn{border:1px solid var(--mock-line);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--mock-accent)}
+
+.stagewrap{padding:16px;overflow-x:auto}
+.browser{width:1360px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 40px rgba(0,0,0,.14);overflow:hidden;position:relative;color:#1F1F1F}
+.chrome{background:#E8E8EA;padding:8px 12px;display:flex;align-items:center;gap:12px;font-size:12px;color:#3C4043}
+.lights{display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;background:#C9CDD2;display:block}
+.url{flex:0 1 420px;margin:0 auto;background:#fff;border-radius:6px;padding:4px 12px;text-align:center}
+.page{position:relative;height:800px;background:#FAFAF7;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wikibar{display:flex;gap:18px;align-items:center;padding:12px 40px;border-bottom:1px solid #E6E6E0;font-size:13px;color:#555}
+.wikibar b{color:#222}
+.doc{padding:22px 40px 0}
+.doc h1{margin:0 0 14px;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.work{display:flex;height:660px;border:1px solid #E3E3DC;border-radius:6px;background:#fff;position:relative}
+.editor{flex:1;min-width:0;overflow:auto;padding:26px 44px 40px 34px;font-family:var(--serif);font-size:17px;line-height:1.62;color:#222;outline:none;position:relative}
+.editor p{margin:0 0 18px}
+/* a commented passage: amber run, numbered at its start */
+.cm{background:var(--amber-bg);border-bottom:2px solid var(--amber);border-radius:2px;position:relative}
+.cm.hot{background:var(--amber-hot)}
+.cm .num{position:absolute;left:-4px;top:-9px;font:600 10px var(--ui);color:#fff;background:var(--amber);border-radius:8px;padding:0 5px;line-height:15px}
+.launcher{position:absolute;top:0;right:-42px;width:32px;height:32px;border-radius:10px;background:var(--ws-accent);color:#fff;font:600 15px var(--ui);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:6}
+
+/* the revise pane, beside the draft */
+.pane{flex:1;min-width:0;border-left:1px solid var(--ws-line);overflow:auto;padding:0 30px 170px 26px;background:#FCFDFD;display:none}
+.work.comparing .pane{display:block}
+.pane-head{display:flex;align-items:center;gap:8px;font-family:var(--ui);font-size:12.5px;color:var(--ws-muted);flex-wrap:wrap;position:sticky;top:0;background:#FCFDFD;padding:14px 0 10px;z-index:2;border-bottom:1px solid var(--ws-line);margin-bottom:6px}
+.pane-head b{color:var(--ws-ink);font-weight:600}
+.pane-head .acts{margin-left:auto;display:flex;gap:6px}
+.btn{border:1px solid var(--ws-line);background:#fff;color:var(--ws-ink);border-radius:6px;padding:5px 11px;font-size:12.5px;font-family:var(--ui);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--ws-accent-line)}
+.btn.primary{background:var(--ws-accent);border-color:var(--ws-accent);color:#fff}
+.btn.primary:hover{background:var(--ws-accent-ink)}
+.btn.small{padding:3px 8px;font-size:12px}
+.rv{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--ws-line)}
+.rv:first-of-type{border-top:0}
+.rv input{margin:4px 0 0;flex:none}
+.rv .grow{flex:1;min-width:0}
+.rv .ask{font:12px var(--ui);color:var(--ws-muted);margin-bottom:5px}
+.n{display:inline-block;font:600 10px var(--ui);color:#fff;background:var(--amber);border-radius:8px;padding:0 5px;line-height:15px;margin-right:3px;vertical-align:1px}
+.n.whole{background:var(--ws-accent)}
+.diff{font-family:var(--serif);font-size:16px;line-height:1.55;background:var(--ws-bg);border-radius:7px;padding:9px 11px}
+.diff del{color:var(--del);background:var(--del-bg);text-decoration-color:var(--del)}
+.diff ins{color:var(--ins);background:var(--ins-bg);text-decoration:none}
+.rv.off .diff{opacity:.45}
+.box{font-family:var(--ui);border:1px solid var(--ws-line);border-radius:8px;padding:10px 12px;margin-top:14px;background:#fff}
+.box h5{margin:0 0 6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:600}
+.box .row{font-size:13px;color:var(--ws-ink);padding:6px 0;border-top:1px solid #EEF2F2}
+.box .row:first-of-type{border-top:0}
+.box q{font-style:italic;color:var(--ws-muted)}
+.stalebar{font-family:var(--ui);font-size:12.5px;background:var(--amber-bg);color:var(--amber);border-radius:6px;padding:7px 10px;margin:8px 0 12px;display:none;align-items:center;gap:10px}
+.stalebar.on{display:flex}
+
+/* panel */
+.panel{position:absolute;right:20px;bottom:20px;width:340px;background:#fff;border-radius:12px;box-shadow:0 6px 28px rgba(0,0,0,.16),0 1px 2px rgba(0,0,0,.08);font-family:var(--ui);font-size:13px;color:var(--ws-ink);z-index:20;display:none;overflow:hidden}
+.panel.open{display:block}
+.panel.compact .p-body{display:none}
+.p-head{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
+.p-head .w{width:22px;height:22px;border-radius:6px;background:var(--ws-accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px}
+.p-head .name{font-weight:600;font-size:14px}
+.p-head .status{font-size:12px;color:var(--ws-muted);display:flex;align-items:center;gap:5px}
+.p-head .status i{width:7px;height:7px;border-radius:50%;background:#3AA36B;display:inline-block}
+.p-head .status.busy i{background:#F0B429;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.p-head .x{margin-left:auto;color:var(--ws-faint);font-size:15px;padding:2px 4px}
+.stages{display:flex;gap:2px;padding:0 10px 10px;border-bottom:1px solid var(--ws-line)}
+.stages button{flex:1;padding:6px 4px;border-radius:6px;font-size:12.5px;color:var(--ws-muted);display:flex;align-items:center;justify-content:center;gap:5px}
+.stages button .sn{font-family:var(--mono);font-size:10px;width:16px;height:16px;border-radius:50%;border:1px solid var(--ws-line);display:grid;place-items:center}
+.stages button.on{background:var(--ws-accent-bg);color:var(--ws-accent-ink);font-weight:600}
+.stages button.on .sn{border-color:var(--ws-accent);background:var(--ws-accent);color:#fff}
+.stages button.soon{color:var(--ws-faint)}
+.stages .soon-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--ws-line);border-radius:3px;padding:0 3px}
+.p-body{padding:14px}
+.p-line{font-size:12.5px;color:var(--ws-muted);line-height:1.5;margin-bottom:10px}
+.mini-dials{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.mini-dials span{font-size:11.5px;border:1px solid var(--ws-line);border-radius:10px;padding:2px 8px;color:var(--ws-muted)}
+.comments{margin-top:10px;border-top:1px solid var(--ws-line);padding-top:10px}
+.comments h5,.draftask h5,.tweaks h5{margin:0 0 6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ws-muted);font-weight:600}
+.c{display:flex;gap:8px;align-items:flex-start;padding:6px 4px;margin:0 -4px;border-top:1px solid #EEF2F2;font-size:12.5px;border-radius:4px}
+.c:first-of-type{border-top:0}
+.c.hot{background:var(--ws-accent-bg)}
+.c .n{margin-top:2px;flex:none}
+.c .body{flex:1;min-width:0}
+.c .on{color:var(--ws-faint);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c.stale .on{color:var(--amber)}
+.c .x{color:var(--ws-faint);font-size:13px;padding:0 2px;line-height:1}
+.c .x:hover{color:var(--ws-ink)}
+.draftask{margin-top:12px;border-top:1px solid var(--ws-line);padding-top:10px}
+.askrow{display:flex;gap:6px}
+.askrow input{flex:1;min-width:0;border:1px solid var(--ws-line);border-radius:7px;padding:8px 10px;font:inherit;outline:none}
+.askrow input:focus{border-color:var(--ws-accent)}
+.p-cta{width:100%;justify-content:center;padding:9px;margin-top:12px}
+.tweaks{margin-top:12px;border-top:1px solid var(--ws-line);padding-top:10px}
+.tw{font-size:12.5px;padding:5px 0;border-top:1px solid #EEF2F2}
+.tw:first-of-type{border-top:0}
+.tw span{color:var(--ws-faint)}
+
+/* selection pill and card */
+.pill{position:absolute;z-index:30;display:none;background:var(--ws-accent);color:#fff;border-radius:14px;padding:4px 10px;font:600 12px var(--ui);box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.pill.on{display:inline-flex;gap:5px;align-items:center}
+.pop{position:absolute;z-index:31;display:none;width:400px;background:#fff;border:1px solid var(--ws-line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.18);font-family:var(--ui);font-size:13px;color:var(--ws-ink);padding:10px 12px 12px}
+.pop.on{display:block}
+.pop .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ws-faint);margin-bottom:6px;display:flex;justify-content:space-between}
+.pop .hint{font-size:12px;color:var(--ws-muted);margin:6px 0 0}
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.presets button{border:1px solid var(--ws-line);border-radius:12px;padding:3px 9px;font-size:12px;color:var(--ws-muted)}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#1F2A2A;color:#fff;font:13px var(--ui);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="mockbar">
+  <span class="tag">Revise mock</span>
+  <span class="hint"><b>W</b> opens the panel on Revise. Select any passage: the card's <b>Comment</b> keeps a margin note, <b>Tweak now</b> is the old immediate path. Add a comment on the whole draft in the panel. <b>Revise</b> answers them all in one pass; tick or untick, <b>Apply all</b> writes one edit. Canned: no model calls.</span>
+  <button class="mbtn" id="reset">Reset</button>
+</div>
+
+<div class="stagewrap">
+<div class="browser">
+  <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><div class="url">wiki.example.com/edit/bots-and-containers</div></div>
+  <div class="page">
+    <div class="wikibar"><b>Team wiki</b><span>Proposals</span><span>Editing: Bots and containers</span></div>
+    <div class="doc">
+      <h1>Bots and containers</h1>
+      <div class="work" id="work">
+        <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+        <div class="pane" id="pane"></div>
+        <button class="launcher" id="launcher" title="WordSnap">W</button>
+      </div>
+    </div>
+    <aside class="panel" id="panel" aria-label="WordSnap"></aside>
+    <button class="pill" id="pill">✎ Comment</button>
+    <div class="pop" id="pop"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ---------- the draft: a finished doc, already in shape; the writer wants changes, not a reshaping ---------- */
+const DRAFT = [
+  'How curunir keeps an agent fleet private: each assistant holds its own data, and the user is the only one who moves it.',
+  'A bot that knows everything is mediocre at everything. A focused bot, with a persona and a small set of skills, is better at its job. So we run several: a medical one, a go-to-market one, a finance one.',
+  'Some data the user decides must stay put. A medical bot that knows their history, a finance bot that sees their accounts, an everyday bot that plans their week: the overlap between them is never. Today curunir handles this by giving each bot a container with its own data, and they cannot see each other.',
+  'The open question is how to handle cross-bot collaboration while ensuring data privacy. A weekly brief that includes net worth must be owned by finance and sent by finance. When the human comes back from finance, the everyday bot knows nothing about the visit and says so.',
+];
+
+/* ---------- canned answers: what Revise returns for the comments this mock knows how to answer ---------- */
+const CANNED = {
+  // passage comments, keyed by the passage's text
+  'How curunir keeps an agent fleet private: each assistant holds its own data, and the user is the only one who moves it.': {
+    say: 'How curunir keeps data private and local while running a fleet of agents.',
+  },
+  'The open question is how to handle cross-bot collaboration while ensuring data privacy.': {
+    say: 'Collaboration across bots is the open question.',
+    shorter: 'Cross-bot collaboration is the open question.',
+  },
+};
+const RENAME = { from: 'bot', to: 'agent' };
+
+/* ---------- state ---------- */
+let S;
+function fresh() { return { open: true, stage: 'revise', comments: [], revise: null, applied: [], hot: null, pending: null }; }
+const $ = (id) => document.getElementById(id);
+const editor = $('editor'), pane = $('pane'), panel = $('panel'), work = $('work'), pill = $('pill'), pop = $('pop');
+let nextId = 1;
+let savedRange = null;
+
+function reset() {
+  S = fresh();
+  editor.innerHTML = DRAFT.map((p) => `<p>${p}</p>`).join('');
+  work.classList.remove('comparing');
+  hideCard();
+  render();
+}
+
+function plainText() { return Array.from(editor.querySelectorAll('p')).map((p) => p.textContent).join('\n\n'); }
+
+/* ---------- marks: wrap each commented passage in the editor ---------- */
+function drawMarks() {
+  editor.querySelectorAll('.cm').forEach((m) => { const t = document.createTextNode(m.dataset.text); m.replaceWith(t); });
+  editor.normalize();
+  S.comments.forEach((c, i) => {
+    if (!c.quote) return;
+    const w = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      const at = n.data.indexOf(c.quote);
+      if (at < 0) continue;
+      const r = document.createRange(); r.setStart(n, at); r.setEnd(n, at + c.quote.length);
+      const span = document.createElement('span');
+      span.className = 'cm' + (S.hot === c.id ? ' hot' : ''); span.dataset.text = c.quote; span.dataset.id = c.id;
+      r.surroundContents(span);
+      const num = document.createElement('span');
+      num.className = 'num'; num.contentEditable = 'false'; num.textContent = String(i + 1);
+      span.insertBefore(num, span.firstChild);
+      c.stale = false;
+      return;
+    }
+    c.stale = true;
+  });
+}
+
+/* ---------- panel ---------- */
+function render() {
+  drawMarks();
+  panel.classList.toggle('open', S.open);
+  panel.classList.toggle('compact', !!S.revise && S.revise.status === 'open');
+  const live = S.comments.filter((c) => !c.stale).length;
+  const rv = S.revise;
+  const stageBtn = (id, n, label) => `<button class="${S.stage === id ? 'on' : ''}" data-stage="${id}"><span class="sn">${n}</span>${label}</button>`;
+  let body;
+  if (S.stage === 'revise') {
+    body = `<div class="mini-dials"><span>Balanced</span><span>Neutral</span><span>Doc</span></div>
+      <div class="p-line">Select a passage and press <b>✎</b> to leave a comment on it: what it should say, or what to change. Comments wait here until you press Revise.</div>
+      <div class="comments"><h5>Comments</h5>${S.comments.length ? S.comments.map((c, i) => `
+        <div class="c ${c.stale ? 'stale' : ''} ${S.hot === c.id ? 'hot' : ''}" data-c="${c.id}">
+          <span class="n ${c.quote ? '' : 'whole'}">${i + 1}</span>
+          <div class="body"><div>${c.text}</div><div class="on">${c.quote ? (c.stale ? 'that passage changed; remove and comment again' : `on “${c.quote}”`) : 'on the whole draft'}</div></div>
+          <button class="x" data-remove="${c.id}" title="Remove">✕</button>
+        </div>`).join('') : '<div class="c"><span class="body" style="color:var(--ws-faint)">None yet.</span></div>'}</div>
+      <div class="draftask"><h5>Comment on the whole draft</h5><div class="askrow"><input placeholder="“say agent instead of bot”" data-whole><button class="btn" data-add-whole>Add ↵</button></div></div>
+      ${rv?.status === 'error' ? `<div class="p-line" style="color:var(--amber)">${rv.error}</div>` : ''}
+      <button class="btn primary p-cta" data-act="revise" ${!live || rv?.status === 'running' || rv?.status === 'open' ? 'disabled' : ''}>${rv?.status === 'running' ? 'Revising…' : rv?.status === 'open' ? 'The revision is beside your draft' : `Revise${live ? ` (${live} comment${live === 1 ? '' : 's'})` : ''}`}</button>
+      <div class="tweaks"><h5>Applied</h5>${S.applied.length ? S.applied.map((a) => `<div class="tw">${a.text} <span>${a.quote ? `on “${a.quote.slice(0, 40)}…”` : 'on the whole draft'}</span></div>`).join('') : '<div class="tw"><span>None yet.</span></div>'}</div>`;
+  } else if (S.stage === 'tune') {
+    body = `<div class="p-line">The dials live here. This mock is about the Revise stage.</div>`;
+  } else if (S.stage === 'shape') {
+    body = `<div class="p-line">This draft is already in shape, so the writer skipped Shape and went straight to Revise.</div>`;
+  } else {
+    body = `<div class="p-line">Check is coming next.</div>`;
+  }
+  panel.innerHTML = `<div class="p-head"><span class="w">W</span><span class="name">WordSnap</span><span class="status ${rv?.status === 'running' ? 'busy' : ''}"><i></i>${rv?.status === 'running' ? 'Working…' : 'Ready'}</span><button class="x" data-close>✕</button></div>
+    <div class="stages">${stageBtn('tune', 1, 'Tune')}${stageBtn('shape', 2, 'Shape')}${stageBtn('revise', 3, 'Revise')}<button class="soon" data-stage="check"><span class="sn">4</span>Check <span class="soon-tag">soon</span></button></div>
+    <div class="p-body">${body}</div>`;
+  renderPane();
+}
+
+/* ---------- the selection card ---------- */
+function hideCard() { pill.classList.remove('on'); pop.classList.remove('on'); }
+function showCard() {
+  if (!savedRange) return;
+  const r = savedRange.getBoundingClientRect(), pr = document.querySelector('.page').getBoundingClientRect();
+  pop.style.left = `${Math.max(8, r.left - pr.left)}px`; pop.style.top = `${r.bottom - pr.top + 6}px`;
+  pop.innerHTML = `<div class="k"><span>Comment on this passage</span><span>Balanced · Neutral</span></div>
+    <div class="askrow"><input placeholder="What should change here: “say X”, “instead of Y, Z”" data-ask><button class="btn primary" data-comment>Comment ↵</button><button class="btn" data-now>Tweak now</button></div>
+    <p class="hint">A comment waits in the panel until you press Revise. Tweak now runs on this passage alone.</p>
+    <div class="presets"><button data-preset="Shorter">Shorter</button><button data-preset="Clearer">Clearer</button><button data-preset="Punchier">Punchier</button><button data-preset="Warmer">Warmer</button><button data-preset="More formal">More formal</button></div>`;
+  pill.classList.remove('on'); pop.classList.add('on');
+  pop.querySelector('[data-ask]').focus();
+}
+function addComment(text, quote) {
+  S.comments.push({ id: `c${nextId++}`, text, quote });
+  if (S.revise?.status === 'open') S.revise = null;
+  savedRange = null; hideCard(); render();
+  toast(quote ? 'Comment added. Press Revise in the panel when you have left them all.' : 'Comment added on the whole draft.');
+}
+
+/* ---------- Revise: one request, one answer per comment ---------- */
+function runRevise() {
+  const live = S.comments.filter((c) => !c.stale);
+  S.revise = { status: 'running', comments: live, changes: [], skipped: [] };
+  render();
+  setTimeout(() => {
+    const changes = [], skipped = [];
+    const text = plainText();
+    live.forEach((c, i) => {
+      const n = i + 1;
+      if (c.quote) {
+        const say = c.text.match(/^say:?\s+(.+)$/i)?.[1];
+        const canned = CANNED[c.quote];
+        const rep = say ? (canned?.say ?? say) : /shorter/i.test(c.text) && canned?.shorter ? canned.shorter : null;
+        if (rep && rep !== c.quote) changes.push({ n, id: c.id, text: c.text, quote: c.quote, replacement: rep });
+        else skipped.push({ n, text: c.text, why: 'This mock only knows “say …” and Shorter on a passage.' });
+        return;
+      }
+      if (/agent instead of bot/i.test(c.text)) {
+        let hits = 0;
+        for (const sentence of text.split(/(?<=[.!?])\s+|\n+/)) {
+          const re = /\b([Bb])ot(s?)\b/g;
+          if (!re.test(sentence)) continue;
+          if (live.some((o) => o.quote && sentence.includes(o.quote))) continue; // a commented passage wins
+          changes.push({ n, id: c.id, text: c.text, quote: sentence, replacement: sentence.replace(/\b([Bb])ot(s?)\b/g, (m, b, s) => (b === 'B' ? 'Agent' : 'agent') + s) });
+          hits++;
+        }
+        if (!hits) skipped.push({ n, text: c.text, why: '“bot” is not in the draft.' });
+      } else skipped.push({ n, text: c.text, why: 'This mock only knows “say agent instead of bot” on the whole draft.' });
+    });
+    changes.sort((a, b) => text.indexOf(a.quote) - text.indexOf(b.quote));
+    S.revise = changes.length ? { status: 'open', comments: live, changes, skipped, off: new Set(), note: changes.some((c) => /Agent/.test(c.replacement)) ? 'Renamed in every sentence except the ones you commented on; the article before it was fixed where needed.' : '' }
+      : { status: 'error', error: 'Revise could not act on any comment; try again.' };
+    work.classList.toggle('comparing', S.revise.status === 'open');
+    render();
+  }, 900);
+}
+function diffHtml(a, b) {
+  const A = a.split(/(\s+)/).filter(Boolean), B = b.split(/(\s+)/).filter(Boolean);
+  const L = Array.from({ length: A.length + 1 }, () => new Array(B.length + 1).fill(0));
+  for (let i = A.length - 1; i >= 0; i--) for (let j = B.length - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0, out = '';
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  // A rewrite that keeps under 40% of the passage reads better struck and whole than as confetti.
+  if (L[0][0] && L[0][0] * 2 < Math.max(A.length, B.length) * 0.4 || !L[0][0]) return `<del>${esc(a)}</del> <ins>${esc(b)}</ins>`;
+  while (i < A.length && j < B.length) {
+    if (A[i] === B[j]) { out += esc(A[i]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) out += `<del>${esc(A[i++])}</del>`;
+    else out += `<ins>${esc(B[j++])}</ins>`;
+  }
+  while (i < A.length) out += `<del>${esc(A[i++])}</del>`;
+  while (j < B.length) out += `<ins>${esc(B[j++])}</ins>`;
+  return out;
+}
+function renderPane() {
+  const rv = S.revise;
+  if (!rv || rv.status !== 'open') { pane.innerHTML = ''; return; }
+  const picked = rv.changes.filter((_, i) => !rv.off.has(i)).length;
+  pane.innerHTML = `<div class="pane-head"><b>Revised</b><span>${rv.changes.length} change${rv.changes.length === 1 ? '' : 's'} from ${rv.comments.length} comment${rv.comments.length === 1 ? '' : 's'}</span>
+      <span class="acts"><button class="btn" data-keep>Keep mine</button><button class="btn primary" data-apply ${picked ? '' : 'disabled'}>Apply ${picked === rv.changes.length ? 'all' : picked}</button></span></div>
+    <div class="stalebar ${rv.stale ? 'on' : ''}"><span>Your draft changed since this was made.</span><button class="btn small" data-act="revise">Revise again</button></div>
+    ${rv.note ? `<p style="font-family:var(--ui);font-size:13px;color:var(--ws-muted);margin:8px 0 6px;line-height:1.5">${rv.note}</p>` : ''}
+    ${rv.changes.map((ch, i) => `<div class="rv ${rv.off.has(i) ? 'off' : ''}" data-rv="${i}"><input type="checkbox" ${rv.off.has(i) ? '' : 'checked'} data-toggle="${i}"><div class="grow"><div class="ask"><span class="n ${ch.quote ? '' : 'whole'}">${ch.n}</span>${ch.text}</div><div class="diff">${diffHtml(ch.quote, ch.replacement)}</div></div></div>`).join('')}
+    ${rv.skipped.length ? `<div class="box"><h5>Not changed</h5>${rv.skipped.map((s) => `<div class="row"><span class="n">${s.n}</span><q>${s.text}</q>: ${s.why}</div>`).join('')}</div>` : ''}`;
+}
+function applyRevise() {
+  const rv = S.revise;
+  const picked = rv.changes.filter((_, i) => !rv.off.has(i));
+  // One edit in the build (splice over the covering span, then insertText); here, replace text in place.
+  drawMarksOff();
+  for (const ch of picked) {
+    const w = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) { const at = n.data.indexOf(ch.quote); if (at >= 0) { n.data = n.data.slice(0, at) + ch.replacement + n.data.slice(at + ch.quote.length); break; } }
+  }
+  const done = new Set(picked.map((c) => c.id));
+  for (const c of S.comments) if (done.has(c.id)) S.applied.push({ text: c.text, quote: c.quote });
+  S.comments = S.comments.filter((c) => !done.has(c.id));
+  S.revise = null;
+  work.classList.remove('comparing');
+  render();
+  toast(`Applied ${picked.length} change${picked.length === 1 ? '' : 's'}. Undo in the editor takes them back.`);
+}
+function drawMarksOff() { editor.querySelectorAll('.cm').forEach((m) => m.replaceWith(document.createTextNode(m.dataset.text))); editor.normalize(); }
+
+/* ---------- events ---------- */
+let toastT;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+document.addEventListener('selectionchange', () => {
+  const sel = getSelection();
+  if (!S.open || S.revise?.status === 'open' || pop.classList.contains('on') || !sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) { pill.classList.remove('on'); return; }
+  const text = sel.toString().trim();
+  if (text.length < 3) { pill.classList.remove('on'); return; }
+  savedRange = sel.getRangeAt(0).cloneRange();
+  const r = savedRange.getBoundingClientRect(), pr = document.querySelector('.page').getBoundingClientRect();
+  pill.style.left = `${Math.max(8, r.right - pr.left - 40)}px`; pill.style.top = `${r.bottom - pr.top + 6}px`;
+  pill.classList.add('on');
+});
+pill.addEventListener('mousedown', (e) => e.preventDefault());
+pill.addEventListener('click', showCard);
+$('launcher').addEventListener('click', () => { S.open = !S.open; render(); });
+$('reset').addEventListener('click', reset);
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.stage) { S.stage = b.dataset.stage; render(); }
+  else if (b.dataset.close !== undefined) { S.open = false; render(); }
+  else if (b.dataset.remove) { S.comments = S.comments.filter((c) => c.id !== b.dataset.remove); if (S.revise?.status === 'open') { S.revise = null; work.classList.remove('comparing'); } render(); }
+  else if (b.dataset.addWhole !== undefined) { const v = panel.querySelector('[data-whole]').value.trim(); if (v) addComment(v); }
+  else if (b.dataset.act === 'revise') runRevise();
+  else if (b.dataset.comment !== undefined) { const v = pop.querySelector('[data-ask]').value.trim(); if (v) addComment(v, savedRange.toString().trim()); }
+  else if (b.dataset.now !== undefined) { toast('Tweak now: the immediate path, unchanged from the co-writer mock.'); hideCard(); }
+  else if (b.dataset.preset) { toast(`${b.dataset.preset}: runs now on this passage, as before.`); hideCard(); }
+  else if (b.dataset.keep !== undefined) { S.revise = null; work.classList.remove('comparing'); render(); }
+  else if (b.dataset.apply !== undefined) applyRevise();
+});
+document.addEventListener('change', (e) => {
+  if (e.target.dataset.toggle !== undefined) { const i = Number(e.target.dataset.toggle); S.revise.off.has(i) ? S.revise.off.delete(i) : S.revise.off.add(i); renderPane(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('[data-ask]') && e.target.value.trim()) addComment(e.target.value.trim(), savedRange.toString().trim());
+  if (e.key === 'Enter' && e.target.matches('[data-whole]') && e.target.value.trim()) addComment(e.target.value.trim());
+  if (e.key === 'Escape') hideCard();
+});
+document.addEventListener('mouseover', (e) => {
+  const m = e.target.closest('.cm, .c[data-c]');
+  const id = m ? (m.dataset.id || m.dataset.c) : null;
+  if (id !== S.hot) { S.hot = id; panel.querySelectorAll('.c[data-c]').forEach((el) => el.classList.toggle('hot', el.dataset.c === id)); editor.querySelectorAll('.cm').forEach((el) => el.classList.toggle('hot', el.dataset.id === id)); }
+});
+editor.addEventListener('input', () => { if (S.revise?.status === 'open') { S.revise.stale = true; renderPane(); } });
+editor.addEventListener('scroll', hideCard);
+reset();
+</script>
+</body>
+</html>

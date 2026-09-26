@@ -143,3 +143,16 @@ export type PassFill = z.infer<typeof PassFill>;
 
 export const PassTweak = z.object({ replacement: z.string().min(1).max(4000), note: z.string().max(200).optional() });
 export type PassTweak = z.infer<typeof PassTweak>;
+
+/**
+ * Revise: one answer per numbered comment. A comment on a passage gets a "change" (the passage as it should now read);
+ * a comment on the whole draft gets "edits" (fragments copied from the draft, each with its replacement). "skipped"
+ * names the comments it could not act on. Nothing outside these is ever written.
+ */
+export const PassRevise = z.object({
+  changes: z.array(z.object({ comment: z.number().int().min(1), replacement: z.string().max(4000), note: z.string().max(200).optional() })).max(40),
+  edits: z.array(z.object({ comment: z.number().int().min(1), quote: Quote, replacement: z.string().max(1200) })).max(80),
+  skipped: z.array(z.object({ comment: z.number().int().min(1), why: z.string().max(200) })).max(40),
+  note: z.string().max(300).optional(),
+});
+export type PassRevise = z.infer<typeof PassRevise>;

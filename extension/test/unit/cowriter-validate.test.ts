@@ -1,4 +1,5 @@
-import { unseenTokens, validateFill, validateShape, validateTweak } from '../../src/passes/cowriter-validate';
+import { splice, TWEAK_DRAFT_TOO_LONG, TWEAK_REJECTED, TWEAK_TOO_LONG, unseenTokens, validateFill, validateRevise, validateShape, validateTweak } from '../../src/passes/cowriter-validate';
+import type { Comment } from '../../src/shared/cowriter';
 import type { PassShape } from '../../src/shared/schemas';
 
 const DUMP = 'ok so we should move the offsite to march. maybe april is better actually. no, march, because the budget closes in q1. also bring laptops. everyone at acme said yes.';
@@ -103,5 +104,87 @@ describe('validateTweak', () => {
     const long = 'April may be better for everyone involved, since the weather is warmer and more of the team is back from leave by then.';
     expect(validateTweak({ replacement: long }, input)).toMatchObject({ ok: false });
     expect(validateTweak({ replacement: long }, { ...input, instruction: 'expand on why' })).toMatchObject({ ok: true });
+  });
+  it('tells a new fact apart from an answer that outgrew the passage', () => {
+    expect(validateTweak({ replacement: 'April, per Hilton, is better.' }, input)).toMatchObject({ ok: false, message: TWEAK_REJECTED });
+    expect(validateTweak({ replacement: DUMP }, input)).toMatchObject({ ok: false, reason: 'over 2.5x the passage', message: TWEAK_TOO_LONG });
+  });
+  it('checks a draft-wide change against the whole draft, with a tighter length cap', () => {
+    const draft = { passage: DUMP, draft: DUMP, instruction: 'say retreat instead of offsite', scope: 'draft' as const };
+    const renamed = DUMP.replace('offsite', 'retreat');
+    expect(validateTweak({ replacement: renamed }, draft)).toEqual({ ok: true, text: renamed });
+    expect(validateTweak({ replacement: `${DUMP} ${DUMP.slice(0, 60)}` }, draft)).toMatchObject({ ok: false, reason: 'over 1.3x the draft', message: TWEAK_DRAFT_TOO_LONG });
+    expect(validateTweak({ replacement: DUMP.replace('acme', 'Globex') }, draft)).toMatchObject({ ok: false, message: TWEAK_REJECTED });
+  });
+});
+
+describe('validateRevise', () => {
+  const at = (q: string) => ({ start: DUMP.indexOf(q), end: DUMP.indexOf(q) + q.length });
+  const comments: Comment[] = [
+    { id: 'c1', text: 'say: April is out; March it is', quote: 'maybe april is better actually', span: at('maybe april is better actually') },
+    { id: 'c2', text: 'say retreat instead of offsite' },
+    { id: 'c3', text: 'Clearer', quote: 'also bring laptops', span: at('also bring laptops') },
+  ];
+  const input = { draft: DUMP, comments };
+
+  it('ties each change and edit to its comment, locates them, sorts them and never lets them overlap', () => {
+    const r = validateRevise(
+      {
+        changes: [
+          { comment: 1, replacement: 'April is out; March it is.' },
+          { comment: 3, replacement: 'also bring laptops' },
+        ],
+        edits: [
+          { comment: 2, quote: 'ok so we should move the offsite to march.', replacement: 'ok so we should move the retreat to march.' },
+          { comment: 2, quote: 'maybe april is better', replacement: 'maybe april is worse' },
+        ],
+        skipped: [],
+      },
+      input,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.changes.map((c) => [c.comment, c.quote, c.replacement])).toEqual([
+      ['c2', 'ok so we should move the offsite to march.', 'ok so we should move the retreat to march.'],
+      ['c1', 'maybe april is better actually', 'April is out; March it is.'],
+    ]);
+    expect(r.skipped).toEqual([{ comment: 'c3', why: 'Came back unchanged.' }]);
+    expect(r.notes.some((n) => n.includes('overlaps'))).toBe(true);
+  });
+
+  it('drops what brings in a new fact, what outgrows its span, what answers no comment, and reports the unanswered', () => {
+    const r = validateRevise(
+      {
+        changes: [
+          { comment: 1, replacement: 'Per Hilton, April is out.' },
+          { comment: 2, replacement: 'the whole draft rewritten' },
+          { comment: 9, replacement: 'x' },
+        ],
+        edits: [{ comment: 2, quote: 'not in the dump at all', replacement: 'y' }],
+        skipped: [{ comment: 3, why: 'Nothing unclear here.' }],
+      },
+      input,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.notes.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('marks a comment whose passage is gone as moved', () => {
+    const r = validateRevise({ changes: [{ comment: 1, replacement: 'March it is.' }, { comment: 3, replacement: 'Bring laptops.' }], edits: [], skipped: [] }, { draft: DUMP.replace('maybe april is better actually. ', ''), comments });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.skipped).toEqual([{ comment: 'c1', why: 'The passage moved or changed.' }, { comment: 'c2', why: 'Nothing in the draft matched this.' }]);
+    expect(r.changes).toHaveLength(1);
+  });
+
+  it('splices sorted changes into one edit that leaves everything between them untouched', () => {
+    const changes = [
+      { span: at('offsite'), replacement: 'retreat' },
+      { span: at('laptops'), replacement: 'chargers' },
+    ];
+    const e = splice(DUMP, changes)!;
+    expect(e.span).toEqual({ start: DUMP.indexOf('offsite'), end: DUMP.indexOf('laptops') + 'laptops'.length });
+    expect(DUMP.slice(0, e.span.start) + e.replacement + DUMP.slice(e.span.end)).toBe(DUMP.replace('offsite', 'retreat').replace('laptops', 'chargers'));
+    expect(splice(DUMP, [])).toBeNull();
   });
 });

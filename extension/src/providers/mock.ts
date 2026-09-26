@@ -1,7 +1,7 @@
 // Mock provider: canned results from the shared sample. Used for development without a key, the options "try it" step
 // when provider=mock, unit tests and the e2e suite. Matches request claims to sample verdicts by quote.
 import { SAMPLE_DICTATED_MARKER, SAMPLE_IDEA_MARKER, SAMPLE_PASS_A, SAMPLE_PASS_B, SAMPLE_PASS_C, SAMPLE_PASS_S, SAMPLE_PASS_S_KEEPS, SAMPLE_PASS_S_OUTLINE, SAMPLE_SOURCES_SEEN } from '../shared/sample';
-import { mockShape, mockTweak, SAMPLE_FILL, SAMPLE_SHAPE } from '../shared/cowriter-sample';
+import { mockRevise, mockShape, mockTweak, SAMPLE_FILL, SAMPLE_SHAPE, type MockComment } from '../shared/cowriter-sample';
 import { AGENTS_DUMP } from '../shared/dumps';
 import type { LLMProvider, PassEvent, PassRequest, PassResult, PassUsage } from './types';
 
@@ -33,7 +33,7 @@ function abortError(): Error {
   return e;
 }
 
-const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C' | 'shape' | 'fill' | 'tweak', PassUsage> = {
+const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C' | 'shape' | 'fill' | 'tweak' | 'revise', PassUsage> = {
   S: { inputTokens: 2400, outputTokens: 700, cacheReadTokens: 1800, searches: 0 },
   A: { inputTokens: 2600, outputTokens: 900, cacheReadTokens: 1800, searches: 0 },
   B: { inputTokens: 18000, outputTokens: 1600, cacheReadTokens: 1800, searches: 4 },
@@ -41,6 +41,7 @@ const MOCK_USAGE: Record<'S' | 'A' | 'B' | 'C' | 'shape' | 'fill' | 'tweak', Pas
   shape: { inputTokens: 3000, outputTokens: 1000, cacheReadTokens: 0, searches: 0 },
   fill: { inputTokens: 1500, outputTokens: 500, cacheReadTokens: 0, searches: 0 },
   tweak: { inputTokens: 1200, outputTokens: 400, cacheReadTokens: 0, searches: 0 },
+  revise: { inputTokens: 3200, outputTokens: 900, cacheReadTokens: 0, searches: 0 },
 };
 
 export class MockProvider implements LLMProvider {
@@ -83,10 +84,22 @@ export class MockProvider implements LLMProvider {
       return { data: req.schema.parse(dump === AGENTS_DUMP ? SAMPLE_SHAPE : mockShape(dump)), sourcesSeen: [], usage };
     }
     if (req.pass === 'fill') return { data: req.schema.parse(SAMPLE_FILL), sourcesSeen: [], usage };
+    if (req.pass === 'revise') {
+      const draft = req.user.match(/<draft>\n([\s\S]*?)\n<\/draft>/)?.[1] ?? '';
+      const block = req.user.match(/<comments>\n([\s\S]*?)\n<\/comments>/)?.[1] ?? '';
+      const comments: MockComment[] = [];
+      for (const line of block.split('\n')) {
+        const m = line.match(/^(\d+)\. (?:On "([\s\S]*)": |On the whole draft: )(.*)$/);
+        if (m) comments.push(m[2] !== undefined ? { n: Number(m[1]), quote: m[2], text: m[3]! } : { n: Number(m[1]), text: m[3]! });
+      }
+      return { data: req.schema.parse(mockRevise(draft, comments)), sourcesSeen: [], usage };
+    }
     if (req.pass === 'tweak') {
       const cur = req.user.match(/<current>\n([\s\S]*?)\n<\/current>/)?.[1];
-      const passage = cur ?? req.user.match(/<passage>\n([\s\S]*?)\n<\/passage>/)?.[1] ?? '';
-      return { data: req.schema.parse(mockTweak(passage)), sourcesSeen: [], usage };
+      // A draft-wide tweak sends no <passage>: the draft is the passage.
+      const passage = cur ?? req.user.match(/<passage>\n([\s\S]*?)\n<\/passage>/)?.[1] ?? req.user.match(/<draft>\n([\s\S]*?)\n<\/draft>/)?.[1] ?? '';
+      const instruction = req.user.match(/^Instruction: (.*)$/m)?.[1] ?? '';
+      return { data: req.schema.parse(mockTweak(passage, instruction)), sourcesSeen: [], usage };
     }
 
     if (req.pass === 'S') {

@@ -5,6 +5,7 @@ import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { ComposerHandle } from '../../adapters/types';
 import type { CowriterState } from '../../shared/cowriter';
+import type { Span } from '../../shared/types';
 import type { RectLike } from '../components/HighlightLayer';
 import { launcherStyle } from '../components/Launcher';
 import { Toast } from '../components/Toast';
@@ -13,6 +14,7 @@ import type { Stage } from './copy';
 import { paneGeometry, releasePane, sourceRects, toRects } from './geometry';
 import { busy, Panel } from './Panel';
 import { PANEL_W, placePanel } from './place';
+import { RevisePane } from './RevisePane';
 import { ShapePane, type PaneGeometry } from './ShapePane';
 import { TweakCard, TweakPill, type TweakAsk } from './TweakCard';
 import type { CowriterCallbacks, CowriterOverlay, MountCowriter } from './types';
@@ -33,7 +35,7 @@ function measure(handle: ComposerHandle, store: Store): void {
   store.viewport = { width: window.innerWidth, height: window.innerHeight };
   const a = handle.anchorRect();
   store.anchor = { left: a.left, top: a.top, width: a.width, height: a.height };
-  const showPane = store.open && store.state.shape?.status === 'open';
+  const showPane = store.open && (store.state.shape?.status === 'open' || store.state.revise?.status === 'open');
   store.pane = showPane ? paneGeometry(handle, store.viewport) : undefined;
   if (!showPane) releasePane(handle);
   try {
@@ -55,7 +57,8 @@ function panelStyle(store: Store): { style: Record<string, string>; box: RectLik
 
 function cardPosition(handle: ComposerHandle, store: Store, tweakSpan: { start: number; end: number } | undefined, fallback: Pos | undefined): Pos {
   if (fallback) return fallback;
-  const r = tweakSpan ? toRects(handle.rangeFor(tweakSpan)).pop() : undefined;
+  // A draft-wide change sits at the top of the draft, not under its last line.
+  const r = tweakSpan && !(tweakSpan.start === 0 && tweakSpan.end >= store.text.length) ? toRects(handle.rangeFor(tweakSpan)).pop() : undefined;
   return r ? { left: Math.max(8, r.left), top: r.top + r.height + 6 } : { left: store.anchor.left + 20, top: store.anchor.top + 40 };
 }
 
@@ -70,6 +73,8 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
   const [pill, setPill] = useState<(TweakAsk & { at: Pos }) | null>(null);
   const [ask, setAsk] = useState<(TweakAsk & { at: Pos }) | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [hotComment, setHotComment] = useState<string | null>(null);
+  const rv = state.revise;
 
   useEffect(() => {
     if (!toast) return;
@@ -81,11 +86,14 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
   useEffect(() => {
     if (sh?.status === 'running' || sh?.status === 'open') setStage('shape');
   }, [sh?.status]);
+  useEffect(() => {
+    if (rv?.status === 'running' || rv?.status === 'open') setStage('tweak');
+  }, [rv?.status]);
 
   // Selection in the editor → the ✎ Tweak pill, below the end of the selection. Not while a shape is open or a card is up.
   useEffect(() => {
     const onSel = () => {
-      if (!open || store.state.shape?.status === 'open' || ask || store.state.tweak) return setPill(null);
+      if (!open || store.state.shape?.status === 'open' || store.state.revise?.status === 'open' || ask || store.state.tweak) return setPill(null);
       const span = handle.selectionSpan?.() ?? null;
       if (!span || span.end - span.start < 3) return setPill(null);
       const rects = toRects(handle.rangeFor(span));
@@ -133,11 +141,23 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
 
   const tweak = state.tweak;
   const cardAt = cardPosition(handle, store, tweak?.span, ask?.at ?? pill?.at);
+  const leaveComment = (c: { text: string; quote?: string; span?: Span }) => {
+    callbacks.onComment({ id: `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, ...c });
+    setStage('tweak');
+  };
+  // Margin marks: one amber run per commented passage, numbered at its start. Drawn from the live DOM each render.
+  const commentMarks = open
+    ? state.comments.flatMap((c, i) => {
+        if (!c.span || c.stale) return [];
+        const rects = toRects(handle.rangeFor(c.span));
+        return rects.map((r, ri) => ({ id: c.id, n: i + 1, first: ri === 0, r }));
+      })
+    : [];
 
   return (
     <div class="ws-root">
-      {/* While the shaped draft is beside the dump the panel is up and the badge would sit on the pane's buttons. */}
-      {store.pane ? null : <button class={`ws-launcher${open ? ' open' : ''}${busy(state) ? ' running' : ''}`} style={launcherStyle(store.anchor, open ? panel.box : undefined)} onClick={() => setOpen(!open)} title={open ? 'Hide WordSnap' : 'Open WordSnap'} aria-label={open ? 'Hide WordSnap' : 'Open WordSnap'} aria-pressed={open}>
+      {/* While the shaped draft is beside the dump, or a draft-wide change sits over it, the panel is up and the badge would sit on the card. */}
+      {store.pane || tweak?.scope === 'draft' ? null : <button class={`ws-launcher${open ? ' open' : ''}${busy(state) ? ' running' : ''}`} style={launcherStyle(store.anchor, open ? panel.box : undefined)} onClick={() => setOpen(!open)} title={open ? 'Hide WordSnap' : 'Open WordSnap'} aria-label={open ? 'Hide WordSnap' : 'Open WordSnap'} aria-pressed={open}>
         <span class="ws-launcher-mark">W</span>
         {busy(state) ? <span class="ws-launcher-ring" /> : null}
       </button>}
@@ -167,6 +187,28 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
       {marks.map((r) => (
         <div class="cw-mark" style={{ left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` }} />
       ))}
+      {commentMarks.map((m) => (
+        <div class={`cw-cmark${hotComment === m.id ? ' hot' : ''}`} data-comment={m.id} style={{ left: `${m.r.left}px`, top: `${m.r.top}px`, width: `${Math.max(2, m.r.width)}px`, height: `${m.r.height}px` }} onMouseEnter={() => setHotComment(m.id)} onMouseLeave={() => setHotComment(null)}>
+          {m.first ? <span class="cw-cnum">{m.n}</span> : null}
+        </div>
+      ))}
+      {open && store.pane && rv?.status === 'open' && sh?.status !== 'open' ? (
+        <RevisePane
+          revise={rv}
+          geo={store.pane}
+          onHover={(span) => setMarks(span ? toRects(handle.rangeFor(span)) : [])}
+          onApply={(text, changes) => {
+            setMarks([]);
+            const ok = callbacks.onApplyRevise(text, changes);
+            setToast(ok ? `Applied ${changes.length} change${changes.length === 1 ? '' : 's'}. Undo in the editor takes them back.` : 'Your draft changed; revise again.');
+          }}
+          onKeep={() => {
+            setMarks([]);
+            callbacks.onKeepRevise();
+          }}
+          onRevise={callbacks.onRevise}
+        />
+      ) : null}
       {open ? (
         <Panel
           state={state}
@@ -174,8 +216,13 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
           onStage={setStage}
           onTune={callbacks.onTune}
           onShape={callbacks.onShape}
+          onCommentDraft={(text) => leaveComment({ text })}
+          onRemoveComment={callbacks.onRemoveComment}
+          onRevise={callbacks.onRevise}
+          hotComment={hotComment}
+          onHotComment={setHotComment}
           onClose={() => setOpen(false)}
-          compact={sh?.status === 'open' && stage === 'shape'}
+          compact={(sh?.status === 'open' && stage === 'shape') || (rv?.status === 'open' && !!store.pane)}
           style={panel.style}
           onDragStart={dragPanel}
           onResetPlace={store.panelPos ? () => movePanel(null, true) : undefined}
@@ -197,17 +244,26 @@ function App({ store, subscribe, handle, callbacks, setOpen, movePanel }: { stor
           tune={state.tune}
           at={cardAt}
           onSend={(instruction, mode) => {
-            const base = tweak ?? (ask ? { id: `t${Date.now().toString(36)}`, quote: ask.quote, span: ask.span } : null);
+            const base = tweak ?? (ask ? { id: `t${Date.now().toString(36)}`, quote: ask.quote, span: ask.span, scope: ask.scope } : null);
             if (!base) return;
-            callbacks.onTweak({ id: base.id, quote: base.quote, span: base.span, instruction, mode });
+            callbacks.onTweak({ id: base.id, quote: base.quote, span: base.span, instruction, mode, ...(base.scope ? { scope: base.scope } : {}) });
             setAsk(null);
           }}
+          onComment={
+            ask && !tweak
+              ? (text) => {
+                  leaveComment({ text, quote: ask.quote, span: ask.span });
+                  setAsk(null);
+                  setToast('Comment added. Press Revise in the panel when you have left them all.');
+                }
+              : undefined
+          }
           onApply={() => {
             if (!tweak) return;
             const text = tweak.steps[tweak.steps.length - 1]?.text;
             if (!text) return;
             const ok = callbacks.onApplyTweak(tweak.id, tweak.quote, tweak.span.start, text);
-            setToast(ok ? 'Applied. Undo in the editor takes it back.' : 'The passage moved; select it again.');
+            setToast(ok ? 'Applied. Undo in the editor takes it back.' : tweak.scope === 'draft' ? 'The draft changed; ask again.' : 'The passage moved; select it again.');
             if (ok) setStage('tweak');
           }}
           onKeep={() => {

@@ -24,3 +24,19 @@ export function wordDiff(a: string, b: string): DiffPart[] {
   while (j < B.length) push('ins', B[j++]!);
   return out;
 }
+
+/** Below this share of surviving characters a word diff is noise: show the old text struck and the new one whole. */
+export const WHOLE_BELOW = 0.4;
+
+/** The diff a person can read: word-level when most of the passage survives, whole-replacement when it does not. */
+export function readableDiff(a: string, b: string): DiffPart[] {
+  const parts = wordDiff(a, b);
+  const kept = parts.filter((p) => p.op === 'eq').reduce((n, p) => n + p.text.trim().length, 0);
+  const longest = Math.max(a.trim().length, b.trim().length, 1);
+  if (kept / longest >= WHOLE_BELOW) return parts;
+  const out: DiffPart[] = [];
+  if (a.trim()) out.push({ op: 'del', text: a.trim() });
+  if (a.trim() && b.trim()) out.push({ op: 'eq', text: ' ' });
+  if (b.trim()) out.push({ op: 'ins', text: b.trim() });
+  return out;
+}

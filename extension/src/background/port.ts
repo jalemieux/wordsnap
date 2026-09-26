@@ -68,9 +68,19 @@ export async function routeMessage(s: CowriterSession, m: ContentToBackground): 
     case 'shape/action':
       return s.shapeAction(m.action);
     case 'tweak/run':
-      return s.tweak({ id: m.id, quote: m.quote, span: m.span, instruction: m.instruction, mode: m.mode });
+      return s.tweak({ id: m.id, quote: m.quote, span: m.span, instruction: m.instruction, mode: m.mode, ...(m.scope ? { scope: m.scope } : {}) });
     case 'tweak/action':
       return s.tweakAction(m.id, m.action);
+    case 'comment/add':
+      return s.addComment({ id: m.id, text: m.text, ...(m.quote !== undefined ? { quote: m.quote } : {}), ...(m.span ? { span: m.span } : {}) });
+    case 'comment/edit':
+      return s.editComment(m.id, m.text);
+    case 'comment/remove':
+      return s.removeComment(m.id);
+    case 'revise/run':
+      return s.revise();
+    case 'revise/action':
+      return s.reviseAction(m.action, m.applied ?? []);
     default:
       return;
   }

@@ -4,6 +4,7 @@ import type { CowriterState, Tune } from '../../shared/cowriter';
 import { AUDIENCES, LENGTHS, TONES } from '../../shared/cowriter';
 import { Mark } from '../components/bits';
 import { CHECK_SOON, DIAL_HINT, DIAL_TITLE, LABEL, STAGES, type Stage } from './copy';
+import { AskRow } from './TweakCard';
 
 export interface PanelProps {
   state: CowriterState;
@@ -11,6 +12,13 @@ export interface PanelProps {
   onStage(stage: Stage): void;
   onTune(tune: Tune): void;
   onShape(): void;
+  /** A comment on the whole draft, typed in the panel: "say bot instead of persona". */
+  onCommentDraft(text: string): void;
+  onRemoveComment(id: string): void;
+  onRevise(): void;
+  /** The comment under the pointer, in the draft or in the list. */
+  hotComment: string | null;
+  onHotComment(id: string | null): void;
   onClose(): void;
   compact: boolean;
   style?: Record<string, string>;
@@ -19,12 +27,12 @@ export interface PanelProps {
 }
 
 export function busy(s: CowriterState): boolean {
-  return s.shape?.status === 'running' || s.shape?.filling !== undefined || s.tweak?.status === 'running';
+  return s.shape?.status === 'running' || s.shape?.filling !== undefined || s.tweak?.status === 'running' || s.revise?.status === 'running';
 }
 
 const OPTIONS = { length: LENGTHS, tone: TONES, for: AUDIENCES } as const;
 
-export function Panel({ state, stage, onStage, onTune, onShape, onClose, compact, style, onDragStart, onResetPlace }: PanelProps) {
+export function Panel({ state, stage, onStage, onTune, onShape, onCommentDraft, onRemoveComment, onRevise, hotComment, onHotComment, onClose, compact, style, onDragStart, onResetPlace }: PanelProps) {
   const working = busy(state);
   const sh = state.shape;
   const dial = (key: keyof Tune) => (
@@ -77,6 +85,8 @@ export function Panel({ state, stage, onStage, onTune, onShape, onClose, compact
       </>
     );
   } else if (stage === 'tweak') {
+    const live = state.comments.filter((c) => !c.stale).length;
+    const rv = state.revise;
     body = (
       <>
         <div class="cw-mini">
@@ -84,10 +94,39 @@ export function Panel({ state, stage, onStage, onTune, onShape, onClose, compact
           <span>{LABEL.tone[state.tune.tone]}</span>
           <span>{LABEL.for[state.tune.for]}</span>
         </div>
-        <p class="cw-line">Select any passage in your draft and press ✎ Tweak. Say what you want, or pick a preset.</p>
+        <p class="cw-line">Select a passage and press ✎ to leave a comment on it: what it should say, or what to change. Comments wait here until you press Revise.</p>
+        <div class="cw-comments">
+          <h5>Comments</h5>
+          {state.comments.length ? (
+            state.comments.map((c, i) => (
+              <div class={`cw-c${c.stale ? ' stale' : ''}${hotComment === c.id ? ' hot' : ''}`} data-comment={c.id} onMouseEnter={() => onHotComment(c.id)} onMouseLeave={() => onHotComment(null)}>
+                <span class={`n${c.quote ? '' : ' whole'}`}>{i + 1}</span>
+                <div class="body">
+                  <div>{c.text}</div>
+                  <div class="on">{c.quote ? (c.stale ? 'that passage changed; remove and comment again' : `on “${c.quote}”`) : 'on the whole draft'}</div>
+                </div>
+                <button class="x" data-remove={c.id} aria-label="Remove this comment" title="Remove" onClick={() => onRemoveComment(c.id)}>
+                  ✕
+                </button>
+              </div>
+            ))
+          ) : (
+            <div class="cw-c">
+              <span class="body">None yet.</span>
+            </div>
+          )}
+        </div>
+        <div class="cw-draftask">
+          <h5>Comment on the whole draft</h5>
+          <AskRow placeholder="“say bot instead of persona”" label="Add" primary={false} onSend={onCommentDraft} />
+        </div>
+        {rv?.status === 'error' ? <p class="cw-line cw-err">{rv.error}</p> : null}
+        <button class="ws-btn primary cw-cta" data-act="revise" disabled={working || !live || rv?.status === 'open'} onClick={onRevise}>
+          {rv?.status === 'running' ? 'Revising…' : rv?.status === 'open' ? 'The revision is beside your draft' : `Revise${live ? ` (${live} comment${live === 1 ? '' : 's'})` : ''}`}
+        </button>
         <div class="cw-tweaks">
           <h5>Applied tweaks</h5>
-          {state.applied.length ? state.applied.map((t) => <div class="cw-tw">{t.instruction} <span>on “{t.quote.length > 40 ? t.quote.slice(0, 40) + '…' : t.quote}”</span></div>) : <div class="cw-tw"><span>None yet.</span></div>}
+          {state.applied.length ? state.applied.map((t) => <div class="cw-tw">{t.instruction} <span>{t.scope === 'draft' ? 'on the whole draft' : `on “${t.quote.length > 40 ? t.quote.slice(0, 40) + '…' : t.quote}”`}</span></div>) : <div class="cw-tw"><span>None yet.</span></div>}
         </div>
       </>
     );

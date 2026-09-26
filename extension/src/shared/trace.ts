@@ -5,7 +5,7 @@ import type { PassId } from './types';
 
 export type TraceMarkName = 'sent' | 'firstReasoning' | 'firstContent' | 'end' | 'repair';
 /** reanalyze covers Start, Re-analyze and a structure Keep or Done: every explicit run. */
-export type TraceTrigger = 'reanalyze' | 'recheck' | 'auto' | 'other' | 'shape' | 'fill' | 'tweak';
+export type TraceTrigger = 'reanalyze' | 'recheck' | 'auto' | 'other' | 'shape' | 'fill' | 'tweak' | 'revise';
 export type TraceOutcome = 'ok' | 'aborted' | 'error' | 'refused';
 
 export interface PassTrace {

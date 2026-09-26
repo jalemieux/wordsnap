@@ -18,7 +18,7 @@ export type Stage = 'tune' | 'shape' | 'tweak' | 'check';
 export const STAGES: { id: Stage; label: string }[] = [
   { id: 'tune', label: 'Tune' },
   { id: 'shape', label: 'Shape' },
-  { id: 'tweak', label: 'Tweak' },
+  { id: 'tweak', label: 'Revise' },
   { id: 'check', label: 'Check' },
 ];
 export const CHECK_SOON = 'Check is coming next. Facts verifies each claim in your draft with a web search and cites what it found. Challenge states your argument and argues back. Each runs only when you press it.';

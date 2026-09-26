@@ -6,6 +6,7 @@ import type { CowriterOverlay } from '../ui/cowriter/types';
 import { DEFAULT_TUNE, emptyCowriterState } from '../shared/cowriter';
 import type { TextSnapshot } from '../shared/types';
 import { locateQuote } from '../shared/anchoring';
+import { splice } from '../passes/cowriter-validate';
 import { sendToBackground, type ContentRequest, type ContentResponse } from '../shared/messages';
 import { SessionClient } from './session-client';
 import { loadPanelPos, savePanelPos } from './panel-pos';
@@ -97,6 +98,28 @@ function startSession(adapter: HostAdapter, handle: ComposerHandle, carry?: Carr
         return ok;
       },
       onKeepTweak: (id) => client.post({ type: 'tweak/action', sessionKey, id, action: 'kept' }),
+      onComment: (c) => {
+        flush();
+        client.post({ type: 'comment/add', sessionKey, ...c });
+      },
+      onRemoveComment: (id) => client.post({ type: 'comment/remove', sessionKey, id }),
+      onRevise: () => {
+        flush();
+        client.post({ type: 'revise/run', sessionKey });
+      },
+      onApplyRevise(text, changes) {
+        const snap = handle.getSnapshot();
+        const edit = snap.text === text ? splice(text, changes) : null;
+        const ok = !!edit && handle.applyEdit(edit.span, edit.replacement);
+        if (ok) {
+          client.post({ type: 'revise/action', sessionKey, action: 'applied', applied: changes.map((c) => c.comment) });
+          flush();
+          log.info(`composer ${handle.key}: ${changes.length} revise change(s) applied as one edit`);
+        } else log.warn(`composer ${handle.key}: revise not applied (${edit ? 'editor refused' : 'draft changed since'})`);
+        overlay.relayout();
+        return ok;
+      },
+      onKeepRevise: () => client.post({ type: 'revise/action', sessionKey, action: 'kept' }),
       onPanelMove: (pos) => void savePanelPos(location.origin, pos),
     },
   });
